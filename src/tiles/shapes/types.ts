@@ -32,8 +32,30 @@ export interface Motion {
   /** Fraction of the remaining distance to the pointer closed per frame (at 60fps). */
   followLerp: number
 
-  /** Peak squash-and-stretch from drag velocity. Zero keeps the tile rigid. */
+  /**
+   * Peak deformation from a drag: axis-aligned squash-and-stretch by default,
+   * or the elongation toward the pointer when `flow` is set. Zero keeps the
+   * tile rigid.
+   */
   stretch: number
+
+  /**
+   * Thick-liquid deformation. The tile elongates *toward the pointer* — along
+   * the actual pull direction, not a screen axis — by an amount driven by how
+   * far the pointer has run ahead, so the shape visibly stretches out and
+   * contracts back as it catches up. A damped spring drives the amount, which
+   * is where the jiggle comes from: stop the pointer mid-drag and the blob
+   * wobbles back to round. Rigid shapes omit this and get the axis-aligned
+   * stretch plus lean instead.
+   */
+  flow?: {
+    /** Pointer lead, in tile sizes, at which the stretch maxes out. */
+    range: number
+    /** Spring stiffness — how eagerly the deformation chases the pull. */
+    stiffness: number
+    /** Per-frame velocity retention. Higher rings longer when the pull stops. */
+    damping: number
+  }
 
   /** Maximum lean into the travel direction, in degrees. */
   lean: number

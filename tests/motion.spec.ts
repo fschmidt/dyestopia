@@ -115,6 +115,72 @@ test('creating the named mix scores', async ({ page }) => {
     .toContain('Score: 1')
 })
 
+/** Pose of the tile currently being dragged (it sits at the active depth). */
+function draggedPose(page: Page): Promise<{ rotation: number; sx: number; sy: number } | null> {
+  return page.evaluate(() => {
+    const dragged = window
+      .dyestopia!.game.scene.getScene('Game')!
+      .children.list.find((child) => child.name === 'tile' && (child as { depth?: number }).depth === 10)
+    if (!dragged) return null
+    const pose = dragged as unknown as { rotation: number; scaleX: number; scaleY: number }
+    return { rotation: pose.rotation, sx: pose.scaleX, sy: pose.scaleY }
+  })
+}
+
+test('the dragged splash flows toward the pointer', async ({ page }) => {
+  await open(page)
+  await startGame(page)
+
+  const [red] = await board(page)
+  const [a, b] = await page.evaluate(
+    (tile) => [
+      window.dyestopia!.worldToViewport('Game', tile.x, tile.y),
+      window.dyestopia!.worldToViewport('Game', tile.x + 150, tile.y + 100),
+    ],
+    red,
+  )
+
+  // Pull diagonally and keep holding: while the tile lags the pointer it must
+  // be rotated to the pull direction and elongated along it (scaleX above
+  // scaleY — those axes are the container's own, post-rotation).
+  await page.mouse.move(a.x, a.y)
+  await page.mouse.down()
+  let elongation = 0
+  let alignment = 0
+  for (const point of [b, a, b]) {
+    await page.mouse.move(point.x, point.y, { steps: 10 })
+    const pose = await draggedPose(page)
+    if (pose) {
+      elongation = Math.max(elongation, pose.sx - pose.sy)
+      alignment = Math.max(alignment, Math.abs(pose.rotation))
+    }
+  }
+  await page.mouse.up()
+  expect(elongation).toBeGreaterThan(0.05)
+  expect(alignment).toBeGreaterThan(0.2)
+
+  // Released over its own cell, the blob unwinds completely: round, upright,
+  // and the board untouched.
+  await expect
+    .poll(async () => {
+      const now = await board(page)
+      return page.evaluate(() => {
+        const tiles = window
+          .dyestopia!.game.scene.getScene('Game')!
+          .children.list.filter((child) => child.name === 'tile')
+        return tiles.every((tile) => {
+          const pose = tile as unknown as { rotation: number; scaleX: number; scaleY: number }
+          return (
+            Math.abs(pose.rotation) < 0.01 &&
+            Math.abs(pose.scaleX - 1) < 0.01 &&
+            Math.abs(pose.scaleY - 1) < 0.01
+          )
+        })
+      }).then((settled) => settled && now.length === 12)
+    })
+    .toBe(true)
+})
+
 test('the moves hold up in the mosaic shape too', async ({ page }) => {
   await open(page)
   // The mosaic exercises the paths the blob doesn't: straighten, jitter

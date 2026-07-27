@@ -129,13 +129,16 @@ export const BLOB: Shape = {
   base,
   gloss,
   // Liquid: slow, elastic, deforming. Held paint wobbles faster (agitation),
-  // lands with a splat, and merges by swelling as it takes the other's volume.
+  // flows toward the pointer when pulled — elongating along the drag and
+  // springing back with a jiggle when it stops — lands with a splat, and
+  // merges by swelling as it takes the other's volume.
   motion: {
     lift: 1.12,
     liftDuration: 170,
     straighten: false,
-    followLerp: 0.25,
-    stretch: 0.15,
+    followLerp: 0.22,
+    stretch: 0.32,
+    flow: { range: 1.1, stiffness: 0.16, damping: 0.9 },
     lean: 8,
     agitation: 1.8,
     drop: { squashX: 1.18, squashY: 0.84, duration: 260, ease: 'Back.easeOut' },
