@@ -1,8 +1,9 @@
+import type { ColorId } from '../colors'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { PALETTE, toCss } from '../palette'
 import { activeShape, activeTheme, updateSettings } from '../settings'
 import { addText } from '../text'
-import { THEMES } from '../themes'
+import { THEMES, themedDye } from '../themes'
 import { TILE_SIZE } from '../tiles/bake'
 import { SHAPES } from '../tiles/shapes'
 import { Tile } from '../tiles/Tile'
@@ -10,6 +11,9 @@ import { BaseScene } from './BaseScene'
 
 const ROW_Y = { shape: 190, theme: 340 }
 const PREVIEW_Y = 540
+
+/** A representative slice of the wheel: the primaries and their mixes. */
+const PREVIEW_COLORS: ColorId[] = ['red', 'yellow', 'blue', 'orange', 'green', 'purple']
 
 /**
  * Shape and theme are picked independently, because they are independent in the
@@ -126,13 +130,13 @@ export class SettingsScene extends BaseScene {
     this.preview = []
 
     const shape = activeShape()
-    const { dyes } = activeTheme()
-    const width = dyes.length * TILE_SIZE + (dyes.length - 1) * shape.gap
+    const theme = activeTheme()
+    const width = PREVIEW_COLORS.length * TILE_SIZE + (PREVIEW_COLORS.length - 1) * shape.gap
     const originX = (GAME_WIDTH - width) / 2
 
-    dyes.forEach((dye, i) => {
+    PREVIEW_COLORS.forEach((id, i) => {
       const x = originX + i * (TILE_SIZE + shape.gap) + TILE_SIZE / 2
-      this.preview.push(new Tile(this, x, PREVIEW_Y, dye, shape, i))
+      this.preview.push(new Tile(this, x, PREVIEW_Y, themedDye(theme, id), shape, i))
     })
   }
 }

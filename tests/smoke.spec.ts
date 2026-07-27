@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { GAME_WIDTH, clickWorld, open, startGame, waitForScene } from './helpers'
+import { GAME_WIDTH, open, startGame, waitForScene } from './helpers'
 
 test('boots through to the menu', async ({ page }) => {
   await open(page)
@@ -50,7 +50,7 @@ test('clicking start enters the game', async ({ page }) => {
   await startGame(page)
 })
 
-test('clicking a swatch scores', async ({ page }) => {
+test('the round names a mix to create', async ({ page }) => {
   await open(page)
   await startGame(page)
 
@@ -59,12 +59,9 @@ test('clicking a swatch scores', async ({ page }) => {
   )
   expect(swatches).toHaveLength(12)
 
-  await clickWorld(page, 'Game', swatches[0].x, swatches[0].y)
-
-  // Right or wrong both move the score; either proves the hit test landed.
-  await expect
-    .poll(async () => await page.evaluate(() => window.dyestopia!.texts('Game')))
-    .not.toContain('Score: 0')
+  const texts = await page.evaluate(() => window.dyestopia!.texts('Game'))
+  expect(texts.join(' ')).toMatch(/Mix: (orange|green)/)
+  expect(texts).toContain('Score: 0')
 })
 
 test('escape returns to the menu', async ({ page }) => {

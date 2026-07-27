@@ -38,3 +38,31 @@ export async function startGame(page: Page): Promise<void> {
   await clickWorld(page, 'Menu', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90)
   await waitForScene(page, 'Game')
 }
+
+export interface WorldPoint {
+  x: number
+  y: number
+}
+
+/**
+ * Drag between two world positions with real mouse events, so the gesture
+ * travels through Phaser's drag threshold and hit-testing as a player's would.
+ */
+export async function dragWorld(
+  page: Page,
+  scene: string,
+  from: WorldPoint,
+  to: WorldPoint,
+): Promise<void> {
+  const [a, b] = await page.evaluate(
+    (arg) => [
+      window.dyestopia!.worldToViewport(arg.scene, arg.from.x, arg.from.y),
+      window.dyestopia!.worldToViewport(arg.scene, arg.to.x, arg.to.y),
+    ],
+    { scene, from, to },
+  )
+  await page.mouse.move(a.x, a.y)
+  await page.mouse.down()
+  await page.mouse.move(b.x, b.y, { steps: 15 })
+  await page.mouse.up()
+}

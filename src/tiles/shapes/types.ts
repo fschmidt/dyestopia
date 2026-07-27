@@ -15,6 +15,61 @@
  */
 export type Painter = (ctx: CanvasRenderingContext2D, size: number, t: number) => void
 
+/**
+ * Tween parameters for the gameplay moves — drag, swap, merge. `Tile` owns the
+ * one implementation and reads its numbers from here, so the shapes differ in
+ * feel without owning code paths. The reasoning behind the values lives in
+ * docs/tile-motion.md.
+ */
+export interface Motion {
+  /** Scale while held, and how long the pick-up takes to get there. */
+  lift: number
+  liftDuration: number
+
+  /** Tween the jitter angle to zero while held — ceramic comes out of the grout square. */
+  straighten: boolean
+
+  /** Fraction of the remaining distance to the pointer closed per frame (at 60fps). */
+  followLerp: number
+
+  /** Peak squash-and-stretch from drag velocity. Zero keeps the tile rigid. */
+  stretch: number
+
+  /** Maximum lean into the travel direction, in degrees. */
+  lean: number
+
+  /** Idle-loop speed multiplier while held. Above 1 reads as agitated. */
+  agitation: number
+
+  /** Landing pose, set on impact, and the rebound back to rest. */
+  drop: { squashX: number; squashY: number; duration: number; ease: string }
+
+  /**
+   * Cell-to-cell travel. `arc` bows the path sideways as a fraction of the
+   * distance — the two swapping tiles bow to opposite sides, so anything above
+   * zero makes them circle each other rather than collide.
+   */
+  swap: { duration: number; ease: string; arc: number; stretch: number; passiveLift: number }
+
+  merge: {
+    /** Swell scale while the colours combine, its rise time, and the settle back. */
+    swell: number
+    rise: number
+    settle: number
+    settleEase: string
+    /** Idle-loop spike while mixing, decaying back to 1. */
+    agitation: number
+    /** Tint crossfade to the result colour. */
+    tint: number
+  }
+
+  /**
+   * Idle frame to jump to on landing, for shapes whose flourish is light — the
+   * mosaic catches its glint as it settles.
+   */
+  glintFrame?: number
+}
+
 export interface Shape {
   id: string
   label: string
@@ -59,4 +114,7 @@ export interface Shape {
 
   /** Highlights, painted on an untinted sprite so white stays white. */
   gloss: Painter
+
+  /** How the shape moves when dragged, swapped and merged. */
+  motion: Motion
 }
