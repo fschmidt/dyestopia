@@ -67,10 +67,10 @@ export interface DyestopiaDebug {
   /** Cells, colours and score of the running Game scene. */
   board(): BoardReport
   /**
-   * Toggle the combo-mixing prototype (roadmap M3): merges ripple into
-   * adjacent groups whose colour mixes with the result. Takes effect on the
-   * next merge — mid-round is fine. Also on via `?combo` in the URL, for
-   * phones. Returns the current state.
+   * Toggle the combo-mixing prototype (roadmap M3): a merge's colour absorbs
+   * adjacent groups of its own ingredients, and the wave counts toward the
+   * merge's legality. Takes effect on the next drop — mid-round is fine.
+   * Also on via `?combo` in the URL, for phones. Returns the current state.
    */
   combo(on?: boolean): boolean
 }

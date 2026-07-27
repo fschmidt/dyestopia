@@ -1,4 +1,4 @@
-import type { ColorId } from './colors'
+import { mixComponents, type ColorId } from './colors'
 import { rngPick, rngShuffle, type Rng } from './rng'
 
 /**
@@ -167,6 +167,8 @@ export function swapClears(grid: Grid, cells: Cells, a: number, b: number): bool
  * Would merging `a` and `b` into `result` clear anything? Both tiles take the
  * result colour in place — the merge supplies 2 of the 3 a match needs, so
  * this is true exactly when a third result-coloured tile already lines up.
+ * With `combo` on (the M3 prototype), the dry run includes the absorb wave,
+ * so a merge can be legal *because* its wave lines three up.
  */
 export function mergeClears(
   grid: Grid,
@@ -174,10 +176,12 @@ export function mergeClears(
   a: number,
   b: number,
   result: ColorId,
+  combo = false,
 ): boolean {
   if (cells[a] === null || cells[b] === null) return false
   const trial = cells.slice()
   trial[a] = trial[b] = result
+  if (combo) comboConversions(grid, trial, [a, b])
   return findMatches(grid, trial).size > 0
 }
 
@@ -202,12 +206,13 @@ export function resolveMove(
   mix: MixRule,
   a: number,
   b: number,
+  combo = false,
 ): Move {
   const first = cells[a]
   const second = cells[b]
   if (first === null || second === null || !isAdjacent(grid, a, b)) return { kind: 'illegal' }
   const result = mix(first, second)
-  if (result && mergeClears(grid, cells, a, b, result)) return { kind: 'merge', result }
+  if (result && mergeClears(grid, cells, a, b, result, combo)) return { kind: 'merge', result }
   if (swapClears(grid, cells, a, b)) return { kind: 'swap' }
   return { kind: 'illegal' }
 }
@@ -220,13 +225,18 @@ export function findLegalMove(
   grid: Grid,
   cells: Cells,
   mix: MixRule = NO_MIX,
+  combo = false,
 ): [number, number] | null {
   for (let index = 0; index < grid.mask.length; index++) {
     if (!grid.mask[index]) continue
     const right = index + 1
-    if (resolveMove(grid, cells, mix, index, right).kind !== 'illegal') return [index, right]
+    if (resolveMove(grid, cells, mix, index, right, combo).kind !== 'illegal') {
+      return [index, right]
+    }
     const below = index + grid.cols
-    if (resolveMove(grid, cells, mix, index, below).kind !== 'illegal') return [index, below]
+    if (resolveMove(grid, cells, mix, index, below, combo).kind !== 'illegal') {
+      return [index, below]
+    }
   }
   return null
 }
@@ -249,26 +259,22 @@ function maskedNeighbours(grid: Grid, index: number): number[] {
 }
 
 /**
- * The combo prototype (roadmap M3, behind `flags.combo`): when a tile's
- * colour changes, any adjacent tile whose colour mixes with the new colour
- * converts to the mix result — and takes its whole connected same-coloured
- * group with it, flood-fill style. Converted tiles are changes too, so the
- * wave can chain (a red turned vermilion can set off its own neighbours);
- * each cell converts at most once, which bounds the whole affair.
+ * The combo prototype (roadmap M3, behind `flags.combo`): a freshly mixed
+ * colour *absorbs its own ingredients*. When a tile's colour changes, any
+ * adjacent group of either component colour converts to the new colour —
+ * an orange merge soaks up neighbouring reds and yellows, flood-fill style —
+ * and freshly absorbed tiles keep the wave rolling. Each cell converts at
+ * most once, which bounds the whole affair.
+ *
+ * The wave only ever spreads the merge's result, which is stage-gated by
+ * merge legality already — so it never litters the board with colours the
+ * stage doesn't play.
  *
  * Mutates `cells`; the returned list carries each conversion's BFS distance
  * from the trigger so the scene can play the recolour as a travelling
- * ripple. Callers pass the full-wheel `mixResult` rather than the stage
- * rules — no dev-stage activates a tertiary, so gating would make the
- * prototype a silent no-op; whether stages gate it is M4's question, if the
- * mechanic survives play at all.
+ * ripple.
  */
-export function comboConversions(
-  grid: Grid,
-  cells: Cells,
-  changed: number[],
-  mix: MixRule,
-): Conversion[] {
+export function comboConversions(grid: Grid, cells: Cells, changed: number[]): Conversion[] {
   const out: Conversion[] = []
   const locked = new Set(changed)
   let frontier = changed.map((index) => ({ index, step: 0 }))
@@ -278,22 +284,22 @@ export function comboConversions(
     for (const { index, step } of frontier) {
       const colour = cells[index]
       if (colour === null) continue
+      const ingredients = mixComponents(colour)
+      if (!ingredients) continue
       for (const contact of maskedNeighbours(grid, index)) {
         if (locked.has(contact)) continue
         const other = cells[contact]
-        if (other === null) continue
-        const result = mix(other, colour)
-        if (!result) continue
+        if (other === null || !ingredients.includes(other)) continue
 
         // Flood the connected `other`-coloured group from the contact point,
-        // converting as it goes — the ripple spreads outward through the
-        // group, not to colour twins elsewhere on the board.
+        // converting as it goes — the wave rolls outward through the group,
+        // not to colour twins elsewhere on the board.
         const queue = [{ index: contact, step: step + 1 }]
         locked.add(contact)
         while (queue.length > 0) {
           const tile = queue.shift()!
-          cells[tile.index] = result
-          out.push({ index: tile.index, color: result, step: tile.step })
+          cells[tile.index] = colour
+          out.push({ index: tile.index, color: colour, step: tile.step })
           next.push(tile)
           for (const beyond of maskedNeighbours(grid, tile.index)) {
             if (!locked.has(beyond) && cells[beyond] === other) {

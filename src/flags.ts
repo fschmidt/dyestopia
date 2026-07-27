@@ -6,8 +6,9 @@
  */
 export const flags = {
   /**
-   * The M3 combo spike: a merge's colour change ripples into adjacent groups
-   * whose colour mixes with the result. Playtest, then decide in or out.
+   * The M3 combo spike: a merge's colour absorbs adjacent groups of its own
+   * ingredients, and the wave can make the merge legal by itself. Playtest,
+   * then decide in or out.
    */
   combo: new URLSearchParams(window.location.search).has('combo'),
 }

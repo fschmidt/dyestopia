@@ -53,3 +53,8 @@ export function mixResult(a: string, b: string): ColorId | undefined {
     ({ mix }) => mix && ((mix[0] === a && mix[1] === b) || (mix[0] === b && mix[1] === a)),
   )?.id
 }
+
+/** The two colours that mix into `id` — undefined for the base colours. */
+export function mixComponents(id: ColorId): [ColorId, ColorId] | undefined {
+  return COLORS.find((colour) => colour.id === id)?.mix
+}

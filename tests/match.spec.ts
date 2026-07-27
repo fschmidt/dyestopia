@@ -11,7 +11,6 @@ import {
   refill,
   resolveMove,
 } from '../src/board'
-import { mixResult } from '../src/colors'
 import { mulberry32 } from '../src/rng'
 import { FIRST_STAGE } from '../src/stage'
 import {
@@ -122,12 +121,12 @@ test('the combo prototype ripples the merge into adjacent groups', async ({ page
   for (let s = 1; s < 300 && !pair; s++) {
     const rng = mulberry32(s)
     const cells = generateBoard(grid, FIRST_STAGE.seed, rng, stageRules)
-    const move = moveOfKind(grid, cells, 'merge')
+    const move = moveOfKind(grid, cells, 'merge', true)
     if (!move) continue
-    const resolved = resolveMove(grid, cells, stageRules, move[0], move[1])
+    const resolved = resolveMove(grid, cells, stageRules, move[0], move[1], true)
     if (resolved.kind !== 'merge') continue
     cells[move[0]] = cells[move[1]] = resolved.result
-    const conversions = comboConversions(grid, cells, [move[0], move[1]], mixResult)
+    const conversions = comboConversions(grid, cells, [move[0], move[1]])
     if (conversions.length === 0) continue
     for (let m = findMatches(grid, cells); m.size > 0; m = findMatches(grid, cells)) {
       for (const index of m) cells[index] = null
@@ -136,7 +135,7 @@ test('the combo prototype ripples the merge into adjacent groups', async ({ page
     }
     // A dead settled board would reshuffle live and spend rng the replay
     // didn't — skip such seeds rather than model it.
-    if (!findLegalMove(grid, cells, stageRules)) continue
+    if (!findLegalMove(grid, cells, stageRules, true)) continue
     seed = s
     pair = move
     settled = cells

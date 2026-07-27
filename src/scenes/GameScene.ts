@@ -20,7 +20,7 @@ import {
   type Spawn,
 } from '../board'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
-import { mixResult, type ColorId } from '../colors'
+import type { ColorId } from '../colors'
 import { flags } from '../flags'
 import { PALETTE, toCss } from '../palette'
 import { mulberry32, takeSeed, type Rng } from '../rng'
@@ -307,7 +307,7 @@ export class GameScene extends BaseScene {
     }
 
     const other = this.tiles[cell]
-    const move = resolveMove(this.grid, this.cells, this.mix, origin, cell)
+    const move = resolveMove(this.grid, this.cells, this.mix, origin, cell, flags.combo)
 
     if (move.kind === 'illegal') {
       // A real attempt the rules refuse: both tiles say no, so the legality
@@ -324,11 +324,11 @@ export class GameScene extends BaseScene {
       // the dragged one glides home while the pair pulses. The pulse hands
       // off into the destruction, so mix → burst reads as cause and effect.
       this.cells[origin] = this.cells[cell] = move.result
-      // The combo prototype: the merge's colour change ripples into adjacent
-      // mixing groups. Model-wise it happens now, in full; the animation
+      // The combo prototype: the fresh colour absorbs adjacent groups of its
+      // own ingredients. Model-wise it happens now, in full; the animation
       // replays it as a travelling wave between the pulse and the burst.
       const conversions = flags.combo
-        ? comboConversions(this.grid, this.cells, [origin, cell], mixResult)
+        ? comboConversions(this.grid, this.cells, [origin, cell])
         : []
       const dye = themedDye(activeTheme(), move.result)
       void Promise.all([
@@ -382,7 +382,9 @@ export class GameScene extends BaseScene {
       await this.animateDescent(falls, spawns)
     }
 
-    if (!findLegalMove(this.grid, this.cells, this.mix)) await this.animateReshuffle()
+    if (!findLegalMove(this.grid, this.cells, this.mix, flags.combo)) {
+      await this.animateReshuffle()
+    }
     this.resolving = false
   }
 

@@ -15,11 +15,9 @@ import {
   swapClears,
   type Cells,
   type Grid,
-  type MixRule,
 } from '../src/board'
 import { mixResult, type ColorId } from '../src/colors'
 import { mulberry32 } from '../src/rng'
-import { FIRST_STAGE, stageMix } from '../src/stage'
 
 /**
  * The match engine is pure data-in data-out, so it gets exercised here
@@ -181,6 +179,18 @@ test.describe('merge resolution', () => {
     expect(resolveMove(grid, cells, mixResult, 0, 2)).toEqual({ kind: 'illegal' })
   })
 
+  test('with the combo on, the wave itself can make the merge legal', () => {
+    const row = parseMask(['####'])
+    // No third orange anywhere and the swap clears nothing — but the wave
+    // absorbs the red at 2, lining up three oranges.
+    const cells = cellsOf(row, ['ryrb'])
+    expect(resolveMove(row, cells, mixResult, 0, 1)).toEqual({ kind: 'illegal' })
+    expect(resolveMove(row, cells, mixResult, 0, 1, true)).toEqual({
+      kind: 'merge',
+      result: 'orange',
+    })
+  })
+
   test('a board dead to swaps can be alive through a merge', () => {
     // One row: no swap rearranges o-r-y-o into a run, but merging r+y makes
     // the whole row orange.
@@ -192,37 +202,35 @@ test.describe('merge resolution', () => {
 })
 
 test.describe('combo conversions (M3 prototype)', () => {
-  test('the adjacent mixing group converts, rippling outward — twins elsewhere stay', () => {
+  test('the fresh colour absorbs adjacent ingredient groups, and the wave chains', () => {
     const grid = parseMask(['#####'])
-    // The orange at 0 just changed. Its red neighbours flood-convert to
-    // vermilion with growing steps; the yellow breaks the group, so the far
-    // red never converts.
+    // The orange at 0 just changed. It soaks up the red group, the absorbed
+    // tiles reach the yellow, and that reaches the last red — the whole row
+    // rolls orange, one step at a time.
     const cells = cellsOf(grid, ['orryr'])
-    expect(comboConversions(grid, cells, [0], mixResult)).toEqual([
-      { index: 1, color: 'vermilion', step: 1 },
-      { index: 2, color: 'vermilion', step: 2 },
-    ])
-    expect(cells).toEqual(['orange', 'vermilion', 'vermilion', 'yellow', 'red'])
-  })
-
-  test('conversions chain — a converted tile sets off its own neighbours', () => {
-    const grid = parseMask(['###'])
-    // The red at 0 turns the yellow orange; the fresh orange then turns the
-    // far red vermilion — each cell converts at most once, so it ends there.
-    const cells = cellsOf(grid, ['ryr'])
-    expect(comboConversions(grid, cells, [0], mixResult)).toEqual([
+    expect(comboConversions(grid, cells, [0])).toEqual([
       { index: 1, color: 'orange', step: 1 },
-      { index: 2, color: 'vermilion', step: 2 },
+      { index: 2, color: 'orange', step: 2 },
+      { index: 3, color: 'orange', step: 3 },
+      { index: 4, color: 'orange', step: 4 },
     ])
+    expect(cells).toEqual(new Array(5).fill('orange'))
   })
 
-  test('nothing mixes, nothing converts — and stage gating can silence the wave', () => {
+  test('non-ingredient colours stop the wave — twins beyond stay put', () => {
+    const grid = parseMask(['#####'])
+    // Green absorbs blue and yellow only; the red wall shields the far blue.
+    const cells = cellsOf(grid, ['gbbrb'])
+    expect(comboConversions(grid, cells, [0])).toEqual([
+      { index: 1, color: 'green', step: 1 },
+      { index: 2, color: 'green', step: 2 },
+    ])
+    expect(cells).toEqual(['green', 'green', 'green', 'red', 'blue'])
+  })
+
+  test('primaries absorb nothing — only mixed colours have ingredients', () => {
     const grid = parseMask(['###'])
-    expect(comboConversions(grid, cellsOf(grid, ['rrr']), [0], mixResult)).toEqual([])
-    // Under the dev stage's rules the o+r result (vermilion) is not active,
-    // which is exactly why the prototype runs ungated.
-    const gated: MixRule = (a, b) => stageMix(FIRST_STAGE, a, b)
-    expect(comboConversions(grid, cellsOf(grid, ['orr']), [0], gated)).toEqual([])
+    expect(comboConversions(grid, cellsOf(grid, ['ryb']), [0])).toEqual([])
   })
 })
 

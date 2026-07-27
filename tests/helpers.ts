@@ -83,12 +83,13 @@ export function moveOfKind(
   grid: Grid,
   cells: Cells,
   kind: 'merge' | 'swap' | 'illegal',
+  combo = false,
 ): [number, number] | null {
   for (let a = 0; a < grid.mask.length; a++) {
     if (!grid.mask[a]) continue
     for (const b of [a + 1, a + grid.cols]) {
       if (!isAdjacent(grid, a, b)) continue
-      if (resolveMove(grid, cells, stageRules, a, b).kind === kind) return [a, b]
+      if (resolveMove(grid, cells, stageRules, a, b, combo).kind === kind) return [a, b]
     }
   }
   return null

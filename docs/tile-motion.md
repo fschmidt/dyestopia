@@ -162,9 +162,13 @@ the pair comes out of the kiln in the new colour.
 ## Combo ripple (M3 prototype)
 
 Behind a debug toggle (`dyestopia.combo(true)`, or `?combo` in the URL for
-phones): when a merge dyes its pair, adjacent groups whose colour mixes with
-the new colour convert too, flood-fill style, and conversions can chain.
-The animation is half the prototype — each converted tile plays a lighter,
+phones): a freshly mixed colour **absorbs its own ingredients** — an orange
+merge soaks up adjacent red and yellow groups, flood-fill style, and freshly
+absorbed tiles keep the wave rolling. With the toggle on, the merge dry-run
+includes the wave, so a merge can be legal *because* its wave lines three
+up — which is what makes combos aimable rather than accidental.
+
+The animation is half the prototype — each absorbed tile plays a lighter,
 quicker cousin of the merge pulse, delayed by its flood distance (70 ms per
 step), so the recolour visibly travels outward from the merge before the
 burst fires. The numbers derive from the shape's merge block; a mechanic on
