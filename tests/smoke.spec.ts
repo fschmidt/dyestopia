@@ -1,32 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
-// Pulls in the `window.dyestopia` global declaration.
-import type {} from '../src/debug'
-
-/** Coordinate space scenes are written in — mirrors src/config.ts. */
-const GAME_WIDTH = 960
-const GAME_HEIGHT = 720
-
-async function open(page: Page): Promise<void> {
-  await page.goto('/')
-  await waitForScene(page, 'Menu')
-}
-
-async function waitForScene(page: Page, key: string): Promise<void> {
-  await page.waitForFunction((k) => window.dyestopia?.isActive(k) === true, key)
-}
-
-/**
- * Click a world position with a real mouse event, so the click travels through
- * the camera transform and Phaser's hit-testing exactly as a player's would.
- */
-async function clickWorld(page: Page, scene: string, x: number, y: number): Promise<void> {
-  const point = await page.evaluate(
-    (arg) => window.dyestopia!.worldToViewport(arg.scene, arg.x, arg.y),
-    { scene, x, y },
-  )
-  await page.mouse.click(point.x, point.y)
-}
+import { GAME_WIDTH, clickWorld, open, startGame, waitForScene } from './helpers'
 
 test('boots through to the menu', async ({ page }) => {
   await open(page)
@@ -50,7 +24,7 @@ test('canvas is sized in device pixels', async ({ page }) => {
   // The backing store carries the ratio; the camera zoom cancels it so scenes
   // still see GAME_WIDTH x GAME_HEIGHT.
   expect(canvasWidth).toBe(GAME_WIDTH * dpr)
-  expect(canvasHeight).toBe(GAME_HEIGHT * dpr)
+  expect(canvasHeight).toBe(720 * dpr)
   expect(zoom).toBe(dpr)
 
   // The 1280x720 viewport is height-limited at 4:3, so FIT lands on exactly
@@ -73,17 +47,15 @@ test('canvas is centred in the viewport', async ({ page }) => {
 
 test('clicking start enters the game', async ({ page }) => {
   await open(page)
-  await clickWorld(page, 'Menu', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90)
-  await waitForScene(page, 'Game')
+  await startGame(page)
 })
 
 test('clicking a swatch scores', async ({ page }) => {
   await open(page)
-  await clickWorld(page, 'Menu', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90)
-  await waitForScene(page, 'Game')
+  await startGame(page)
 
   const swatches = await page.evaluate(() =>
-    window.dyestopia!.hitTargets('Game').filter((target) => target.type === 'Rectangle'),
+    window.dyestopia!.hitTargets('Game').filter((target) => target.name === 'tile'),
   )
   expect(swatches).toHaveLength(12)
 

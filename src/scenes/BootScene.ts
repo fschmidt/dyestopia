@@ -1,6 +1,7 @@
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { PALETTE, toCss } from '../palette'
 import { addText } from '../text'
+import { bakeTiles } from '../tiles/bake'
 import { BaseScene } from './BaseScene'
 
 /**
@@ -36,6 +37,10 @@ export class BootScene extends BaseScene {
   }
 
   create(): void {
+    // Cheap enough (single-digit milliseconds) to sit in the boot path rather
+    // than behind the loading bar, but it must happen before any scene builds
+    // tiles — hence here rather than in whichever scene needs them first.
+    bakeTiles(this)
     this.scene.start('Menu')
   }
 }

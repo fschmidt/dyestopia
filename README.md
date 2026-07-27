@@ -42,9 +42,56 @@ src/
     BootScene.ts      # preload + loading bar → Menu
     MenuScene.ts      # title, swatch animation, start
     GameScene.ts      # placeholder round (find the target colour)
+  tiles/
+    bake.ts           # tile artwork → sprite sheets, at boot
+    Tile.ts           # one playable tile
 tests/                # Playwright specs
 scripts/screenshot.mjs
 ```
+
+### Tiles
+
+Tile artwork is baked to sprite sheets at boot ([`src/tiles/bake.ts`](src/tiles/bake.ts))
+rather than drawn live. Soft drop shadows, radial gloss and an organically
+deforming outline are all native to the 2D canvas API and all absent from
+Phaser's `Graphics`; baking each frame once turns them into a plain textured
+quad, so runtime cost is a texture lookup however elaborate the artwork gets.
+The whole bake is single-digit milliseconds.
+
+Two sheets, not one, because **`setTint` multiplies**. Only darkening may be
+baked into the tinted layer — a white highlight there would come back as the
+tint colour. So the base sheet carries silhouette and shading, and the gloss
+rides on a second, untinted sprite on top. The two must stay on the same frame
+or the highlight drifts off the silhouette, so only the base plays the
+animation and the gloss follows its `ANIMATION_UPDATE`.
+
+The pay-off is that **colour is a runtime property**: one pair of white sheets
+serves the whole palette, and memory stays flat as dyes are added. Baking per
+colour instead would multiply the atlas by `DYES.length` and grow every time a
+dye is added.
+
+Work is split by what each technique is good at:
+
+| | |
+|---|---|
+| Transform — hover lift, press squish, later merge/swap | **tweens** — interruptible, resolution-independent, free |
+| Outline deformation, gloss travel | **baked frames** — no transform can express them |
+| Colour | **tint** — one sheet, every dye |
+
+Two things that will bite if changed carelessly:
+
+- **Frames need padding.** Without the margin around the blob, its shadow
+  bleeds into the neighbouring atlas cell and every tile renders with a sliver
+  of its neighbour's shadow down one edge.
+- **`bake.ts` must not read `DPR` at module scope.** `config.ts` imports the
+  scenes, which reach back into `bake.ts`, so at import time `DPR` is still in
+  its temporal dead zone. `BaseScene` gets away with importing it only because
+  it reads it inside `init()`.
+
+The idle runs at 12 fps, which sounds low but isn't: judder comes from the
+per-frame delta, not the rate, and a breath this slow moves the outline well
+under a pixel per frame. Each tile starts on a different frame, or the board
+pulses in unison and reads as a flashing screen rather than living tiles.
 
 ### Resolution and HiDPI
 
@@ -93,7 +140,7 @@ conversions a driver (or you, in the console) needs:
 | `hitTargets(key)` | world positions of interactive objects |
 | `worldToViewport(key, x, y)` | scene coordinates → viewport coordinates |
 | `goTo(key)` | jump straight to a scene |
-| `freeze()` | pause tweens |
+| `freeze(frame?)` | pause tweens, park every animated sprite on `frame` |
 
 `worldToViewport` is the important one: it lets a test send a **real** mouse
 event at a swatch, so the click travels through the camera transform and
@@ -136,8 +183,10 @@ Screenshots are the only way to catch layout bugs — the double-centring in
 `autoCenter` (see [`src/config.ts`](src/config.ts)) passed every assertion while
 putting the whole game 80 px off centre.
 
-`freeze()` pauses tweens before each shot so runs are roughly comparable, but
-tweens aren't rewound, so these aren't stable enough for pixel diffing yet.
+`freeze(frame)` parks every animated sprite on a chosen frame, so a scene
+screenshotted twice is byte-identical and golden images are possible. Tweens
+still can't be rewound, only paused — so take the shot before anything has been
+clicked, or a half-finished squish will be baked into the baseline.
 
 ### Manual
 
