@@ -34,7 +34,7 @@ export class MenuScene extends BaseScene {
       })
     })
 
-    const start = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'Spiel starten', {
+    const start = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'Start game', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '28px',
       color: toCss(PALETTE.accent),
@@ -49,7 +49,7 @@ export class MenuScene extends BaseScene {
     this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('Game'))
     this.input.keyboard?.once('keydown-ENTER', () => this.scene.start('Game'))
 
-    addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, 'Leertaste oder klicken', {
+    addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, 'Press space or click', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '16px',
       color: toCss(PALETTE.inkMuted),

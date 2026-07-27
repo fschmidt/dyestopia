@@ -44,7 +44,7 @@ export class GameScene extends BaseScene {
     this.pickTarget()
     this.updateHud()
 
-    addText(this, GAME_WIDTH - 24, 20, 'ESC = Menü', {
+    addText(this, GAME_WIDTH - 24, 20, 'ESC = Menu', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '16px',
       color: toCss(PALETTE.inkMuted),
@@ -101,8 +101,8 @@ export class GameScene extends BaseScene {
   }
 
   private updateHud(): void {
-    this.scoreText.setText(`Punkte: ${this.score}`)
-    this.targetText.setText(`Finde: ${this.target.name}`)
+    this.scoreText.setText(`Score: ${this.score}`)
+    this.targetText.setText(`Find: ${this.target.name}`)
     this.targetText.setColor(toCss(this.target.value))
   }
 }

@@ -2,3 +2,5 @@
 - puzzle mode
 - battle mode
 - tools (recolor tile, reposition tile, destroy tile, [...])
+- chill/psycheldelic/endless mode (just color changes)
+- 
