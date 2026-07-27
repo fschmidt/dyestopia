@@ -1,15 +1,14 @@
-import Phaser from 'phaser'
-
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { PALETTE, toCss } from '../palette'
 import { addText } from '../text'
+import { BaseScene } from './BaseScene'
 
 /**
  * Loads whatever the game needs before anything is shown, then hands off to the
  * menu. Right now there are no assets — the loading bar is here so adding them
  * later doesn't mean restructuring the boot flow.
  */
-export class BootScene extends Phaser.Scene {
+export class BootScene extends BaseScene {
   constructor() {
     super('Boot')
   }

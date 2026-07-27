@@ -36,11 +36,31 @@ src/
     GameScene.ts      # Platzhalter-Runde (Zielfarbe finden)
 ```
 
-### Design-Auflösung
+### Auflösung und HiDPI
 
-`960 × 720` in [`src/config.ts`](src/config.ts). `Phaser.Scale.FIT` skaliert das
-Canvas auf jede Bildschirmgröße (mit Letterboxing), `CENTER_BOTH` zentriert es —
-Szenen können also mit festen Koordinaten arbeiten.
+Szenen rechnen in `960 × 720` (`GAME_WIDTH`/`GAME_HEIGHT` in
+[`src/config.ts`](src/config.ts)) und dürfen feste Koordinaten benutzen.
+`Phaser.Scale.FIT` skaliert das Canvas auf jede Bildschirmgröße (mit
+Letterboxing), `CENTER_BOTH` zentriert es.
+
+Phaser bringt **keine** HiDPI-Unterstützung mit: `ScaleConfig` hat kein
+`resolution`-Feld (in 3.16 entfernt, in v4 nicht zurückgekommen) und die Runtime
+liest `devicePixelRatio` nur in ein ungenutztes Info-Feld. Das Canvas hätte also
+exakt 960 × 720 physische Pixel und würde auf einem Retina-Display doppelt
+hochskaliert.
+
+Deshalb ist der Backing Store `GAME_WIDTH * DPR` groß, und
+[`BaseScene`](src/scenes/BaseScene.ts) zoomt die Kamera um denselben Faktor und
+zentriert sie auf den logischen Mittelpunkt. Beides hebt sich in Weltkoordinaten
+auf — Szenen sehen weiterhin 960 × 720, gerendert wird nativ.
+
+**Jede Szene muss von `BaseScene` erben**, sonst fehlt der Kamera-Zoom und die
+Szene wird auf einem Viertel des Canvas dargestellt. Wer `init()` überschreibt,
+muss `super.init()` aufrufen.
+
+Texte laufen über [`addText`](src/text.ts) statt `scene.add.text` —
+`Text.setResolution()` wirkt laut Phaser nur bei gezoomter Kamera, was durch
+`BaseScene` gegeben ist.
 
 ### Farben
 

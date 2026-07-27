@@ -1,42 +1,41 @@
 import Phaser from 'phaser'
 
 /**
- * STOPGAP — HiDPI text.
+ * Text rendered at native device resolution.
  *
- * Phaser does no device-pixel-ratio handling: `ScaleConfig` has no `resolution`
- * field (removed in 3.16, never restored in v4) and the runtime reads
- * `devicePixelRatio` exactly once, into an unused `OS.pixelRatio` info field.
- * So the canvas backing store is literally GAME_WIDTH × GAME_HEIGHT device
- * pixels and `Scale.FIT` stretches it up with CSS. Text, which Phaser rasterises
- * to a texture at its `fontSize`, goes soft as a result.
+ * Phaser rasterises Text into a texture at its `fontSize`, then draws that
+ * texture into the canvas. `setResolution(n)` makes the texture n times bigger —
+ * but per Phaser's own docs it "is useful only if you're scaling up this Text
+ * object (or an ancestor) or zooming a Camera on it. Otherwise, any extra detail
+ * in the Texture would just be lost during rendering."
  *
- * `Text.setResolution()` supersamples that one texture, which fixes text without
- * touching layout or the scale mode. It does nothing for sprites or shapes — the
- * real fix is a DPR-aware canvas size or Scale.RESIZE, deliberately deferred.
- *
- * When that decision is made, this whole file goes away and `addText` reverts to
- * a plain `scene.add.text`.
+ * BaseScene zooms the camera by DPR, so that condition now holds: without this,
+ * text would be drawn at DPR times its texture size and look worse than before.
  */
 
-/** Beyond this the texture cost stops buying visible sharpness. */
+/** Past this the texture memory stops buying visible sharpness. */
 const MAX_RESOLUTION = 4
 
 /** Scenes that already have a resize listener attached. */
 const tracked = new WeakSet<Phaser.Scene>()
 
 /**
- * How far the canvas is being stretched on screen right now, in real device
- * pixels — i.e. how much supersampling text needs to come out sharp.
+ * Total magnification from one texture pixel to one physical screen pixel:
+ *
+ *   texture px -> world px    camera zoom
+ *   world px   -> CSS px      the Scale.FIT stretch
+ *   CSS px     -> device px   devicePixelRatio
  */
 function currentResolution(scene: Phaser.Scene): number {
   const dpr = window.devicePixelRatio || 1
+  const zoom = scene.cameras.main.zoom
 
-  // displayScale is game pixels per CSS pixel, so its inverse is the FIT stretch.
-  // It is 0 until the Scale Manager has measured the canvas; fall back to DPR.
+  // displayScale is game pixels per CSS pixel, so its inverse is the FIT
+  // stretch. It is 0 until the Scale Manager has measured the canvas.
   const perCssPixel = scene.scale.displayScale.x
   const stretch = perCssPixel > 0 ? 1 / perCssPixel : 1
 
-  return Phaser.Math.Clamp(Math.ceil(dpr * stretch), 1, MAX_RESOLUTION)
+  return Phaser.Math.Clamp(Math.ceil(zoom * stretch * dpr), 1, MAX_RESOLUTION)
 }
 
 /** Re-supersample every Text in the scene after the canvas changes size. */
@@ -61,8 +60,8 @@ function trackResizes(scene: Phaser.Scene): void {
 }
 
 /**
- * Drop-in replacement for `scene.add.text` that stays crisp on HiDPI displays
- * and across window resizes.
+ * Drop-in replacement for `scene.add.text` that renders at native device
+ * resolution and stays sharp across window resizes.
  */
 export function addText(
   scene: Phaser.Scene,

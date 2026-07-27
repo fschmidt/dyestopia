@@ -1,10 +1,9 @@
-import Phaser from 'phaser'
-
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { DYES, PALETTE, toCss } from '../palette'
 import { addText } from '../text'
+import { BaseScene } from './BaseScene'
 
-export class MenuScene extends Phaser.Scene {
+export class MenuScene extends BaseScene {
   constructor() {
     super('Menu')
   }

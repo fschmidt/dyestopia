@@ -3,6 +3,7 @@ import Phaser from 'phaser'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { DYES, PALETTE, toCss, type Dye } from '../palette'
 import { addText } from '../text'
+import { BaseScene } from './BaseScene'
 
 const COLS = 4
 const ROWS = 3
@@ -14,7 +15,7 @@ const GAP = 16
  * swatch. Enough to prove input, state and scene transitions work — the real
  * game rules replace `pickTarget` / `onSwatchClicked`.
  */
-export class GameScene extends Phaser.Scene {
+export class GameScene extends BaseScene {
   private score = 0
   private scoreText!: Phaser.GameObjects.Text
   private targetText!: Phaser.GameObjects.Text
