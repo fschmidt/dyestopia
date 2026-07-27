@@ -40,10 +40,22 @@ Three phases: pick up (pointer down + move threshold), follow, drop.
 - **Pick up:** scale to **1.12** with `Back.easeOut` (170 ms) — it's the hover
   lift, but juicier. Bump `anims.timeScale` to **~1.8**: the outline wobbles
   faster, wet paint agitated by being picked up.
-- **Follow:** squash-and-stretch from velocity — stretch along the movement
-  axis, squash across it (clamp around 1.15/0.87), easing back to round when
-  the pointer slows. A slight rotation toward the movement direction (±8°)
-  makes it trail like a droplet.
+- **Follow:** the blob *flows* toward the pointer — it elongates along the
+  actual pull direction, not a screen axis, by an amount driven by how far
+  the pointer has run ahead. Pull hard and it smears out toward your finger;
+  let it catch up and it contracts back to round. Two mechanics carry it:
+  - **Directional stretch from transforms alone:** no transform can stretch a
+    sprite along an arbitrary axis, but a pair can — the container rotates to
+    the pull direction and stretches along its own x (up to +32%), while the
+    sprites inside counter-rotate so the artwork and its light stay upright.
+    The net transform is a pure directional stretch: the silhouette shears
+    exactly the way slime pulls, and the baked highlight never swings. On
+    release the wind-up cancels itself, so it snaps to rest invisibly.
+  - **A damped spring, not a lerp:** the stretch amount chases the pull
+    through a spring (stiffness 0.16, damping 0.9), so it overshoots and
+    wobbles back to round when the pointer stops mid-drag — the jiggle that
+    sells thick liquid. The mosaic defines no `flow`: it keeps the rigid
+    axis-aligned pose and lean, because ceramic doesn't pour.
 - **Drop:** land with a splat: `scaleX 1.18 / scaleY 0.84` on impact, then
   `Back.easeOut` to 1 over 260 ms. `timeScale` eases back to 1 over ~400 ms so
   the paint visibly calms down after landing.

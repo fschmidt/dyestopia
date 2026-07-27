@@ -63,6 +63,13 @@ export class Tile extends Phaser.GameObjects.Container {
   private travelTween?: Phaser.Tweens.Tween
   private tintTween?: Phaser.Tweens.Tween
 
+  // The flow deformation's spring state: how elongated the tile currently is
+  // (0 round, 1 fully stretched), its velocity, and the world-space direction
+  // of the elongation in radians.
+  private flowAmount = 0
+  private flowVel = 0
+  private flowAngle = 0
+
   constructor(
     scene: Phaser.Scene,
     x: number,
@@ -181,6 +188,7 @@ export class Tile extends Phaser.GameObjects.Container {
     this.beginMove(DEPTH_ACTIVE)
     this.held = true
     this.dragTarget.set(this.x, this.y)
+    this.flowAmount = this.flowVel = this.flowAngle = 0
 
     this.base.anims.timeScale = m.agitation
     this.liftTween = this.scene.tweens.add({
@@ -223,6 +231,11 @@ export class Tile extends Phaser.GameObjects.Container {
     // Let the pick-up tweens finish before writing under them.
     if (this.liftTween?.isPlaying()) return
 
+    if (m.flow) {
+      this.flowDeform(frames)
+      return
+    }
+
     // Axis-aligned squash-and-stretch: stretch along the dominant velocity
     // axis, squash across it, easing back to round as the pointer slows.
     const nx = Math.min(1, Math.abs(vx / frames) / FULL_STRETCH_SPEED)
@@ -238,10 +251,64 @@ export class Tile extends Phaser.GameObjects.Container {
     this.angle += (baseAngle + leanTarget - this.angle) * 0.2
   }
 
+  /**
+   * Thick-liquid deformation: the tile elongates toward the pointer, along
+   * the actual pull direction rather than a screen axis.
+   *
+   * No transform can stretch a sprite along an arbitrary axis directly, but a
+   * pair can: rotate the container to the pull direction and stretch it along
+   * its own x, while the sprites inside counter-rotate so the artwork — and
+   * with it the light — stays upright. The net transform is a directional
+   * stretch, which shears the silhouette exactly the way slime pulls.
+   *
+   * The amount is driven by how far the pointer has run ahead (pull harder,
+   * stretch further) through a damped spring, so it overshoots and wobbles
+   * back to round when the pull stops — the jiggle that sells thick liquid.
+   */
+  private flowDeform(frames: number): void {
+    const m = this.shape.motion
+    const f = m.flow!
+
+    const dx = this.dragTarget.x - this.x
+    const dy = this.dragTarget.y - this.y
+    const gap = Math.hypot(dx, dy)
+    const pull = Math.min(1, gap / (TILE_SIZE * f.range))
+
+    this.flowVel += (pull - this.flowAmount) * f.stiffness * frames
+    this.flowVel *= Math.pow(f.damping, frames)
+    this.flowAmount = Math.max(-0.5, this.flowAmount + this.flowVel * frames)
+
+    // The direction only follows a meaningful pull — at rest it holds, so the
+    // dying wobble doesn't spin the elongation axis through noise.
+    if (gap > 2) {
+      this.flowAngle = Phaser.Math.Angle.RotateTo(this.flowAngle, Math.atan2(dy, dx), 0.25 * frames)
+    }
+
+    this.rotation = this.flowAngle
+    this.base.rotation = this.gloss.rotation = -this.flowAngle
+    const s = this.flowAmount
+    this.setScale(m.lift * (1 + m.stretch * s), m.lift * (1 - m.stretch * 0.55 * s))
+  }
+
+  /**
+   * Undo the flow wind-up on release. Container rotation and sprite
+   * counter-rotation cancel, so snapping both to rest is invisible; the
+   * elongation collapses to its average — slime let go of, snapping back.
+   */
+  private unwindFlow(): void {
+    if (this.base.rotation === 0 && this.gloss.rotation === 0) return
+    const even = (this.scaleX + this.scaleY) / 2
+    this.rotation = Phaser.Math.DegToRad(this.restAngle)
+    this.base.rotation = this.gloss.rotation = 0
+    this.setScale(even)
+    this.flowAmount = this.flowVel = this.flowAngle = 0
+  }
+
   /** Travel to a cell centre and settle — the end of a drag, or a plain move. */
   drop(x: number, y: number, restIndex: number): void {
     this.beginMove(DEPTH_ACTIVE)
     this.restAngle = this.jitterAngle(restIndex)
+    this.unwindFlow()
     this.scene.tweens.add({
       targets: this,
       x,
@@ -261,6 +328,7 @@ export class Tile extends Phaser.GameObjects.Container {
     const m = this.shape.motion
     this.beginMove(role === 'active' ? DEPTH_ACTIVE : DEPTH_PASSIVE)
     this.restAngle = this.jitterAngle(restIndex)
+    this.unwindFlow()
 
     const sx = this.x
     const sy = this.y
@@ -343,6 +411,7 @@ export class Tile extends Phaser.GameObjects.Container {
     this._dye = result
     this.beginMove(DEPTH_ACTIVE)
     this.restAngle = this.jitterAngle(restIndex)
+    this.unwindFlow()
     this.scene.tweens.add({ targets: this, x, y, duration: 180, ease: 'Quad.easeOut' })
     this.scene.tweens.add({
       targets: this,
