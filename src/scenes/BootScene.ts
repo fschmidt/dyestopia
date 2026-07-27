@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { PALETTE, toCss } from '../palette'
+import { addText } from '../text'
 
 /**
  * Loads whatever the game needs before anything is shown, then hands off to the
@@ -19,13 +20,11 @@ export class BootScene extends Phaser.Scene {
     const x = (GAME_WIDTH - barWidth) / 2
     const y = GAME_HEIGHT / 2
 
-    this.add
-      .text(GAME_WIDTH / 2, y - 40, 'Dyestopia', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '32px',
-        color: toCss(PALETTE.ink),
-      })
-      .setOrigin(0.5)
+    addText(this, GAME_WIDTH / 2, y - 40, 'Dyestopia', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '32px',
+      color: toCss(PALETTE.ink),
+    }).setOrigin(0.5)
 
     this.add.rectangle(x, y, barWidth, barHeight, PALETTE.inkMuted, 0.25).setOrigin(0, 0.5)
     const fill = this.add.rectangle(x, y, 0, barHeight, PALETTE.accent).setOrigin(0, 0.5)

@@ -1,0 +1,4 @@
+- rogue like mode
+- puzzle mode
+- battle mode
+- tools (recolor tile, reposition tile, destroy tile, [...])

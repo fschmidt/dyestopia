@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { DYES, PALETTE, toCss, type Dye } from '../palette'
+import { addText } from '../text'
 
 const COLS = 4
 const ROWS = 3
@@ -26,31 +27,27 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.score = 0
 
-    this.scoreText = this.add.text(24, 20, '', {
+    this.scoreText = addText(this, 24, 20, '', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '20px',
       color: toCss(PALETTE.ink),
     })
 
-    this.targetText = this.add
-      .text(GAME_WIDTH / 2, 76, '', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '28px',
-        color: toCss(PALETTE.ink),
-      })
-      .setOrigin(0.5)
+    this.targetText = addText(this, GAME_WIDTH / 2, 76, '', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '28px',
+      color: toCss(PALETTE.ink),
+    }).setOrigin(0.5)
 
     this.buildGrid()
     this.pickTarget()
     this.updateHud()
 
-    this.add
-      .text(GAME_WIDTH - 24, 20, 'ESC = Menü', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '16px',
-        color: toCss(PALETTE.inkMuted),
-      })
-      .setOrigin(1, 0)
+    addText(this, GAME_WIDTH - 24, 20, 'ESC = Menü', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '16px',
+      color: toCss(PALETTE.inkMuted),
+    }).setOrigin(1, 0)
 
     this.input.keyboard?.once('keydown-ESC', () => this.scene.start('Menu'))
   }

@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { DYES, PALETTE, toCss } from '../palette'
+import { addText } from '../text'
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -9,14 +10,12 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 120, 'DYESTOPIA', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '64px',
-        fontStyle: 'bold',
-        color: toCss(PALETTE.ink),
-      })
-      .setOrigin(0.5)
+    addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 - 120, 'DYESTOPIA', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '64px',
+      fontStyle: 'bold',
+      color: toCss(PALETTE.ink),
+    }).setOrigin(0.5)
 
     // A row of swatches, purely as a title flourish.
     const swatch = 48
@@ -36,12 +35,11 @@ export class MenuScene extends Phaser.Scene {
       })
     })
 
-    const start = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'Spiel starten', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '28px',
-        color: toCss(PALETTE.accent),
-      })
+    const start = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'Spiel starten', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '28px',
+      color: toCss(PALETTE.accent),
+    })
       .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
 
@@ -52,12 +50,10 @@ export class MenuScene extends Phaser.Scene {
     this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('Game'))
     this.input.keyboard?.once('keydown-ENTER', () => this.scene.start('Game'))
 
-    this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 40, 'Leertaste oder klicken', {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '16px',
-        color: toCss(PALETTE.inkMuted),
-      })
-      .setOrigin(0.5)
+    addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, 'Leertaste oder klicken', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '16px',
+      color: toCss(PALETTE.inkMuted),
+    }).setOrigin(0.5)
   }
 }
