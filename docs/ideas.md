@@ -4,9 +4,10 @@
 - reposition tool
 - destroy tile tool 
 - palette swap
+- free move tile (can be merged/swapped with any other tile)
 
 # Accessibility
-- greyscale mode
+- greyscale / colorblind mode (what's actually possible and what's not)
 
 # Modes
 - rogue like mode

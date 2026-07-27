@@ -151,5 +151,17 @@ export const BLOB: Shape = {
       agitation: 2.5,
       tint: 350,
     },
+    // The pop: swell like a blown bubble, thrash, then get sucked into
+    // nothing — Back.easeIn winds inward before the collapse, which is what
+    // sells the burst.
+    clear: {
+      swell: 1.35,
+      rise: 110,
+      vanish: 180,
+      vanishEase: 'Back.easeIn',
+      agitation: 2.8,
+      spin: 0,
+    },
+    fall: { unit: 200 },
   },
 }

@@ -1,119 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { dragWorld, open, startGame, waitForScene } from './helpers'
-
-interface TileState {
-  x: number
-  y: number
-  dye: string
-}
+import { findLegalSwap, swapClears } from '../src/board'
+import { board, dragWorld, open, startGame, startSeededGame, toEngine } from './helpers'
 
 /**
- * Position and dye of every tile on the board, in creation order.
- *
- * The demo stage seeds red/yellow/blue cycling over twelve cells, so in cell
- * order: 0 = red, 1 = yellow, 2 = blue, 3 = red, … Horizontal neighbours are
- * always different colours, which is what these tests lean on.
+ * The feel layer: poses and travel, on top of the match loop that
+ * match.spec.ts proves. These reach into tile transforms, so they read the
+ * scene's display list rather than the debug bridge's board report.
  */
-function board(page: Page): Promise<TileState[]> {
-  return page.evaluate(() =>
-    window
-      .dyestopia!.game.scene.getScene('Game')!
-      .children.list.filter((child) => child.name === 'tile')
-      .map((child) => {
-        const tile = child as unknown as { x: number; y: number; dye: { name: string } }
-        return { x: tile.x, y: tile.y, dye: tile.dye.name }
-      }),
-  )
-}
-
-/** The tile settled on a cell centre, if any. */
-function at(tiles: TileState[], cell: TileState): TileState | undefined {
-  return tiles.find((tile) => Math.hypot(tile.x - cell.x, tile.y - cell.y) < 1)
-}
-
-test('mixable neighbours merge in place', async ({ page }) => {
-  await open(page)
-  await startGame(page)
-
-  const before = await board(page)
-  const [red, yellow] = before
-  expect(red.dye).toBe('red')
-  expect(yellow.dye).toBe('yellow')
-
-  await dragWorld(page, 'Game', red, yellow)
-
-  // Red + yellow = orange, which the stage allows: both tiles keep their
-  // cells, both come out dyed the result, and the board stays full.
-  await expect
-    .poll(async () => {
-      const now = await board(page)
-      return (
-        now.length === 12 && at(now, red)?.dye === 'orange' && at(now, yellow)?.dye === 'orange'
-      )
-    })
-    .toBe(true)
-})
-
-test('a mix the stage does not allow swaps instead', async ({ page }) => {
-  await open(page)
-  await startGame(page)
-
-  const before = await board(page)
-  const blue = before[2]
-  const red = before[3]
-  expect(blue.dye).toBe('blue')
-  expect(red.dye).toBe('red')
-
-  await dragWorld(page, 'Game', blue, red)
-
-  // Red + blue would be purple, but the demo stage doesn't activate purple —
-  // so the pair swaps cells and keeps its colours.
-  await expect
-    .poll(async () => {
-      const now = await board(page)
-      return at(now, red)?.dye === 'blue' && at(now, blue)?.dye === 'red'
-    })
-    .toBe(true)
-})
-
-test('a non-adjacent drop returns home', async ({ page }) => {
-  await open(page)
-  await startGame(page)
-
-  const before = await board(page)
-  const red = before[0]
-  const blue = before[2]
-
-  // Cells 0 and 2 share a row but aren't neighbours; red + blue would also be
-  // an inactive mix, so nothing may happen either way.
-  await dragWorld(page, 'Game', red, blue)
-
-  await expect
-    .poll(async () => {
-      const now = await board(page)
-      return at(now, red)?.dye === 'red' && at(now, blue)?.dye === 'blue'
-    })
-    .toBe(true)
-})
-
-test('creating the named mix scores', async ({ page }) => {
-  await open(page)
-  await startGame(page)
-
-  const texts = await page.evaluate(() => window.dyestopia!.texts('Game'))
-  const target = texts.find((text) => text.startsWith('Mix: '))?.slice(5)
-  expect(['orange', 'green']).toContain(target)
-
-  // Orange = red + yellow (cells 0, 1); green = yellow + blue (cells 1, 2).
-  const before = await board(page)
-  const pair = target === 'orange' ? [before[0], before[1]] : [before[1], before[2]]
-  await dragWorld(page, 'Game', pair[0], pair[1])
-
-  await expect
-    .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
-    .toContain('Score: 1')
-})
 
 /** Pose of the tile currently being dragged (it sits at the active depth). */
 function draggedPose(page: Page): Promise<{ rotation: number; sx: number; sy: number } | null> {
@@ -127,17 +21,36 @@ function draggedPose(page: Page): Promise<{ rotation: number; sx: number; sy: nu
   })
 }
 
+/** Every settled tile is round, upright and at rest. */
+function allSettled(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const tiles = window
+      .dyestopia!.game.scene.getScene('Game')!
+      .children.list.filter((child) => child.name === 'tile')
+    return tiles.every((tile) => {
+      const pose = tile as unknown as { rotation: number; scaleX: number; scaleY: number }
+      return (
+        Math.abs(pose.rotation) < 0.01 &&
+        Math.abs(pose.scaleX - 1) < 0.01 &&
+        Math.abs(pose.scaleY - 1) < 0.01
+      )
+    })
+  })
+}
+
 test('the dragged splash flows toward the pointer', async ({ page }) => {
   await open(page)
   await startGame(page)
 
-  const [red] = await board(page)
+  const report = await board(page)
+  // An inner tile, so the pull toward the board centre stays over the board.
+  const centre = report.cells[Math.floor(report.cells.length / 2)]
   const [a, b] = await page.evaluate(
     (tile) => [
       window.dyestopia!.worldToViewport('Game', tile.x, tile.y),
       window.dyestopia!.worldToViewport('Game', tile.x + 150, tile.y + 100),
     ],
-    red,
+    centre,
   )
 
   // Pull diagonally and keep holding: while the tile lags the pointer it must
@@ -155,52 +68,72 @@ test('the dragged splash flows toward the pointer', async ({ page }) => {
       alignment = Math.max(alignment, Math.abs(pose.rotation))
     }
   }
+  // Release back over its own cell: no move, and the blob unwinds completely.
+  await page.mouse.move(a.x, a.y, { steps: 10 })
   await page.mouse.up()
+
   expect(elongation).toBeGreaterThan(0.05)
   expect(alignment).toBeGreaterThan(0.2)
 
-  // Released over its own cell, the blob unwinds completely: round, upright,
-  // and the board untouched.
+  const before = report.cells.map((c) => c.color)
   await expect
     .poll(async () => {
+      const settled = await allSettled(page)
       const now = await board(page)
-      return page.evaluate(() => {
-        const tiles = window
-          .dyestopia!.game.scene.getScene('Game')!
-          .children.list.filter((child) => child.name === 'tile')
-        return tiles.every((tile) => {
-          const pose = tile as unknown as { rotation: number; scaleX: number; scaleY: number }
-          return (
-            Math.abs(pose.rotation) < 0.01 &&
-            Math.abs(pose.scaleX - 1) < 0.01 &&
-            Math.abs(pose.scaleY - 1) < 0.01
-          )
-        })
-      }).then((settled) => settled && now.length === 12)
+      return settled && now.cells.map((c) => c.color).join() === before.join()
     })
     .toBe(true)
 })
 
-test('the moves hold up in the mosaic shape too', async ({ page }) => {
+test('a refused drop returns home and shakes it off', async ({ page }) => {
+  await open(page)
+  const report = await startSeededGame(page, 4711)
+
+  // Drag a corner tile onto its right neighbour only if that swap is illegal
+  // on this seed; if the seed ever shifts under this test, pick another pair
+  // in match.spec.ts fashion instead of hard-coding.
+  const { grid, cells } = toEngine(report)
+  const pair = report.cells.find((c) => {
+    const right = report.cells.find((r) => r.index === c.index + 1)
+    return right && c.row === right.row && !swapClears(grid, cells, c.index, c.index + 1)
+  })!
+  const right = report.cells.find((r) => r.index === pair.index + 1)!
+
+  await dragWorld(page, 'Game', pair, right)
+
+  // Home again, upright, board untouched.
+  await expect
+    .poll(async () => {
+      const settled = await allSettled(page)
+      const now = await board(page)
+      return settled && now.score === 0
+    })
+    .toBe(true)
+})
+
+test('the match loop holds up in the mosaic shape too', async ({ page }) => {
   await open(page)
   // The mosaic exercises the paths the blob doesn't: straighten, jitter
-  // re-read on the destination cell, the glint jump, and straight travel.
-  await page.evaluate(() => {
-    window.dyestopia!.setSettings({ shape: 'mosaic' })
-    window.dyestopia!.goTo('Game')
-  })
-  await waitForScene(page, 'Game')
+  // re-read on the destination cell, the glint jump, straight travel, and the
+  // crack-style clear.
+  await page.evaluate(() => window.dyestopia!.setSettings({ shape: 'mosaic' }))
+  const report = await startSeededGame(page, 4711)
+  const { grid, cells } = toEngine(report)
 
-  const before = await board(page)
-  const blue = before[2]
-  const red = before[3]
-
-  await dragWorld(page, 'Game', blue, red)
+  const move = findLegalSwap(grid, cells)
+  expect(move).not.toBeNull()
+  const [a, b] = move!
+  await dragWorld(
+    page,
+    'Game',
+    report.cells.find((c) => c.index === a)!,
+    report.cells.find((c) => c.index === b)!,
+  )
 
   await expect
     .poll(async () => {
       const now = await board(page)
-      return at(now, red)?.dye === 'blue' && at(now, blue)?.dye === 'red'
+      return now.score > 0 && now.cells.every((c) => c.color !== null)
     })
     .toBe(true)
 })

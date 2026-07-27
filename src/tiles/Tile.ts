@@ -43,6 +43,8 @@ const FULL_STRETCH_SPEED = 14
 
 export class Tile extends Phaser.GameObjects.Container {
   private readonly shape: Shape
+  /** Logical tile size on this board — hit area, and the drag flow's yardstick. */
+  private readonly size: number
   private readonly base: Phaser.GameObjects.Sprite
   private readonly gloss: Phaser.GameObjects.Sprite
 
@@ -77,14 +79,18 @@ export class Tile extends Phaser.GameObjects.Container {
     dye: Dye,
     shape: Shape,
     index: number,
+    size: number = TILE_SIZE,
   ) {
     super(scene, x, y)
     this._dye = dye
     this.shape = shape
+    this.size = size
     this.name = 'tile'
 
     const keys = textureKeys(shape)
-    const cell = cellSize(shape)
+    // Boards size their tiles to the space a stage's mask leaves them, so the
+    // baked artwork (drawn at TILE_SIZE) scales to match — pad and all.
+    const cell = cellSize(shape) * (size / TILE_SIZE)
 
     this.base = scene.add
       .sprite(0, 0, keys.base)
@@ -111,7 +117,7 @@ export class Tile extends Phaser.GameObjects.Container {
 
     // Hit area is the tile, not the padded cell — the padding is shadow, and
     // clicks should not land on a neighbour's shadow.
-    this.setSize(TILE_SIZE, TILE_SIZE)
+    this.setSize(size, size)
     this.setInteractive({ useHandCursor: true })
 
     this.on('pointerover', () => {
@@ -272,7 +278,7 @@ export class Tile extends Phaser.GameObjects.Container {
     const dx = this.dragTarget.x - this.x
     const dy = this.dragTarget.y - this.y
     const gap = Math.hypot(dx, dy)
-    const pull = Math.min(1, gap / (TILE_SIZE * f.range))
+    const pull = Math.min(1, gap / (this.size * f.range))
 
     this.flowVel += (pull - this.flowAmount) * f.stiffness * frames
     this.flowVel *= Math.pow(f.damping, frames)
@@ -305,7 +311,7 @@ export class Tile extends Phaser.GameObjects.Container {
   }
 
   /** Travel to a cell centre and settle — the end of a drag, or a plain move. */
-  drop(x: number, y: number, restIndex: number): void {
+  drop(x: number, y: number, restIndex: number, onArrive?: () => void): void {
     this.beginMove(DEPTH_ACTIVE)
     this.restAngle = this.jitterAngle(restIndex)
     this.unwindFlow()
@@ -315,7 +321,81 @@ export class Tile extends Phaser.GameObjects.Container {
       y,
       duration: 140,
       ease: 'Quad.easeOut',
-      onComplete: () => this.land(),
+      onComplete: () => {
+        this.land()
+        onArrive?.()
+      },
+    })
+  }
+
+  /**
+   * Return home from a drop the rules refused, and say so: the drop settle is
+   * followed by a head-shake, so "not allowed" reads differently from a drag
+   * that simply missed its cell.
+   */
+  refuse(x: number, y: number, restIndex: number): void {
+    this.drop(x, y, restIndex, () => this.reject())
+  }
+
+  /**
+   * Fall under gravity. All falls share one constant acceleration — duration
+   * grows with the square root of the distance — so tiles dropping down the
+   * same column keep their spacing instead of overtaking mid-flight. Arrival
+   * is the shared landing splat.
+   */
+  fallTo(y: number, restIndex: number, cells: number, delay: number, onArrive?: () => void): void {
+    this.beginMove(DEPTH_PASSIVE)
+    this.restAngle = this.jitterAngle(restIndex)
+    this.unwindFlow()
+    this.scene.tweens.add({
+      targets: this,
+      y,
+      delay,
+      duration: this.shape.motion.fall.unit * Math.sqrt(Math.max(1, cells)),
+      ease: 'Quad.easeIn',
+      onComplete: () => {
+        this.land()
+        onArrive?.()
+      },
+    })
+  }
+
+  /**
+   * Burst off the board — a matched tile being destroyed. Swell, thrash,
+   * vanish, each by the shape's own physics: the blob pops like a bubble of
+   * paint, the mosaic glints and cracks out of its grout. The tile destroys
+   * itself when the burst is done.
+   */
+  clearOut(delay: number, onDone?: () => void): void {
+    const m = this.shape.motion
+    this.beginMove(DEPTH_PASSIVE)
+
+    this.scene.tweens.chain({
+      targets: this,
+      tweens: [
+        {
+          scale: m.clear.swell,
+          duration: m.clear.rise,
+          delay,
+          ease: 'Quad.easeOut',
+          onStart: () => {
+            // The burst starts now, not at the (possibly delayed) chain start.
+            this.base.anims.timeScale = m.clear.agitation
+            this.glint()
+          },
+        },
+        {
+          scale: 0.02,
+          alpha: 0,
+          angle: this.angle + m.clear.spin,
+          duration: m.clear.vanish,
+          ease: m.clear.vanishEase,
+        },
+      ],
+      onComplete: () => {
+        onDone?.()
+        this.destroy()
+      },
     })
   }
 
@@ -324,7 +404,13 @@ export class Tile extends Phaser.GameObjects.Container {
    * line (when the shape arcs at all) and the passive tile telegraphs with an
    * anticipation pull — the active one is already lifted from being dragged.
    */
-  swapTo(x: number, y: number, restIndex: number, role: 'active' | 'passive'): void {
+  swapTo(
+    x: number,
+    y: number,
+    restIndex: number,
+    role: 'active' | 'passive',
+    onArrive?: () => void,
+  ): void {
     const m = this.shape.motion
     this.beginMove(role === 'active' ? DEPTH_ACTIVE : DEPTH_PASSIVE)
     this.restAngle = this.jitterAngle(restIndex)
@@ -371,7 +457,10 @@ export class Tile extends Phaser.GameObjects.Container {
           this.x = sx + dx * t + bowX * bow
           this.y = sy + dy * t + bowY * bow
         },
-        onComplete: () => this.land(),
+        onComplete: () => {
+          this.land()
+          onArrive?.()
+        },
       })
     }
 

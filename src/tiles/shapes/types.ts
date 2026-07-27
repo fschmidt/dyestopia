@@ -86,6 +86,31 @@ export interface Motion {
   }
 
   /**
+   * Destruction — a matched tile leaving the board. A short swell telegraphs
+   * the burst, then the tile vanishes: the blob pops like a bubble of paint,
+   * the mosaic cracks out of its grout with an angular jolt.
+   */
+  clear: {
+    /** Pre-burst inflation and the time it takes. */
+    swell: number
+    rise: number
+    /** Collapse to nothing, and its ease. */
+    vanish: number
+    vanishEase: string
+    /** Idle-loop spike while bursting. Above 1 reads as thrashing liquid. */
+    agitation: number
+    /** Angular jolt during the vanish, in degrees — the ceramic crack. */
+    spin: number
+  }
+
+  /**
+   * Gravity. Every falling tile shares one constant acceleration — duration
+   * is `unit * sqrt(cells fallen)` — so tiles in a column never overtake each
+   * other mid-flight. `unit` is the time a one-cell fall takes.
+   */
+  fall: { unit: number }
+
+  /**
    * Idle frame to jump to on landing, for shapes whose flourish is light — the
    * mosaic catches its glint as it settles.
    */
