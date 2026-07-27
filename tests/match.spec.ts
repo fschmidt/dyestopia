@@ -1,13 +1,17 @@
 import { expect, test } from '@playwright/test'
 
 import {
+  applyGravity,
   clearScore,
+  comboConversions,
   findLegalMove,
   findMatches,
   generateBoard,
   parseMask,
+  refill,
   resolveMove,
 } from '../src/board'
+import { mixResult } from '../src/colors'
 import { mulberry32 } from '../src/rng'
 import { FIRST_STAGE } from '../src/stage'
 import {
@@ -103,6 +107,55 @@ test('a merge dyes the pair in place, clears, and pays the merge bonus', async (
         now.cells.every((c) => c.color !== null) &&
         findMatches(engine.grid, engine.cells).size === 0
       )
+    })
+    .toBe(true)
+})
+
+test('the combo prototype ripples the merge into adjacent groups', async ({ page }) => {
+  // Predict, offline, a seed whose merge sets off at least one conversion —
+  // then replay the entire resolve (conversions, cascade, refills) on the
+  // same rng stream the scene will consume, down to the exact settled board.
+  const grid = parseMask(FIRST_STAGE.board)
+  let seed = -1
+  let pair: [number, number] | null = null
+  let settled: (string | null)[] = []
+  for (let s = 1; s < 300 && !pair; s++) {
+    const rng = mulberry32(s)
+    const cells = generateBoard(grid, FIRST_STAGE.seed, rng, stageRules)
+    const move = moveOfKind(grid, cells, 'merge')
+    if (!move) continue
+    const resolved = resolveMove(grid, cells, stageRules, move[0], move[1])
+    if (resolved.kind !== 'merge') continue
+    cells[move[0]] = cells[move[1]] = resolved.result
+    const conversions = comboConversions(grid, cells, [move[0], move[1]], mixResult)
+    if (conversions.length === 0) continue
+    for (let m = findMatches(grid, cells); m.size > 0; m = findMatches(grid, cells)) {
+      for (const index of m) cells[index] = null
+      applyGravity(grid, cells)
+      refill(grid, cells, FIRST_STAGE.seed, rng)
+    }
+    // A dead settled board would reshuffle live and spend rng the replay
+    // didn't — skip such seeds rather than model it.
+    if (!findLegalMove(grid, cells, stageRules)) continue
+    seed = s
+    pair = move
+    settled = cells
+  }
+  expect(pair).not.toBeNull()
+
+  await open(page)
+  await page.evaluate(() => window.dyestopia!.combo(true))
+  const report = await startSeededGame(page, seed)
+  const from = report.cells.find((c) => c.index === pair![0])!
+  const to = report.cells.find((c) => c.index === pair![1])!
+  await dragWorld(page, 'Game', from, to)
+
+  // The scene must land on the exact board the model predicts — conversions,
+  // cascade and refills included.
+  await expect
+    .poll(async () => {
+      const now = await board(page)
+      return now.cells.every((c) => c.color === settled[c.index])
     })
     .toBe(true)
 })

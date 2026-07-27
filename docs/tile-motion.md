@@ -159,6 +159,17 @@ the pair comes out of the kiln in the new colour.
   immediately by the **glint sweep** — the kiln flash that makes the new
   colour official.
 
+## Combo ripple (M3 prototype)
+
+Behind a debug toggle (`dyestopia.combo(true)`, or `?combo` in the URL for
+phones): when a merge dyes its pair, adjacent groups whose colour mixes with
+the new colour convert too, flood-fill style, and conversions can chain.
+The animation is half the prototype — each converted tile plays a lighter,
+quicker cousin of the merge pulse, delayed by its flood distance (70 ms per
+step), so the recolour visibly travels outward from the merge before the
+burst fires. The numbers derive from the shape's merge block; a mechanic on
+trial doesn't earn its own parameters until it survives playtesting.
+
 ## Clearing
 
 Destruction — matched tiles leaving the board (M1). One shared skeleton:

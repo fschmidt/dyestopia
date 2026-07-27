@@ -36,6 +36,7 @@ src/
   debug.ts            # window.dyestopia — test/console handle on the game
   board.ts            # the match engine — masks, matches, gravity, legality
   rng.ts              # seedable randomness, so boards are reproducible
+  flags.ts            # prototype toggles (combo spike), console/URL-switched
   stage.ts            # stage data: colours in play + board mask
   palette.ts          # chrome colours (page + text), fixed
   themes.ts           # the colours the game is played with — a setting

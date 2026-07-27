@@ -231,6 +231,84 @@ export function findLegalMove(
   return null
 }
 
+/** One tile taking a new colour in a combo wave, `step` hops from the merge. */
+export interface Conversion {
+  index: number
+  color: ColorId
+  /** BFS distance from the triggering change — the ripple's stagger. */
+  step: number
+}
+
+/** The four masked orthogonal neighbours (fewer at edges and gaps). */
+function maskedNeighbours(grid: Grid, index: number): number[] {
+  const out: number[] = []
+  for (const n of [index - grid.cols, index - 1, index + 1, index + grid.cols]) {
+    if (n >= 0 && n < grid.mask.length && isAdjacent(grid, index, n)) out.push(n)
+  }
+  return out
+}
+
+/**
+ * The combo prototype (roadmap M3, behind `flags.combo`): when a tile's
+ * colour changes, any adjacent tile whose colour mixes with the new colour
+ * converts to the mix result — and takes its whole connected same-coloured
+ * group with it, flood-fill style. Converted tiles are changes too, so the
+ * wave can chain (a red turned vermilion can set off its own neighbours);
+ * each cell converts at most once, which bounds the whole affair.
+ *
+ * Mutates `cells`; the returned list carries each conversion's BFS distance
+ * from the trigger so the scene can play the recolour as a travelling
+ * ripple. Callers pass the full-wheel `mixResult` rather than the stage
+ * rules — no dev-stage activates a tertiary, so gating would make the
+ * prototype a silent no-op; whether stages gate it is M4's question, if the
+ * mechanic survives play at all.
+ */
+export function comboConversions(
+  grid: Grid,
+  cells: Cells,
+  changed: number[],
+  mix: MixRule,
+): Conversion[] {
+  const out: Conversion[] = []
+  const locked = new Set(changed)
+  let frontier = changed.map((index) => ({ index, step: 0 }))
+
+  while (frontier.length > 0) {
+    const next: { index: number; step: number }[] = []
+    for (const { index, step } of frontier) {
+      const colour = cells[index]
+      if (colour === null) continue
+      for (const contact of maskedNeighbours(grid, index)) {
+        if (locked.has(contact)) continue
+        const other = cells[contact]
+        if (other === null) continue
+        const result = mix(other, colour)
+        if (!result) continue
+
+        // Flood the connected `other`-coloured group from the contact point,
+        // converting as it goes — the ripple spreads outward through the
+        // group, not to colour twins elsewhere on the board.
+        const queue = [{ index: contact, step: step + 1 }]
+        locked.add(contact)
+        while (queue.length > 0) {
+          const tile = queue.shift()!
+          cells[tile.index] = result
+          out.push({ index: tile.index, color: result, step: tile.step })
+          next.push(tile)
+          for (const beyond of maskedNeighbours(grid, tile.index)) {
+            if (!locked.has(beyond) && cells[beyond] === other) {
+              locked.add(beyond)
+              queue.push({ index: beyond, step: tile.step + 1 })
+            }
+          }
+        }
+      }
+    }
+    frontier = next
+  }
+  return out
+}
+
 /**
  * A fresh board: every masked cell seeded, no match already sitting on the
  * board, and at least one legal move waiting.

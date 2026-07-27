@@ -1,5 +1,6 @@
 import type Phaser from 'phaser'
 
+import { flags } from './flags'
 import { plantSeed } from './rng'
 import type { BoardReport } from './scenes/GameScene'
 import { getSettings, updateSettings, type Settings } from './settings'
@@ -65,6 +66,13 @@ export interface DyestopiaDebug {
   seedRng(seed: number): void
   /** Cells, colours and score of the running Game scene. */
   board(): BoardReport
+  /**
+   * Toggle the combo-mixing prototype (roadmap M3): merges ripple into
+   * adjacent groups whose colour mixes with the result. Takes effect on the
+   * next merge — mid-round is fine. Also on via `?combo` in the URL, for
+   * phones. Returns the current state.
+   */
+  combo(on?: boolean): boolean
 }
 
 declare global {
@@ -150,6 +158,11 @@ export function exposeDebugApi(game: Phaser.Game): void {
     setSettings: (patch) => updateSettings(patch),
 
     seedRng: (seed) => plantSeed(seed),
+
+    combo: (on) => {
+      if (on !== undefined) flags.combo = on
+      return flags.combo
+    },
 
     board: () => {
       const scene = requireScene(game, 'Game') as unknown as { boardState?: () => BoardReport }

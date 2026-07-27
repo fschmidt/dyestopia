@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test'
 import {
   applyGravity,
   clearScore,
+  comboConversions,
   findLegalMove,
   findMatches,
   generateBoard,
@@ -14,9 +15,11 @@ import {
   swapClears,
   type Cells,
   type Grid,
+  type MixRule,
 } from '../src/board'
 import { mixResult, type ColorId } from '../src/colors'
 import { mulberry32 } from '../src/rng'
+import { FIRST_STAGE, stageMix } from '../src/stage'
 
 /**
  * The match engine is pure data-in data-out, so it gets exercised here
@@ -185,6 +188,41 @@ test.describe('merge resolution', () => {
     const cells = cellsOf(row, ['oryo'])
     expect(findLegalMove(row, cells)).toBeNull()
     expect(findLegalMove(row, cells, mixResult)).toEqual([1, 2])
+  })
+})
+
+test.describe('combo conversions (M3 prototype)', () => {
+  test('the adjacent mixing group converts, rippling outward — twins elsewhere stay', () => {
+    const grid = parseMask(['#####'])
+    // The orange at 0 just changed. Its red neighbours flood-convert to
+    // vermilion with growing steps; the yellow breaks the group, so the far
+    // red never converts.
+    const cells = cellsOf(grid, ['orryr'])
+    expect(comboConversions(grid, cells, [0], mixResult)).toEqual([
+      { index: 1, color: 'vermilion', step: 1 },
+      { index: 2, color: 'vermilion', step: 2 },
+    ])
+    expect(cells).toEqual(['orange', 'vermilion', 'vermilion', 'yellow', 'red'])
+  })
+
+  test('conversions chain — a converted tile sets off its own neighbours', () => {
+    const grid = parseMask(['###'])
+    // The red at 0 turns the yellow orange; the fresh orange then turns the
+    // far red vermilion — each cell converts at most once, so it ends there.
+    const cells = cellsOf(grid, ['ryr'])
+    expect(comboConversions(grid, cells, [0], mixResult)).toEqual([
+      { index: 1, color: 'orange', step: 1 },
+      { index: 2, color: 'vermilion', step: 2 },
+    ])
+  })
+
+  test('nothing mixes, nothing converts — and stage gating can silence the wave', () => {
+    const grid = parseMask(['###'])
+    expect(comboConversions(grid, cellsOf(grid, ['rrr']), [0], mixResult)).toEqual([])
+    // Under the dev stage's rules the o+r result (vermilion) is not active,
+    // which is exactly why the prototype runs ungated.
+    const gated: MixRule = (a, b) => stageMix(FIRST_STAGE, a, b)
+    expect(comboConversions(grid, cellsOf(grid, ['orr']), [0], gated)).toEqual([])
   })
 })
 

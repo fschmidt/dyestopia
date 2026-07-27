@@ -3,6 +3,7 @@ import Phaser from 'phaser'
 import {
   applyGravity,
   clearScore,
+  comboConversions,
   findLegalMove,
   findMatches,
   generateBoard,
@@ -13,12 +14,14 @@ import {
   resolveMove,
   type Cells,
   type CellMove,
+  type Conversion,
   type Grid,
   type MixRule,
   type Spawn,
 } from '../board'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
-import type { ColorId } from '../colors'
+import { mixResult, type ColorId } from '../colors'
+import { flags } from '../flags'
 import { PALETTE, toCss } from '../palette'
 import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
@@ -54,6 +57,9 @@ function boardArea(): { top: number; bottom: number; marginX: number } {
 
 /** Stagger between columns when the board falls, ms. */
 const COLUMN_STAGGER = 14
+
+/** Delay per flood step of the combo ripple, ms — the recolour's travel speed. */
+const COMBO_RIPPLE = 70
 
 /** What the debug bridge reports about the board — see src/debug.ts. */
 export interface BoardReport {
@@ -318,11 +324,19 @@ export class GameScene extends BaseScene {
       // the dragged one glides home while the pair pulses. The pulse hands
       // off into the destruction, so mix → burst reads as cause and effect.
       this.cells[origin] = this.cells[cell] = move.result
+      // The combo prototype: the merge's colour change ripples into adjacent
+      // mixing groups. Model-wise it happens now, in full; the animation
+      // replays it as a travelling wave between the pulse and the burst.
+      const conversions = flags.combo
+        ? comboConversions(this.grid, this.cells, [origin, cell], mixResult)
+        : []
       const dye = themedDye(activeTheme(), move.result)
       void Promise.all([
         new Promise<void>((done) => tile.mergeReturn(home.x, home.y, origin, dye, done)),
         new Promise<void>((done) => other.mix(dye, done)),
-      ]).then(() => this.resolve(true))
+      ])
+        .then(() => this.animateCombo(conversions))
+        .then(() => this.resolve(true))
       return
     }
 
@@ -370,6 +384,26 @@ export class GameScene extends BaseScene {
 
     if (!findLegalMove(this.grid, this.cells, this.mix)) await this.animateReshuffle()
     this.resolving = false
+  }
+
+  /**
+   * The combo ripple: every converted tile pulses to its new colour, delayed
+   * by its flood distance from the merge — the recolour visibly travels
+   * outward before the burst fires.
+   */
+  private animateCombo(conversions: Conversion[]): Promise<unknown> {
+    return Promise.all(
+      conversions.map(
+        ({ index, color, step }) =>
+          new Promise<void>((done) => {
+            const tile = this.tiles[index]
+            if (!tile) return done()
+            this.time.delayedCall((step - 1) * COMBO_RIPPLE, () =>
+              tile.convert(themedDye(activeTheme(), color), done),
+            )
+          }),
+      ),
+    )
   }
 
   /** Surviving tiles fall into the gaps; new ones drop in from above the top edge. */
