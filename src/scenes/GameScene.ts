@@ -1,40 +1,99 @@
 import Phaser from 'phaser'
 
+import {
+  applyGravity,
+  clearScore,
+  findLegalSwap,
+  findMatches,
+  generateBoard,
+  isAdjacent,
+  parseMask,
+  refill,
+  reshuffle,
+  swapClears,
+  type Cells,
+  type CellMove,
+  type Grid,
+  type Spawn,
+} from '../board'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import type { ColorId } from '../colors'
-import { PALETTE, toCss, type Dye } from '../palette'
+import { PALETTE, toCss } from '../palette'
+import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
-import { DEMO_STAGE, stageMix } from '../stage'
+import { FIRST_STAGE } from '../stage'
 import { addText } from '../text'
 import { themedDye } from '../themes'
 import { TILE_SIZE } from '../tiles/bake'
 import { Tile } from '../tiles/Tile'
+import type { Shape } from '../tiles/shapes'
 import { BaseScene } from './BaseScene'
-
-const COLS = 4
-const ROWS = 3
 
 /** Pointer travel below this is a tap; above it, a drag. */
 const DRAG_THRESHOLD = 8
 
 /**
- * Demo round for the mixing loop. The board seeds the stage's base colours
- * and the HUD names a mix to create. Dragging a tile onto an orthogonal
- * neighbour merges when the stage allows the mixed colour — both tiles stay
- * on their cells and take the result — and swaps otherwise; any other drop
- * returns home. Real level rules replace `DEMO_STAGE` and the scoring here.
+ * The rectangle reserved for the board: room for a BOARD_AREA-sized stage,
+ * with the HUD above and space below for what post-MVP puts there (tools).
+ * Stages smaller than the area get larger tiles, capped at full size.
+ *
+ * A function, not module constants: `config.ts` imports the scenes, which
+ * reach back for GAME_WIDTH/HEIGHT, so at module-evaluation time those are
+ * still in their temporal dead zone (same trap as `bakeDpr` in bake.ts).
+ */
+function boardArea(): { top: number; bottom: number; marginX: number } {
+  // The margins shrink with the world: on a portrait phone the board is the
+  // screen's one job, so it runs nearly edge to edge.
+  return {
+    top: Math.min(110, Math.round(GAME_HEIGHT * 0.14)),
+    bottom: GAME_HEIGHT - Math.min(56, Math.round(GAME_HEIGHT * 0.08)),
+    marginX: Math.min(40, Math.round(GAME_WIDTH * 0.03)),
+  }
+}
+
+/** Stagger between columns when the board falls, ms. */
+const COLUMN_STAGGER = 14
+
+/** What the debug bridge reports about the board — see src/debug.ts. */
+export interface BoardReport {
+  cols: number
+  rows: number
+  score: number
+  /** Masked cells only, with their world-space centres. */
+  cells: { index: number; col: number; row: number; color: string | null; x: number; y: number }[]
+}
+
+/**
+ * The match-3 round. Tiles clear when 3+ of a colour line up; gravity pulls
+ * the board down, seed colours refill from above, cascades resolve on their
+ * own and score with a rising wave multiplier. A move — for now a swap; M2
+ * adds merges in front — is only legal if it clears, checked by dry-running
+ * it against the model; refused drops shake and go home.
+ *
+ * The scene is the animation half of the split with src/board.ts: the model
+ * there is authoritative and synchronous, tiles here catch up to it tween by
+ * tween, and `resolving` keeps the player out until the two agree again.
  */
 export class GameScene extends BaseScene {
-  private readonly stage = DEMO_STAGE
+  private readonly stage = FIRST_STAGE
+
+  private grid!: Grid
+  private cells!: Cells
+  private tiles!: (Tile | undefined)[]
+  private rng!: Rng
+
   private score = 0
   private scoreText!: Phaser.GameObjects.Text
-  private targetText!: Phaser.GameObjects.Text
-  private target!: ColorId
+  /** A move is being resolved — no new moves until the board settles. */
+  private resolving = false
 
-  /** Fixed cell centres, row-major — the grid the tiles move around on. */
-  private cells: { x: number; y: number }[] = []
-  /** What sits on each cell. Merges dye in place, so the board stays full. */
-  private tiles: Tile[] = []
+  private shape!: Shape
+  /** Cell pitch (tile + gap) and the tile size within it, in world units. */
+  private pitch = 0
+  private tileSize = 0
+  private originX = 0
+  private originY = 0
+
   private dragged?: Tile
   private dragOrigin = -1
   /** Where the drag is headed — the tile itself lags behind the pointer. */
@@ -46,21 +105,28 @@ export class GameScene extends BaseScene {
 
   create(): void {
     this.score = 0
+    this.resolving = false
+    this.dragged = undefined
+    this.shape = activeShape()
+    this.rng = mulberry32(takeSeed() ?? Math.floor(Math.random() * 0xffffffff))
+
+    this.grid = parseMask(this.stage.board)
+    this.layoutBoard()
+    this.cells = generateBoard(this.grid, this.stage.seed, this.rng)
+    this.tiles = new Array(this.cells.length).fill(undefined)
+    for (let index = 0; index < this.cells.length; index++) {
+      const color = this.cells[index]
+      if (color !== null) {
+        const { x, y } = this.cellCenter(index)
+        this.tiles[index] = this.makeTile(index, color, x, y)
+      }
+    }
 
     this.scoreText = addText(this, 24, 20, '', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '20px',
       color: toCss(PALETTE.ink),
     })
-
-    this.targetText = addText(this, GAME_WIDTH / 2, 76, '', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '28px',
-      color: toCss(PALETTE.ink),
-    }).setOrigin(0.5)
-
-    this.buildGrid()
-    this.pickTarget()
     this.updateHud()
 
     addText(this, GAME_WIDTH - 24, 20, 'ESC = Menu', {
@@ -72,8 +138,8 @@ export class GameScene extends BaseScene {
     addText(
       this,
       GAME_WIDTH / 2,
-      GAME_HEIGHT - 20,
-      'Drag onto a neighbour — mixable colours merge, others swap',
+      GAME_HEIGHT - 18,
+      'Drag a tile onto a neighbour — every move must line up 3',
       {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '14px',
@@ -113,56 +179,89 @@ export class GameScene extends BaseScene {
     this.dragged?.follow(delta)
   }
 
-  private buildGrid(): void {
-    const shape = activeShape()
-    const theme = activeTheme()
+  /** The board and score as data, for tests and console archaeology. */
+  boardState(): BoardReport {
+    const cells = []
+    for (let index = 0; index < this.grid.mask.length; index++) {
+      if (!this.grid.mask[index]) continue
+      const { x, y } = this.cellCenter(index)
+      cells.push({
+        index,
+        col: index % this.grid.cols,
+        row: Math.floor(index / this.grid.cols),
+        color: this.cells[index],
+        x,
+        y,
+      })
+    }
+    return { cols: this.grid.cols, rows: this.grid.rows, score: this.score, cells }
+  }
 
-    this.cells = []
-    this.tiles = []
-    this.dragged = undefined
-
-    const gridWidth = COLS * TILE_SIZE + (COLS - 1) * shape.gap
-    const gridHeight = ROWS * TILE_SIZE + (ROWS - 1) * shape.gap
-    const originX = (GAME_WIDTH - gridWidth) / 2
-    const originY = (GAME_HEIGHT - gridHeight) / 2 + 40
+  /**
+   * Fit the stage's mask into the reserved board area: the pitch shrinks
+   * until the grid fits, and small boards get full-size tiles rather than
+   * ballooning to fill the space.
+   */
+  private layoutBoard(): void {
+    const area = boardArea()
+    const areaWidth = GAME_WIDTH - area.marginX * 2
+    const areaHeight = area.bottom - area.top
+    this.pitch = Math.min(
+      areaWidth / this.grid.cols,
+      areaHeight / this.grid.rows,
+      TILE_SIZE + this.shape.gap,
+    )
+    this.tileSize = this.pitch * (TILE_SIZE / (TILE_SIZE + this.shape.gap))
+    this.originX = (GAME_WIDTH - this.grid.cols * this.pitch) / 2
+    this.originY = area.top + (areaHeight - this.grid.rows * this.pitch) / 2
 
     // Grout, for shapes that sit in something rather than floating above it.
-    // Graphics rather than a Rectangle, which has no corner radius.
-    if (shape.board) {
-      const { color, alpha, radius, inset } = shape.board
+    // Drawn over the mask's bounding box — good enough while masks are
+    // rectangular; irregular stages will want per-cell grout.
+    if (this.shape.board) {
+      const { color, alpha, radius, inset } = this.shape.board
+      const scale = this.tileSize / TILE_SIZE
+      const pad = (this.pitch - this.tileSize) / 2 - inset * scale
       this.add
         .graphics()
         .setName('board')
         .fillStyle(color, alpha)
         .fillRoundedRect(
-          originX - inset,
-          originY - inset,
-          gridWidth + inset * 2,
-          gridHeight + inset * 2,
-          radius,
+          this.originX + pad,
+          this.originY + pad,
+          this.grid.cols * this.pitch - pad * 2,
+          this.grid.rows * this.pitch - pad * 2,
+          radius * scale,
         )
-    }
-
-    for (let row = 0; row < ROWS; row++) {
-      for (let col = 0; col < COLS; col++) {
-        const index = row * COLS + col
-        const dye = this.dye(this.stage.seed[index % this.stage.seed.length], theme)
-        const x = originX + col * (TILE_SIZE + shape.gap) + TILE_SIZE / 2
-        const y = originY + row * (TILE_SIZE + shape.gap) + TILE_SIZE / 2
-
-        const tile = new Tile(this, x, y, dye, shape, index)
-        this.cells.push({ x, y })
-        this.tiles.push(tile)
-        this.input.setDraggable(tile)
-        tile.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-          if (pointer.getDistance() < DRAG_THRESHOLD && !tile.busy) tile.squish()
-        })
-      }
     }
   }
 
+  private cellCenter(index: number): { x: number; y: number } {
+    return {
+      x: this.originX + ((index % this.grid.cols) + 0.5) * this.pitch,
+      y: this.originY + (Math.floor(index / this.grid.cols) + 0.5) * this.pitch,
+    }
+  }
+
+  private makeTile(index: number, color: ColorId, x: number, y: number): Tile {
+    const tile = new Tile(
+      this,
+      x,
+      y,
+      themedDye(activeTheme(), color),
+      this.shape,
+      index,
+      this.tileSize,
+    )
+    this.input.setDraggable(tile)
+    tile.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.getDistance() < DRAG_THRESHOLD && !tile.busy) tile.squish()
+    })
+    return tile
+  }
+
   private onDragStart(obj: Phaser.GameObjects.GameObject): void {
-    if (!(obj instanceof Tile) || obj.busy) return
+    if (!(obj instanceof Tile) || obj.busy || this.resolving) return
     const origin = this.tiles.indexOf(obj)
     if (origin === -1) return
     this.dragged = obj
@@ -176,75 +275,175 @@ export class GameScene extends BaseScene {
     const tile = this.dragged
     this.dragged = undefined
     const origin = this.dragOrigin
-    const home = this.cells[origin]
+    const home = this.cellCenter(origin)
 
     // Resolve against where the drag was headed, not where the tile is — it
     // lags behind the pointer, and the player's intent is the pointer.
     const cell = this.nearestCell(this.dragTarget.x, this.dragTarget.y)
 
-    if (cell < 0 || cell === origin || !this.adjacent(origin, cell)) {
+    if (
+      cell < 0 ||
+      cell === origin ||
+      !isAdjacent(this.grid, origin, cell) ||
+      this.resolving ||
+      !this.tiles[cell] ||
+      this.tiles[cell].busy
+    ) {
+      // Not a move at all — nothing adjacent under the pointer, or the board
+      // is mid-resolution. A plain trip home, no commentary.
       tile.drop(home.x, home.y, origin)
       return
     }
 
-    const occupant = this.tiles[cell]
-    // A neighbour still travelling from an earlier move would be recoloured
-    // mid-flight; wait for it to settle instead.
-    if (occupant.busy) {
-      tile.drop(home.x, home.y, origin)
+    const other = this.tiles[cell]
+    if (!swapClears(this.grid, this.cells, origin, cell)) {
+      // A real attempt the rules refuse: both tiles say no, so the legality
+      // rule teaches itself.
+      tile.refuse(home.x, home.y, origin)
+      other.reject()
       return
     }
 
-    const result = stageMix(this.stage, tile.dye.name, occupant.dye.name)
-    if (result) {
-      const dye = this.dye(result)
-      occupant.mix(dye)
-      tile.mergeReturn(home.x, home.y, origin, dye)
-      if (result === this.target) {
-        this.score += 1
-        this.pickTarget()
-      }
+    this.resolving = true
+    ;[this.cells[origin], this.cells[cell]] = [this.cells[cell], this.cells[origin]]
+    this.tiles[origin] = other
+    this.tiles[cell] = tile
+    const target = this.cellCenter(cell)
+    void Promise.all([
+      new Promise<void>((done) => tile.swapTo(target.x, target.y, cell, 'active', done)),
+      new Promise<void>((done) => other.swapTo(home.x, home.y, origin, 'passive', done)),
+    ]).then(() => this.resolve())
+  }
+
+  /**
+   * Settle the board after a move: clear, fall, refill, repeat while new
+   * lines keep forming — the cascade loop. Waves cost no move and multiply
+   * the score. Ends by reviving a dead board, then hands input back.
+   */
+  private async resolve(): Promise<void> {
+    this.resolving = true
+    for (let wave = 1; ; wave++) {
+      const matched = findMatches(this.grid, this.cells)
+      if (matched.size === 0) break
+
+      this.score += clearScore(matched.size, wave)
       this.updateHud()
-    } else {
-      this.tiles[origin] = occupant
-      this.tiles[cell] = tile
-      tile.swapTo(this.cells[cell].x, this.cells[cell].y, cell, 'active')
-      occupant.swapTo(home.x, home.y, origin, 'passive')
+      await Promise.all(
+        [...matched].map(
+          (index) =>
+            new Promise<void>((done) => {
+              const tile = this.tiles[index]
+              this.cells[index] = null
+              this.tiles[index] = undefined
+              tile ? tile.clearOut(0, done) : done()
+            }),
+        ),
+      )
+
+      const falls = applyGravity(this.grid, this.cells)
+      const spawns = refill(this.grid, this.cells, this.stage.seed, this.rng)
+      await this.animateDescent(falls, spawns)
     }
+
+    if (!findLegalSwap(this.grid, this.cells)) await this.animateReshuffle()
+    this.resolving = false
+  }
+
+  /** Surviving tiles fall into the gaps; new ones drop in from above the top edge. */
+  private animateDescent(falls: CellMove[], spawns: Spawn[]): Promise<unknown> {
+    const arrivals: Promise<void>[] = []
+
+    for (const { from, to } of falls) {
+      const tile = this.tiles[from]
+      if (!tile) continue
+      this.tiles[to] = tile
+      this.tiles[from] = undefined
+      const col = to % this.grid.cols
+      const dropped = Math.floor(to / this.grid.cols) - Math.floor(from / this.grid.cols)
+      arrivals.push(
+        new Promise((done) =>
+          tile.fallTo(this.cellCenter(to).y, to, dropped, col * COLUMN_STAGGER, done),
+        ),
+      )
+    }
+
+    // New tiles stack up above the board edge, lowest target nearest it, so a
+    // column's refill pours in as one run — and shares the falling tiles'
+    // acceleration, so it never catches them up.
+    const byColumn = new Map<number, Spawn[]>()
+    for (const spawn of spawns) {
+      const col = spawn.index % this.grid.cols
+      byColumn.set(col, [...(byColumn.get(col) ?? []), spawn])
+    }
+    for (const [col, column] of byColumn) {
+      column.sort((a, b) => a.index - b.index)
+      for (let i = 0; i < column.length; i++) {
+        const { index, color } = column[i]
+        const stack = column.length - i
+        const { x, y } = this.cellCenter(index)
+        const startY = this.originY - (stack - 0.5) * this.pitch
+        const tile = this.makeTile(index, color, x, startY)
+        this.tiles[index] = tile
+        const dropped = Math.floor(index / this.grid.cols) + stack
+        arrivals.push(
+          new Promise((done) => tile.fallTo(y, index, dropped, col * COLUMN_STAGGER, done)),
+        )
+        // Falling in from offscreen-ish; the fade keeps the entry from popping
+        // into existence over the HUD.
+        tile.setAlpha(0)
+        this.tweens.add({ targets: tile, alpha: 1, duration: 130, delay: col * COLUMN_STAGGER })
+      }
+    }
+
+    return Promise.all(arrivals)
+  }
+
+  /**
+   * A dead board rearranges itself, at no cost to the player. The scramble is
+   * the swap-travel skeleton played board-wide: every moving tile arcs to its
+   * new cell in a stagger, so it reads as the board reshuffling itself rather
+   * than teleporting.
+   */
+  private animateReshuffle(): Promise<unknown> {
+    const { cells, moves } = reshuffle(this.grid, this.cells, this.rng)
+    this.cells = cells
+
+    const next = this.tiles.slice()
+    const arrivals: Promise<void>[] = []
+    moves.forEach(({ from, to }, i) => {
+      const tile = this.tiles[from]
+      if (!tile) return
+      next[to] = tile
+      const { x, y } = this.cellCenter(to)
+      arrivals.push(
+        new Promise((done) =>
+          this.time.delayedCall(i * 22, () =>
+            tile.swapTo(x, y, to, i % 2 === 0 ? 'active' : 'passive', done),
+          ),
+        ),
+      )
+    })
+    this.tiles = next
+    return Promise.all(arrivals)
   }
 
   /** The cell whose centre is nearest, if within grabbing range; -1 otherwise. */
   private nearestCell(x: number, y: number): number {
     let best = -1
-    let bestDist = TILE_SIZE * 0.75
-    for (let i = 0; i < this.cells.length; i++) {
-      const d = Math.hypot(this.cells[i].x - x, this.cells[i].y - y)
+    let bestDist = this.pitch * 0.75
+    for (let index = 0; index < this.grid.mask.length; index++) {
+      if (!this.grid.mask[index]) continue
+      const centre = this.cellCenter(index)
+      const d = Math.hypot(centre.x - x, centre.y - y)
       if (d < bestDist) {
         bestDist = d
-        best = i
+        best = index
       }
     }
     return best
   }
 
-  /** Orthogonal neighbours only — diagonal drops don't count. */
-  private adjacent(a: number, b: number): boolean {
-    const rows = Math.abs(Math.floor(a / COLS) - Math.floor(b / COLS))
-    const cols = Math.abs((a % COLS) - (b % COLS))
-    return rows + cols === 1
-  }
-
-  private dye(id: ColorId, theme = activeTheme()): Dye {
-    return themedDye(theme, id)
-  }
-
-  private pickTarget(): void {
-    this.target = Phaser.Utils.Array.GetRandom(this.stage.goals)
-  }
-
   private updateHud(): void {
     this.scoreText.setText(`Score: ${this.score}`)
-    this.targetText.setText(`Mix: ${this.target}`)
-    this.targetText.setColor(toCss(activeTheme().values[this.target]))
   }
 }

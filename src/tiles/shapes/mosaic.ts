@@ -138,6 +138,17 @@ export const MOSAIC: Shape = {
       agitation: 1,
       tint: 200,
     },
+    // The crack: barely any swell — ceramic doesn't inflate — then a sharp
+    // twist out of the grout and gone. Quick, like the click but violent.
+    clear: {
+      swell: 1.06,
+      rise: 60,
+      vanish: 120,
+      vanishEase: 'Quad.easeIn',
+      agitation: 1,
+      spin: 14,
+    },
+    fall: { unit: 170 },
     glintFrame: 2,
   },
 }

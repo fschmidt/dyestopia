@@ -34,6 +34,9 @@ src/
   main.ts             # new Phaser.Game(gameConfig)
   config.ts           # GameConfig: resolution, scaling, scene order
   debug.ts            # window.dyestopia — test/console handle on the game
+  board.ts            # the match engine — masks, matches, gravity, legality
+  rng.ts              # seedable randomness, so boards are reproducible
+  stage.ts            # stage data: colours in play + board mask
   palette.ts          # chrome colours (page + text), fixed
   themes.ts           # the colours the game is played with — a setting
   settings.ts         # shape + theme, persisted to localStorage
@@ -44,7 +47,7 @@ src/
     BootScene.ts      # bakes tile sheets, loading bar → Menu
     MenuScene.ts      # title, swatch animation, start
     SettingsScene.ts  # shape + theme pickers with a live preview
-    GameScene.ts      # placeholder round (find the target colour)
+    GameScene.ts      # the match-3 round — animation half of board.ts
   tiles/
     bake.ts           # shape → sprite sheets, at boot
     Tile.ts           # one playable tile

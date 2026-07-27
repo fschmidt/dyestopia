@@ -71,6 +71,11 @@ export class SettingsScene extends BaseScene {
     this.input.keyboard?.once('keydown-ESC', () => this.scene.start('Menu'))
   }
 
+  /** Left edge of the rows — hugs the screen when the world is phone-narrow. */
+  private marginX(): number {
+    return Math.min(120, Math.round(GAME_WIDTH * 0.08))
+  }
+
   private buildRow(
     title: string,
     y: number,
@@ -78,7 +83,7 @@ export class SettingsScene extends BaseScene {
     selected: () => string,
     choose: (id: string) => void,
   ): void {
-    addText(this, 120, y - 44, title.toUpperCase(), {
+    addText(this, this.marginX(), y - 44, title.toUpperCase(), {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '14px',
       color: toCss(PALETTE.inkMuted),
@@ -95,7 +100,7 @@ export class SettingsScene extends BaseScene {
       blurb.setText(current?.blurb ?? '')
     }
 
-    let x = 120
+    let x = this.marginX()
     for (const option of options) {
       const text = addText(this, x, y, option.label, {
         fontFamily: 'system-ui, sans-serif',
@@ -115,7 +120,7 @@ export class SettingsScene extends BaseScene {
       x += text.width + 40
     }
 
-    const blurb = addText(this, 120, y + 42, '', {
+    const blurb = addText(this, this.marginX(), y + 42, '', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '15px',
       color: toCss(PALETTE.inkMuted),
@@ -131,12 +136,17 @@ export class SettingsScene extends BaseScene {
 
     const shape = activeShape()
     const theme = activeTheme()
-    const width = PREVIEW_COLORS.length * TILE_SIZE + (PREVIEW_COLORS.length - 1) * shape.gap
-    const originX = (GAME_WIDTH - width) / 2
+    // Full-size tiles when the row fits; scaled to the width when it doesn't
+    // (portrait phones) — same size parameter the board uses.
+    const full = PREVIEW_COLORS.length * TILE_SIZE + (PREVIEW_COLORS.length - 1) * shape.gap
+    const scale = Math.min(1, (GAME_WIDTH - 32) / full)
+    const originX = (GAME_WIDTH - full * scale) / 2
 
     PREVIEW_COLORS.forEach((id, i) => {
-      const x = originX + i * (TILE_SIZE + shape.gap) + TILE_SIZE / 2
-      this.preview.push(new Tile(this, x, PREVIEW_Y, themedDye(theme, id), shape, i))
+      const x = originX + (i * (TILE_SIZE + shape.gap) + TILE_SIZE / 2) * scale
+      this.preview.push(
+        new Tile(this, x, PREVIEW_Y, themedDye(theme, id), shape, i, TILE_SIZE * scale),
+      )
     })
   }
 }

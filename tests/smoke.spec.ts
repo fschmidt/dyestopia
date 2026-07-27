@@ -50,17 +50,20 @@ test('clicking start enters the game', async ({ page }) => {
   await startGame(page)
 })
 
-test('the round names a mix to create', async ({ page }) => {
+test('the round deals a full board and a zeroed score', async ({ page }) => {
   await open(page)
   await startGame(page)
 
+  // One draggable tile per masked cell — the M1 stage is a full 8×8.
+  const report = await page.evaluate(() => window.dyestopia!.board())
   const swatches = await page.evaluate(() =>
     window.dyestopia!.hitTargets('Game').filter((target) => target.name === 'tile'),
   )
-  expect(swatches).toHaveLength(12)
+  expect(report.cells.length).toBeGreaterThan(0)
+  expect(swatches).toHaveLength(report.cells.length)
+  expect(report.cells.every((cell) => cell.color !== null)).toBe(true)
 
   const texts = await page.evaluate(() => window.dyestopia!.texts('Game'))
-  expect(texts.join(' ')).toMatch(/Mix: (orange|green)/)
   expect(texts).toContain('Score: 0')
 })
 

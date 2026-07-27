@@ -1,6 +1,6 @@
-# Tile motion: drag, swap, merge
+# Tile motion: drag, swap, merge — and clear, fall, refuse
 
-Design notes for the three gameplay moves, for both shapes. Companion to the
+Design notes for the gameplay moves, for both shapes. Companion to the
 tile style explorations doc. Implemented: the numbers live in each shape's
 `motion` block (`src/tiles/shapes/`), the shared skeleton in `src/tiles/Tile.ts`.
 
@@ -151,6 +151,46 @@ the pair comes out of the kiln in the new colour.
 - **Colour:** faster crossfade (~200 ms) landing on the pulse peak, followed
   immediately by the **glint sweep** — the kiln flash that makes the new
   colour official.
+
+## Clearing
+
+Destruction — matched tiles leaving the board (M1). One shared skeleton:
+telegraph (a short swell), burst, gone; the tile destroys itself afterwards.
+The parameters live in `motion.clear`.
+
+- **Splash (blob):** the pop. Swells to **1.35** over 110 ms while
+  `timeScale` spikes to ~2.8 — the outline thrashes like agitated paint —
+  then collapses to nothing in 180 ms with `Back.easeIn`, which winds
+  slightly outward before sucking in: a bubble bursting in reverse.
+- **Mosaic:** the crack. Barely any swell (1.06, 60 ms — ceramic doesn't
+  inflate), the glint jumps at the burst start (the light catching the break),
+  then a quick 120 ms vanish with an angular jolt of **14°** — the tessera
+  twisting out of its grout.
+
+## Falling and spawning
+
+Gravity (M1). Every fall shares one constant acceleration: duration is
+`fall.unit × √cells`, which is real physics — and means tiles dropping down
+the same column keep their spacing instead of overtaking mid-flight. Columns
+stagger by a few ms so a board-wide collapse sweeps rather than thuds.
+Landing reuses the shape's drop settle (the splat, the click); new tiles
+stack above the top edge and pour in on the same curve, with a short alpha
+fade so they don't pop into existence over the HUD. Blob unit 200 ms, mosaic
+170 ms.
+
+## Refusal
+
+The legality rule made visible (M1): a drop the rules reject returns home on
+the normal drop skeleton, then **head-shakes** (the existing reject wiggle) —
+and the spurned neighbour shakes too. Distinct from a missed drag, which goes
+home without commentary; the difference is what teaches "every move must
+clear".
+
+## Reshuffling
+
+A dead board rearranges itself (M1): every moving tile travels to its new
+cell on the swap skeleton — arcs, lifts, staggered starts — so the scramble
+reads as the board reshuffling itself rather than a teleport.
 
 ## Implementation notes
 

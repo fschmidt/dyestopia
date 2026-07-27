@@ -17,7 +17,12 @@ async function boardLook(page: Page): Promise<{ texture: string; tint: number }[
 
 async function openBoardWith(page: Page, patch: Record<string, string>): Promise<void> {
   await page.evaluate((p) => window.dyestopia!.setSettings(p), patch)
-  await page.evaluate(() => window.dyestopia!.goTo('Game'))
+  // Same seed, same deal: the cross-build comparisons below (same tints in a
+  // different skin) only mean something when every build deals the same board.
+  await page.evaluate(() => {
+    window.dyestopia!.seedRng(999)
+    window.dyestopia!.goTo('Game')
+  })
   await waitForScene(page, 'Game')
 }
 
@@ -51,7 +56,9 @@ test('every combination builds a full board', async ({ page }) => {
     for (const theme of ['dyestopia', 'neon', 'dusk']) {
       await openBoardWith(page, { shape, theme })
       const tiles = await boardLook(page)
-      expect(tiles, `${shape} + ${theme}`).toHaveLength(12)
+      const cellCount = await page.evaluate(() => window.dyestopia!.board().cells.length)
+      expect(tiles, `${shape} + ${theme}`).toHaveLength(cellCount)
+      expect(cellCount).toBeGreaterThan(0)
       expect(tiles.every((t) => t.texture === `tile-${shape}-base`)).toBe(true)
     }
   }

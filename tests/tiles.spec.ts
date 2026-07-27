@@ -45,7 +45,8 @@ test('the board animates, out of phase', async ({ page }) => {
     })
 
   const first = await framesOf()
-  expect(first).toHaveLength(12)
+  const cellCount = await page.evaluate(() => window.dyestopia!.board().cells.length)
+  expect(first).toHaveLength(cellCount)
 
   // Neighbours sharing a frame would make the whole board pulse in unison.
   expect(new Set(first).size).toBeGreaterThan(1)
@@ -72,6 +73,8 @@ test('freeze parks every tile on the same frame', async ({ page }) => {
       )
   })
 
-  expect(parked).toHaveLength(24)
+  // Two sprites per tile — base and gloss — all parked on the same frame.
+  const cellCount = await page.evaluate(() => window.dyestopia!.board().cells.length)
+  expect(parked).toHaveLength(cellCount * 2)
   expect(new Set(parked)).toEqual(new Set([5]))
 })

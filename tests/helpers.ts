@@ -1,7 +1,9 @@
 import type { Page } from '@playwright/test'
 
+import type { Cells, Grid } from '../src/board'
 // Pulls in the `window.dyestopia` global declaration.
 import type {} from '../src/debug'
+import type { BoardReport } from '../src/scenes/GameScene'
 
 /** Coordinate space scenes are written in — mirrors src/config.ts. */
 export const GAME_WIDTH = 960
@@ -37,6 +39,39 @@ export async function clickWorld(
 export async function startGame(page: Page): Promise<void> {
   await clickWorld(page, 'Menu', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90)
   await waitForScene(page, 'Game')
+}
+
+/**
+ * Start a round on a known board: the seed goes through the debug bridge into
+ * the next build's RNG, so the same seed always deals the same cells.
+ */
+export async function startSeededGame(page: Page, seed: number): Promise<BoardReport> {
+  await page.evaluate((s) => {
+    window.dyestopia!.seedRng(s)
+    window.dyestopia!.goTo('Game')
+  }, seed)
+  await waitForScene(page, 'Game')
+  return board(page)
+}
+
+/** The Game scene's board — cells, colours, score — as the debug bridge reports it. */
+export function board(page: Page): Promise<BoardReport> {
+  return page.evaluate(() => window.dyestopia!.board())
+}
+
+/**
+ * A board report rebuilt as engine inputs, so tests can run the real rules
+ * (`findLegalSwap`, `swapClears`, …) against the live board instead of
+ * hard-coding cell positions.
+ */
+export function toEngine(report: BoardReport): { grid: Grid; cells: Cells } {
+  const mask = new Array<boolean>(report.cols * report.rows).fill(false)
+  const cells: Cells = new Array(report.cols * report.rows).fill(null)
+  for (const cell of report.cells) {
+    mask[cell.index] = true
+    cells[cell.index] = cell.color as Cells[number]
+  }
+  return { grid: { cols: report.cols, rows: report.rows, mask }, cells }
 }
 
 export interface WorldPoint {

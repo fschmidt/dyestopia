@@ -1,5 +1,7 @@
 import type Phaser from 'phaser'
 
+import { plantSeed } from './rng'
+import type { BoardReport } from './scenes/GameScene'
 import { getSettings, updateSettings, type Settings } from './settings'
 
 /**
@@ -55,6 +57,14 @@ export interface DyestopiaDebug {
    * call this before anything has been clicked if you want a golden image.
    */
   freeze(frame?: number): void
+  /**
+   * Seed the RNG for the *next* board build, then `goTo('Game')`: the same
+   * seed deals the same board, which is what lets a test assert cell contents.
+   * One-shot — boards after the seeded one are random again.
+   */
+  seedRng(seed: number): void
+  /** Cells, colours and score of the running Game scene. */
+  board(): BoardReport
 }
 
 declare global {
@@ -138,6 +148,14 @@ export function exposeDebugApi(game: Phaser.Game): void {
     settings: () => getSettings(),
 
     setSettings: (patch) => updateSettings(patch),
+
+    seedRng: (seed) => plantSeed(seed),
+
+    board: () => {
+      const scene = requireScene(game, 'Game') as unknown as { boardState?: () => BoardReport }
+      if (!scene.boardState) throw new Error('The Game scene has no board to report')
+      return scene.boardState()
+    },
 
     freeze: (frame = 0) => {
       for (const scene of game.scene.getScenes(true)) {

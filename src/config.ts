@@ -8,9 +8,28 @@ import { SettingsScene } from './scenes/SettingsScene'
 /**
  * The coordinate space scenes are written in. Unchanged by the HiDPI handling
  * below — scenes keep using these numbers directly.
+ *
+ * On landscape screens (desktop, tests) this is the classic fixed 960×720.
+ * On portrait screens — phones, where the fixed landscape world would shrink
+ * to a strip — the world adopts the viewport's own CSS-pixel size instead, so
+ * one world unit is one CSS pixel, the canvas fills the screen, and the board
+ * can use the full width. Decided once at boot: scenes position off these
+ * constants when they build, so a rotation mid-session letterboxes until the
+ * next reload (the proper resize pass is M5).
  */
-export const GAME_WIDTH = 960
-export const GAME_HEIGHT = 720
+const logical = (() => {
+  const w = window.innerWidth
+  const h = window.innerHeight
+  if (!w || !h || w >= h) return { width: 960, height: 720 }
+  const width = Math.max(320, Math.min(w, 640))
+  // Height follows the true aspect, so the canvas stays full-bleed; the clamp
+  // only bites on absurdly tall windows.
+  const height = Math.max(480, Math.min(Math.round((h * width) / w), 1400))
+  return { width, height }
+})()
+
+export const GAME_WIDTH = logical.width
+export const GAME_HEIGHT = logical.height
 
 /**
  * Device pixels per CSS pixel, capped.
