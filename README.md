@@ -14,9 +14,14 @@ npm run dev      # http://localhost:5173
 | Script | What |
 |--------|------|
 | `npm run dev` | Dev server with HMR |
+| `npm run dev:host` | Same, reachable from other devices on the LAN |
 | `npm run build` | Typecheck + production build into `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run typecheck` | TypeScript only |
+| `npm test` | Playwright suite at 1x and 2x |
+| `npm run test:headed` | Same, in a visible browser |
+| `npm run test:ui` | Playwright's interactive runner |
+| `npm run shots` | Screenshot scenes to `.screenshots/` |
 
 ## Project structure
 
@@ -28,6 +33,7 @@ public/
 src/
   main.ts             # new Phaser.Game(gameConfig)
   config.ts           # GameConfig: resolution, scaling, scene order
+  debug.ts            # window.dyestopia — test/console handle on the game
   palette.ts          # colour vocabulary (PALETTE + DYES) — single source of truth
   style.css           # page chrome around the canvas
   text.ts             # addText() — HiDPI-correct replacement for scene.add.text
@@ -36,6 +42,8 @@ src/
     BootScene.ts      # preload + loading bar → Menu
     MenuScene.ts      # title, swatch animation, start
     GameScene.ts      # placeholder round (find the target colour)
+tests/                # Playwright specs
+scripts/screenshot.mjs
 ```
 
 ### Resolution and HiDPI
@@ -70,6 +78,72 @@ non-Retina monitor won't re-tune the canvas until reload.
 
 Every colour comes from [`src/palette.ts`](src/palette.ts). Phaser wants numbers
 (`0xrrggbb`), CSS and text styles want strings — that's what `toCss()` is for.
+
+## Testing
+
+Everything the game draws lives inside a canvas, so there is no DOM to query —
+no element for a swatch, no text node for the score. [`src/debug.ts`](src/debug.ts)
+bridges that gap by putting the running game on `window.dyestopia`, with the
+conversions a driver (or you, in the console) needs:
+
+| | |
+|---|---|
+| `activeScenes()` / `isActive(key)` | which scenes are running |
+| `texts(key)` | every Text object's content |
+| `hitTargets(key)` | world positions of interactive objects |
+| `worldToViewport(key, x, y)` | scene coordinates → viewport coordinates |
+| `goTo(key)` | jump straight to a scene |
+| `freeze()` | pause tweens |
+
+`worldToViewport` is the important one: it lets a test send a **real** mouse
+event at a swatch, so the click travels through the camera transform and
+Phaser's hit-testing the way a player's would, rather than being faked by
+calling a handler directly. That's what makes the tests able to catch a broken
+camera setup.
+
+This ships in production deliberately — public game, no secrets, and a console
+handle on the live site is worth more than hiding it.
+
+### Automated
+
+```bash
+npm test
+```
+
+Builds, serves `dist/`, and runs [`tests/`](tests/) against it in Chromium at
+`deviceScaleFactor` 1 and 2 — the DPR path above is the part most likely to
+break silently, so it's covered at both. Point at something already running to
+skip the build:
+
+```bash
+DYESTOPIA_URL=http://localhost:5173 npx playwright test
+```
+
+### Visual
+
+Nothing in a canvas is inspectable as text, so anything visual gets reviewed by
+looking at it:
+
+```bash
+npm run dev                      # in one terminal
+npm run shots                    # Menu + Game at 2x → .screenshots/
+npm run shots -- Boot Menu Game  # pick scenes
+DPR=1 npm run shots              # non-retina
+DYESTOPIA_URL=https://dyestopia.fschmidts.net npm run shots
+```
+
+Screenshots are the only way to catch layout bugs — the double-centring in
+`autoCenter` (see [`src/config.ts`](src/config.ts)) passed every assertion while
+putting the whole game 80 px off centre.
+
+`freeze()` pauses tweens before each shot so runs are roughly comparable, but
+tweens aren't rewound, so these aren't stable enough for pixel diffing yet.
+
+### Manual
+
+`npm run dev` and open http://localhost:5173. `npm run dev:host` prints a LAN
+address for testing touch input on a phone. In the console, `dyestopia.goTo('Game')`
+skips the menu and `dyestopia.game` is the live game object.
 
 ## Deployment
 

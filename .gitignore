@@ -4,3 +4,6 @@ dist/
 .DS_Store
 *.local
 .vite/
+.screenshots/
+test-results/
+playwright-report/

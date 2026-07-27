@@ -32,7 +32,10 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   backgroundColor: '#12101a',
   scale: {
     mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
+    // #game already centres the canvas with flexbox. CENTER_BOTH would add a
+    // margin of the same size on top, pushing the canvas half that margin off
+    // centre — so centring stays in CSS and Phaser keeps its hands off.
+    autoCenter: Phaser.Scale.NO_CENTER,
     // Real device pixels. Scenes never see these numbers; the camera zoom in
     // BaseScene maps them back to GAME_WIDTH x GAME_HEIGHT.
     width: GAME_WIDTH * DPR,
