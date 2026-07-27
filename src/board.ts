@@ -146,6 +146,15 @@ export function refill(grid: Grid, cells: Cells, seed: ColorId[], rng: Rng): Spa
   return spawns
 }
 
+/**
+ * What two colours mix into, if anything — the stage's merge rules, seen from
+ * the engine. The engine takes a function rather than a stage so it stays
+ * ignorant of stage data; `() => undefined` gives a merge-free board.
+ */
+export type MixRule = (a: ColorId, b: ColorId) => ColorId | undefined
+
+const NO_MIX: MixRule = () => undefined
+
 /** Would swapping `a` and `b` clear anything? The move-legality dry run. */
 export function swapClears(grid: Grid, cells: Cells, a: number, b: number): boolean {
   if (cells[a] === null || cells[b] === null || cells[a] === cells[b]) return false
@@ -155,21 +164,69 @@ export function swapClears(grid: Grid, cells: Cells, a: number, b: number): bool
 }
 
 /**
- * Any legal move on the board, or null — the dead-board detector, and later
- * the hint system. M2 extends this with merges; until then a board with no
- * clearing swap is dead.
+ * Would merging `a` and `b` into `result` clear anything? Both tiles take the
+ * result colour in place — the merge supplies 2 of the 3 a match needs, so
+ * this is true exactly when a third result-coloured tile already lines up.
  */
-export function findLegalSwap(grid: Grid, cells: Cells): [number, number] | null {
+export function mergeClears(
+  grid: Grid,
+  cells: Cells,
+  a: number,
+  b: number,
+  result: ColorId,
+): boolean {
+  if (cells[a] === null || cells[b] === null) return false
+  const trial = cells.slice()
+  trial[a] = trial[b] = result
+  return findMatches(grid, trial).size > 0
+}
+
+/** What a drop resolves to. Merges carry the colour both tiles become. */
+export type Move = { kind: 'merge'; result: ColorId } | { kind: 'swap' } | { kind: 'illegal' }
+
+/**
+ * The single entry point for a drop onto a neighbour: merge before swap.
+ *
+ * 1. If the pair mixes and the merge would clear, it merges.
+ * 2. Otherwise, if the swap would clear, it swaps — which also catches
+ *    mergeable pairs whose merge would not match: the swap gets its chance
+ *    rather than the drop dead-ending.
+ * 3. Neither clears → illegal; the drop returns home and costs nothing.
+ *
+ * A same-colour drop falls out illegal by construction: identical colours
+ * mix into nothing, and `swapClears` knows swapping them changes nothing.
+ */
+export function resolveMove(
+  grid: Grid,
+  cells: Cells,
+  mix: MixRule,
+  a: number,
+  b: number,
+): Move {
+  const first = cells[a]
+  const second = cells[b]
+  if (first === null || second === null || !isAdjacent(grid, a, b)) return { kind: 'illegal' }
+  const result = mix(first, second)
+  if (result && mergeClears(grid, cells, a, b, result)) return { kind: 'merge', result }
+  if (swapClears(grid, cells, a, b)) return { kind: 'swap' }
+  return { kind: 'illegal' }
+}
+
+/**
+ * Any legal move on the board — swap or merge — or null: the dead-board
+ * detector, and later the hint system.
+ */
+export function findLegalMove(
+  grid: Grid,
+  cells: Cells,
+  mix: MixRule = NO_MIX,
+): [number, number] | null {
   for (let index = 0; index < grid.mask.length; index++) {
     if (!grid.mask[index]) continue
     const right = index + 1
-    if (isAdjacent(grid, index, right) && swapClears(grid, cells, index, right)) {
-      return [index, right]
-    }
+    if (resolveMove(grid, cells, mix, index, right).kind !== 'illegal') return [index, right]
     const below = index + grid.cols
-    if (isAdjacent(grid, index, below) && swapClears(grid, cells, index, below)) {
-      return [index, below]
-    }
+    if (resolveMove(grid, cells, mix, index, below).kind !== 'illegal') return [index, below]
   }
   return null
 }
@@ -178,7 +235,12 @@ export function findLegalSwap(grid: Grid, cells: Cells): [number, number] | null
  * A fresh board: every masked cell seeded, no match already sitting on the
  * board, and at least one legal move waiting.
  */
-export function generateBoard(grid: Grid, seed: ColorId[], rng: Rng): Cells {
+export function generateBoard(
+  grid: Grid,
+  seed: ColorId[],
+  rng: Rng,
+  mix: MixRule = NO_MIX,
+): Cells {
   const cells: Cells = new Array(grid.mask.length).fill(null)
   for (let index = 0; index < grid.mask.length; index++) {
     if (!grid.mask[index]) continue
@@ -196,7 +258,7 @@ export function generateBoard(grid: Grid, seed: ColorId[], rng: Rng): Cells {
   for (let matches = findMatches(grid, cells); matches.size > 0; matches = findMatches(grid, cells)) {
     for (const index of matches) cells[index] = rngPick(rng, seed)
   }
-  if (!findLegalSwap(grid, cells)) return reshuffle(grid, cells, rng).cells
+  if (!findLegalMove(grid, cells, mix)) return reshuffle(grid, cells, rng, mix).cells
   return cells
 }
 
@@ -213,6 +275,7 @@ export function reshuffle(
   grid: Grid,
   cells: Cells,
   rng: Rng,
+  mix: MixRule = NO_MIX,
 ): { cells: Cells; moves: CellMove[] } {
   const occupied: number[] = []
   for (let index = 0; index < grid.mask.length; index++) {
@@ -233,7 +296,7 @@ export function reshuffle(
   let fallback: { cells: Cells; moves: CellMove[] } | null = null
   let attempt = arrange()
   for (let tries = 0; tries < 120; tries++) {
-    const live = findLegalSwap(grid, attempt.cells) !== null
+    const live = findLegalMove(grid, attempt.cells, mix) !== null
     if (live && findMatches(grid, attempt.cells).size === 0) return attempt
     if (live && !fallback) fallback = attempt
     attempt = arrange()
@@ -243,9 +306,11 @@ export function reshuffle(
 
 /**
  * Points for one clear. Tuning constants, not design: count is what the rules
- * reward, the wave multiplier is the cascade dopamine. Merge bonuses arrive
- * with M2.
+ * reward, the wave multiplier is the cascade dopamine, and a merge-triggered
+ * clear pays half again more than a swapped one — the twist should be worth
+ * choosing. The caller flags only the clear the merge itself caused; cascade
+ * waves after it score as cascades.
  */
-export function clearScore(count: number, wave: number): number {
-  return count * 10 * wave
+export function clearScore(count: number, wave: number, merged = false): number {
+  return count * (merged ? 15 : 10) * wave
 }
