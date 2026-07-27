@@ -1,0 +1,28 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #12101a;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Stop iOS from treating game taps as double-tap-to-zoom. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game canvas {
+  display: block;
+}
