@@ -128,4 +128,25 @@ export const BLOB: Shape = {
   sway: (t) => Math.sin(t * Math.PI * 2) * 0.04,
   base,
   gloss,
+  // Liquid: slow, elastic, deforming. Held paint wobbles faster (agitation),
+  // lands with a splat, and merges by swelling as it takes the other's volume.
+  motion: {
+    lift: 1.12,
+    liftDuration: 170,
+    straighten: false,
+    followLerp: 0.25,
+    stretch: 0.15,
+    lean: 8,
+    agitation: 1.8,
+    drop: { squashX: 1.18, squashY: 0.84, duration: 260, ease: 'Back.easeOut' },
+    swap: { duration: 380, ease: 'Sine.easeInOut', arc: 0.15, stretch: 0.12, passiveLift: 1.08 },
+    merge: {
+      swell: 1.2,
+      rise: 160,
+      settle: 320,
+      settleEase: 'Back.easeOut',
+      agitation: 2.5,
+      tint: 350,
+    },
+  },
 }

@@ -117,4 +117,27 @@ export const MOSAIC: Shape = {
   sway: (t) => Math.sin(t * Math.PI * 2) * 0.008,
   base,
   gloss,
+  // Ceramic: quick, crisp, rigid — no stretch, ever. It lifts out of the grout
+  // square (straighten), clicks back in with a dip, and lands on the start of
+  // the glint window so the light crosses the glaze as it settles.
+  motion: {
+    lift: 1.08,
+    liftDuration: 120,
+    straighten: true,
+    followLerp: 0.35,
+    stretch: 0,
+    lean: 6,
+    agitation: 1,
+    drop: { squashX: 0.98, squashY: 0.98, duration: 90, ease: 'Quad.easeOut' },
+    swap: { duration: 260, ease: 'Cubic.easeInOut', arc: 0, stretch: 0, passiveLift: 1.04 },
+    merge: {
+      swell: 1.12,
+      rise: 140,
+      settle: 100,
+      settleEase: 'Quad.easeOut',
+      agitation: 1,
+      tint: 200,
+    },
+    glintFrame: 2,
+  },
 }
