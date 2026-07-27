@@ -3,17 +3,19 @@ import { expect, test } from '@playwright/test'
 import {
   applyGravity,
   clearScore,
-  findLegalSwap,
+  findLegalMove,
   findMatches,
   generateBoard,
+  mergeClears,
   parseMask,
   refill,
   reshuffle,
+  resolveMove,
   swapClears,
   type Cells,
   type Grid,
 } from '../src/board'
-import type { ColorId } from '../src/colors'
+import { mixResult, type ColorId } from '../src/colors'
 import { mulberry32 } from '../src/rng'
 
 /**
@@ -128,14 +130,61 @@ test.describe('move legality', () => {
 
   test('finds a legal move, and knows a dead board', () => {
     const live = cellsOf(grid, ['ryrr', 'yrgb', 'bgyg'])
-    expect(findLegalSwap(grid, live)).not.toBeNull()
+    expect(findLegalMove(grid, live)).not.toBeNull()
 
     // Diagonal stripes of three colours: every row and column cycles r-y-b,
     // so any two cells within distance two differ — no swap can complete a
     // run, because the two unswapped cells of the run would have to match.
     const dead = cellsOf(grid, ['rybr', 'ybry', 'bryb'])
     expect(findMatches(grid, dead).size).toBe(0)
-    expect(findLegalSwap(grid, dead)).toBeNull()
+    expect(findLegalMove(grid, dead)).toBeNull()
+  })
+})
+
+test.describe('merge resolution', () => {
+  const grid = parseMask(['####', '####', '####'])
+
+  test('a merge clears exactly when a third result tile lines up', () => {
+    // r+y at 0-1 become orange, joining the two already on the row.
+    const cells = cellsOf(grid, ['ryoo', 'bgbg', 'gbgb'])
+    expect(mergeClears(grid, cells, 0, 1, 'orange')).toBe(true)
+    // The same pair aimed at a colour with no third on the board.
+    expect(mergeClears(grid, cells, 0, 1, 'green')).toBe(false)
+  })
+
+  test('merge wins over a swap that would also clear', () => {
+    // Merging 0-1 lines up o-o-o-o on the top row; swapping them would line
+    // up y-y-y down the left column. Merge-before-swap picks the merge.
+    const cells = cellsOf(grid, ['ryoo', 'yrgb', 'ybgg'])
+    expect(swapClears(grid, cells, 0, 1)).toBe(true)
+    expect(resolveMove(grid, cells, mixResult, 0, 1)).toEqual({
+      kind: 'merge',
+      result: 'orange',
+    })
+  })
+
+  test('the swap gets its chance when the merge would not clear', () => {
+    // y(1) and r(5) mix into orange, but no third orange exists — the swap,
+    // which lines up r-r-r on the top row, happens instead.
+    const cells = cellsOf(grid, ['ryrr', 'yrgb', 'bgyg'])
+    expect(resolveMove(grid, cells, mixResult, 1, 5)).toEqual({ kind: 'swap' })
+  })
+
+  test('neither clearing means illegal — mixable or not', () => {
+    const cells = cellsOf(grid, ['ryrr', 'yrgb', 'bgyg'])
+    // y(4) and b(8) mix into green, but neither the merge nor the swap clears.
+    expect(resolveMove(grid, cells, mixResult, 4, 8)).toEqual({ kind: 'illegal' })
+    // Non-adjacent cells are never a move.
+    expect(resolveMove(grid, cells, mixResult, 0, 2)).toEqual({ kind: 'illegal' })
+  })
+
+  test('a board dead to swaps can be alive through a merge', () => {
+    // One row: no swap rearranges o-r-y-o into a run, but merging r+y makes
+    // the whole row orange.
+    const row = parseMask(['####'])
+    const cells = cellsOf(row, ['oryo'])
+    expect(findLegalMove(row, cells)).toBeNull()
+    expect(findLegalMove(row, cells, mixResult)).toEqual([1, 2])
   })
 })
 
@@ -152,14 +201,14 @@ test.describe('board generation', () => {
     expect(other).not.toEqual(first)
     expect(first.every((c, i) => (grid.mask[i] ? c !== null : c === null))).toBe(true)
     expect(findMatches(grid, first).size).toBe(0)
-    expect(findLegalSwap(grid, first)).not.toBeNull()
+    expect(findLegalMove(grid, first)).not.toBeNull()
   })
 
   test('holds across many seeds', () => {
     for (let n = 0; n < 50; n++) {
       const cells = generateBoard(grid, seed, mulberry32(n))
       expect(findMatches(grid, cells).size).toBe(0)
-      expect(findLegalSwap(grid, cells)).not.toBeNull()
+      expect(findLegalMove(grid, cells)).not.toBeNull()
     }
   })
 })
@@ -170,13 +219,13 @@ test.describe('reshuffle', () => {
     // The dead diagonal-stripe board again — 4r + 4y + 4b has plenty of live,
     // match-free arrangements for the search to land on.
     const cells = cellsOf(grid, ['rybr', 'ybry', 'bryb'])
-    expect(findLegalSwap(grid, cells)).toBeNull()
+    expect(findLegalMove(grid, cells)).toBeNull()
 
     const { cells: next, moves } = reshuffle(grid, cells, mulberry32(5))
 
     expect([...next].sort()).toEqual([...cells].sort())
     expect(findMatches(grid, next).size).toBe(0)
-    expect(findLegalSwap(grid, next)).not.toBeNull()
+    expect(findLegalMove(grid, next)).not.toBeNull()
 
     // The move list really is the delta between the two arrangements.
     const replayed = cells.slice()
@@ -190,5 +239,10 @@ test.describe('scoring', () => {
     expect(clearScore(3, 1)).toBe(30)
     expect(clearScore(4, 1)).toBe(40)
     expect(clearScore(3, 2)).toBe(60)
+  })
+
+  test('merge-triggered clears pay half again more', () => {
+    expect(clearScore(3, 1, true)).toBe(45)
+    expect(clearScore(4, 1, true)).toBe(60)
   })
 })

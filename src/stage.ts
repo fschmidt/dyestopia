@@ -16,13 +16,15 @@ export interface Stage {
 }
 
 /**
- * The M1 engine stage: a plain 8×8 board for shaking down the match engine.
+ * The dev stage: a plain 8×8 board for shaking down the engine.
  *
- * Five seed colours, though the design says refills drop primaries only —
- * with three colours nearly every swap matches and legality stops meaning
- * anything, which makes for a poor test bench. Once merging lands (M2) and
- * stages are authored (M4), seed lists shrink back toward the primaries and
- * the mixed colours become player-made again.
+ * Five seed colours, though the design says refills drop primaries only. A
+ * merge is only legal when it clears, and the merge supplies just 2 of the 3
+ * result-coloured tiles a match needs — so the first merge needs a secondary
+ * already on the board. Here the seed provides them; authored stages (M4)
+ * will instead start primaries-only boards with secondaries placed in the
+ * initial deal, making every one on the board player-made. Purple stays out:
+ * nothing seeds it, so a red+blue merge could never clear.
  */
 export const FIRST_STAGE: Stage = {
   active: ['red', 'yellow', 'blue', 'orange', 'green'],

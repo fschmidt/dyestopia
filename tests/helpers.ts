@@ -1,9 +1,10 @@
 import type { Page } from '@playwright/test'
 
-import type { Cells, Grid } from '../src/board'
+import { isAdjacent, resolveMove, type Cells, type Grid, type MixRule } from '../src/board'
 // Pulls in the `window.dyestopia` global declaration.
 import type {} from '../src/debug'
 import type { BoardReport } from '../src/scenes/GameScene'
+import { FIRST_STAGE, stageMix } from '../src/stage'
 
 /** Coordinate space scenes are written in — mirrors src/config.ts. */
 export const GAME_WIDTH = 960
@@ -61,7 +62,7 @@ export function board(page: Page): Promise<BoardReport> {
 
 /**
  * A board report rebuilt as engine inputs, so tests can run the real rules
- * (`findLegalSwap`, `swapClears`, …) against the live board instead of
+ * (`findLegalMove`, `resolveMove`, …) against the live board instead of
  * hard-coding cell positions.
  */
 export function toEngine(report: BoardReport): { grid: Grid; cells: Cells } {
@@ -72,6 +73,25 @@ export function toEngine(report: BoardReport): { grid: Grid; cells: Cells } {
     cells[cell.index] = cell.color as Cells[number]
   }
   return { grid: { cols: report.cols, rows: report.rows, mask }, cells }
+}
+
+/** The scene's stage rules, mirrored so specs resolve drops the way it will. */
+export const stageRules: MixRule = (a, b) => stageMix(FIRST_STAGE, a, b)
+
+/** The first adjacent pair whose drop resolves to `kind`, or null. */
+export function moveOfKind(
+  grid: Grid,
+  cells: Cells,
+  kind: 'merge' | 'swap' | 'illegal',
+): [number, number] | null {
+  for (let a = 0; a < grid.mask.length; a++) {
+    if (!grid.mask[a]) continue
+    for (const b of [a + 1, a + grid.cols]) {
+      if (!isAdjacent(grid, a, b)) continue
+      if (resolveMove(grid, cells, stageRules, a, b).kind === kind) return [a, b]
+    }
+  }
+  return null
 }
 
 export interface WorldPoint {

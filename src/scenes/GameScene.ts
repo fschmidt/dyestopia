@@ -3,17 +3,18 @@ import Phaser from 'phaser'
 import {
   applyGravity,
   clearScore,
-  findLegalSwap,
+  findLegalMove,
   findMatches,
   generateBoard,
   isAdjacent,
   parseMask,
   refill,
   reshuffle,
-  swapClears,
+  resolveMove,
   type Cells,
   type CellMove,
   type Grid,
+  type MixRule,
   type Spawn,
 } from '../board'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
@@ -21,7 +22,7 @@ import type { ColorId } from '../colors'
 import { PALETTE, toCss } from '../palette'
 import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
-import { FIRST_STAGE } from '../stage'
+import { FIRST_STAGE, stageMix } from '../stage'
 import { addText } from '../text'
 import { themedDye } from '../themes'
 import { TILE_SIZE } from '../tiles/bake'
@@ -66,9 +67,12 @@ export interface BoardReport {
 /**
  * The match-3 round. Tiles clear when 3+ of a colour line up; gravity pulls
  * the board down, seed colours refill from above, cascades resolve on their
- * own and score with a rising wave multiplier. A move — for now a swap; M2
- * adds merges in front — is only legal if it clears, checked by dry-running
- * it against the model; refused drops shake and go home.
+ * own and score with a rising wave multiplier. Every drop goes through the
+ * merge-before-swap order in `resolveMove`: if the pair mixes and the merge
+ * would clear, both tiles take the result colour where they stand; otherwise
+ * the swap gets its chance; neither clearing means the drop shakes and goes
+ * home. Merge-triggered clears pay a bonus — the twist should be worth
+ * choosing.
  *
  * The scene is the animation half of the split with src/board.ts: the model
  * there is authoritative and synchronous, tiles here catch up to it tween by
@@ -76,6 +80,7 @@ export interface BoardReport {
  */
 export class GameScene extends BaseScene {
   private readonly stage = FIRST_STAGE
+  private readonly mix: MixRule = (a, b) => stageMix(this.stage, a, b)
 
   private grid!: Grid
   private cells!: Cells
@@ -112,7 +117,7 @@ export class GameScene extends BaseScene {
 
     this.grid = parseMask(this.stage.board)
     this.layoutBoard()
-    this.cells = generateBoard(this.grid, this.stage.seed, this.rng)
+    this.cells = generateBoard(this.grid, this.stage.seed, this.rng, this.mix)
     this.tiles = new Array(this.cells.length).fill(undefined)
     for (let index = 0; index < this.cells.length; index++) {
       const color = this.cells[index]
@@ -139,7 +144,7 @@ export class GameScene extends BaseScene {
       this,
       GAME_WIDTH / 2,
       GAME_HEIGHT - 18,
-      'Drag a tile onto a neighbour — every move must line up 3',
+      'Drag a tile onto a neighbour — mix a colour, or line up 3',
       {
         fontFamily: 'system-ui, sans-serif',
         fontSize: '14px',
@@ -296,7 +301,9 @@ export class GameScene extends BaseScene {
     }
 
     const other = this.tiles[cell]
-    if (!swapClears(this.grid, this.cells, origin, cell)) {
+    const move = resolveMove(this.grid, this.cells, this.mix, origin, cell)
+
+    if (move.kind === 'illegal') {
       // A real attempt the rules refuse: both tiles say no, so the legality
       // rule teaches itself.
       tile.refuse(home.x, home.y, origin)
@@ -305,6 +312,20 @@ export class GameScene extends BaseScene {
     }
 
     this.resolving = true
+
+    if (move.kind === 'merge') {
+      // Both tiles stay on their cells and come out dyed the result colour;
+      // the dragged one glides home while the pair pulses. The pulse hands
+      // off into the destruction, so mix → burst reads as cause and effect.
+      this.cells[origin] = this.cells[cell] = move.result
+      const dye = themedDye(activeTheme(), move.result)
+      void Promise.all([
+        new Promise<void>((done) => tile.mergeReturn(home.x, home.y, origin, dye, done)),
+        new Promise<void>((done) => other.mix(dye, done)),
+      ]).then(() => this.resolve(true))
+      return
+    }
+
     ;[this.cells[origin], this.cells[cell]] = [this.cells[cell], this.cells[origin]]
     this.tiles[origin] = other
     this.tiles[cell] = tile
@@ -320,13 +341,15 @@ export class GameScene extends BaseScene {
    * lines keep forming — the cascade loop. Waves cost no move and multiply
    * the score. Ends by reviving a dead board, then hands input back.
    */
-  private async resolve(): Promise<void> {
+  private async resolve(merged = false): Promise<void> {
     this.resolving = true
     for (let wave = 1; ; wave++) {
       const matched = findMatches(this.grid, this.cells)
       if (matched.size === 0) break
 
-      this.score += clearScore(matched.size, wave)
+      // The merge bonus applies to the clear the merge itself caused; the
+      // cascade waves after it score as cascades, whoever started them.
+      this.score += clearScore(matched.size, wave, merged && wave === 1)
       this.updateHud()
       await Promise.all(
         [...matched].map(
@@ -345,7 +368,7 @@ export class GameScene extends BaseScene {
       await this.animateDescent(falls, spawns)
     }
 
-    if (!findLegalSwap(this.grid, this.cells)) await this.animateReshuffle()
+    if (!findLegalMove(this.grid, this.cells, this.mix)) await this.animateReshuffle()
     this.resolving = false
   }
 
@@ -405,7 +428,7 @@ export class GameScene extends BaseScene {
    * than teleporting.
    */
   private animateReshuffle(): Promise<unknown> {
-    const { cells, moves } = reshuffle(this.grid, this.cells, this.rng)
+    const { cells, moves } = reshuffle(this.grid, this.cells, this.rng, this.mix)
     this.cells = cells
 
     const next = this.tiles.slice()

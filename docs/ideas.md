@@ -5,6 +5,7 @@
 - destroy tile tool 
 - palette swap
 - free move tile (can be merged/swapped with any other tile)
+- multicolor tile
 
 # Accessibility
 - greyscale / colorblind mode (what's actually possible and what's not)

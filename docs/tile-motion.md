@@ -111,12 +111,19 @@ travels on top.
 ## Merging
 
 The thematic heart: dyes mixing. Merges happen between orthogonal neighbours
-and *both tiles survive*: each stays on its cell and both come out dyed the
-result colour. Whether a pair merges at all is game logic (`src/colors.ts`
-defines what mixes into what, `src/stage.ts` which results a stage allows;
-pairs with no allowed mix swap instead). The colour change is a tint tween on
-the base sprite — interpolate with `Phaser.Display.Color.Interpolate` in an
-`onUpdate`, since tint isn't directly tweenable.
+and *both tiles survive the mix*: each stays on its cell and both come out
+dyed the result colour. Whether a drop merges at all is game logic
+(`resolveMove` in `src/board.ts`: merge before swap, and only if the merge
+clears — the pair supplies 2 of the 3 result tiles a match needs). The colour
+change is a tint tween on the base sprite — interpolate with
+`Phaser.Display.Color.Interpolate` in an `onUpdate`, since tint isn't
+directly tweenable.
+
+Because a legal merge always clears, the pulse never stands alone: it **hands
+off into the destruction**. The pair finishes its swell already part of a
+line, and the burst fires the moment the pulse settles — mix → burst reads as
+cause and effect, which is the whole pitch of the mechanic. A merged tile the
+line doesn't include stays behind as a player-made colour.
 
 ### Shared skeleton
 

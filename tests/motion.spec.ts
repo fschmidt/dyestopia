@@ -1,7 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { findLegalSwap, swapClears } from '../src/board'
-import { board, dragWorld, open, startGame, startSeededGame, toEngine } from './helpers'
+import { board, dragWorld, moveOfKind, open, startGame, startSeededGame, toEngine } from './helpers'
 
 /**
  * The feel layer: poses and travel, on top of the match loop that
@@ -89,17 +88,14 @@ test('a refused drop returns home and shakes it off', async ({ page }) => {
   await open(page)
   const report = await startSeededGame(page, 4711)
 
-  // Drag a corner tile onto its right neighbour only if that swap is illegal
-  // on this seed; if the seed ever shifts under this test, pick another pair
-  // in match.spec.ts fashion instead of hard-coding.
+  // Any adjacent pair whose drop resolves to nothing — neither the merge nor
+  // the swap would clear, so the rules refuse it.
   const { grid, cells } = toEngine(report)
-  const pair = report.cells.find((c) => {
-    const right = report.cells.find((r) => r.index === c.index + 1)
-    return right && c.row === right.row && !swapClears(grid, cells, c.index, c.index + 1)
-  })!
-  const right = report.cells.find((r) => r.index === pair.index + 1)!
+  const pair = moveOfKind(grid, cells, 'illegal')!
+  const from = report.cells.find((c) => c.index === pair[0])!
+  const to = report.cells.find((c) => c.index === pair[1])!
 
-  await dragWorld(page, 'Game', pair, right)
+  await dragWorld(page, 'Game', from, to)
 
   // Home again, upright, board untouched.
   await expect
@@ -120,7 +116,7 @@ test('the match loop holds up in the mosaic shape too', async ({ page }) => {
   const report = await startSeededGame(page, 4711)
   const { grid, cells } = toEngine(report)
 
-  const move = findLegalSwap(grid, cells)
+  const move = moveOfKind(grid, cells, 'swap')
   expect(move).not.toBeNull()
   const [a, b] = move!
   await dragWorld(

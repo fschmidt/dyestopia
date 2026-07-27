@@ -482,12 +482,12 @@ export class Tile extends Phaser.GameObjects.Container {
    * and come out dyed. The pulse swells while the colours combine — the
    * mixing moment — then settles, with the tint crossfading to the result.
    */
-  mix(result: Dye): void {
+  mix(result: Dye, onDone?: () => void): void {
     const from = this._dye.value
     this._dye = result
     this.killMotion()
     this.moving = true
-    this.mixPulse(from)
+    this.mixPulse(from, onDone)
   }
 
   /**
@@ -495,7 +495,7 @@ export class Tile extends Phaser.GameObjects.Container {
    * result. Position and pulse ride on different properties, so the two tweens
    * coexist and the mix visibly starts at the drop, not after the return.
    */
-  mergeReturn(x: number, y: number, restIndex: number, result: Dye): void {
+  mergeReturn(x: number, y: number, restIndex: number, result: Dye, onDone?: () => void): void {
     const from = this._dye.value
     this._dye = result
     this.beginMove(DEPTH_ACTIVE)
@@ -508,7 +508,7 @@ export class Tile extends Phaser.GameObjects.Container {
       duration: 120,
       ease: 'Quad.easeOut',
     })
-    this.mixPulse(from)
+    this.mixPulse(from, onDone)
   }
 
   /**
@@ -516,7 +516,7 @@ export class Tile extends Phaser.GameObjects.Container {
    * crossfade. The gloss can't exceed alpha 1, so the flash is the tint's
    * job — an overshoot toward white at the peak, landing on the result.
    */
-  private mixPulse(from: number): void {
+  private mixPulse(from: number, onDone?: () => void): void {
     const m = this.shape.motion
 
     this.base.anims.timeScale = m.merge.agitation
@@ -536,6 +536,7 @@ export class Tile extends Phaser.GameObjects.Container {
         this.setDepth(0)
         this.moving = false
         this.glint()
+        onDone?.()
       },
     })
 

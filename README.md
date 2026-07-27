@@ -110,7 +110,7 @@ Work is split by what each technique is good at:
 
 | | |
 |---|---|
-| Transform — hover lift, press squish, later merge/swap | **tweens** — interruptible, resolution-independent, free |
+| Transform — hover lift, press squish, merge/swap travel | **tweens** — interruptible, resolution-independent, free |
 | Outline deformation, gloss travel | **baked frames** — no transform can express them |
 | Colour | **tint** — one sheet, every dye |
 
