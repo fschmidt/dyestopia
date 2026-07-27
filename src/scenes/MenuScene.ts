@@ -1,5 +1,6 @@
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
-import { DYES, PALETTE, toCss } from '../palette'
+import { PALETTE, toCss } from '../palette'
+import { activeTheme } from '../settings'
 import { addText } from '../text'
 import { BaseScene } from './BaseScene'
 
@@ -17,10 +18,11 @@ export class MenuScene extends BaseScene {
     }).setOrigin(0.5)
 
     // A row of swatches, purely as a title flourish.
+    const { dyes } = activeTheme()
     const swatch = 48
     const gap = 12
-    const totalWidth = DYES.length * swatch + (DYES.length - 1) * gap
-    DYES.forEach((dye, i) => {
+    const totalWidth = dyes.length * swatch + (dyes.length - 1) * gap
+    dyes.forEach((dye, i) => {
       const x = (GAME_WIDTH - totalWidth) / 2 + i * (swatch + gap) + swatch / 2
       const rect = this.add.rectangle(x, GAME_HEIGHT / 2 - 40, swatch, swatch, dye.value)
       this.tweens.add({
@@ -45,6 +47,18 @@ export class MenuScene extends BaseScene {
     start.on('pointerover', () => start.setScale(1.08))
     start.on('pointerout', () => start.setScale(1))
     start.on('pointerup', () => this.scene.start('Game'))
+
+    const settings = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 150, 'Settings', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '22px',
+      color: toCss(PALETTE.inkMuted),
+    })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true })
+
+    settings.on('pointerover', () => settings.setColor(toCss(PALETTE.ink)))
+    settings.on('pointerout', () => settings.setColor(toCss(PALETTE.inkMuted)))
+    settings.on('pointerup', () => this.scene.start('Settings'))
 
     this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('Game'))
     this.input.keyboard?.once('keydown-ENTER', () => this.scene.start('Game'))

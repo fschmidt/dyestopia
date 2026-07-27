@@ -1,7 +1,8 @@
 import Phaser from 'phaser'
 
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
-import { DYES, PALETTE, toCss, type Dye } from '../palette'
+import { PALETTE, toCss, type Dye } from '../palette'
+import { activeShape, activeTheme } from '../settings'
 import { addText } from '../text'
 import { TILE_SIZE } from '../tiles/bake'
 import { Tile } from '../tiles/Tile'
@@ -9,7 +10,6 @@ import { BaseScene } from './BaseScene'
 
 const COLS = 4
 const ROWS = 3
-const GAP = 26
 
 /**
  * Placeholder round: a target colour is named, the player taps the matching
@@ -55,28 +55,46 @@ export class GameScene extends BaseScene {
   }
 
   private buildGrid(): void {
-    const gridWidth = COLS * TILE_SIZE + (COLS - 1) * GAP
-    const gridHeight = ROWS * TILE_SIZE + (ROWS - 1) * GAP
+    const shape = activeShape()
+    const { dyes } = activeTheme()
+
+    const gridWidth = COLS * TILE_SIZE + (COLS - 1) * shape.gap
+    const gridHeight = ROWS * TILE_SIZE + (ROWS - 1) * shape.gap
     const originX = (GAME_WIDTH - gridWidth) / 2
     const originY = (GAME_HEIGHT - gridHeight) / 2 + 40
+
+    // Grout, for shapes that sit in something rather than floating above it.
+    // Graphics rather than a Rectangle, which has no corner radius.
+    if (shape.board) {
+      const { color, alpha, radius, inset } = shape.board
+      this.add
+        .graphics()
+        .setName('board')
+        .fillStyle(color, alpha)
+        .fillRoundedRect(
+          originX - inset,
+          originY - inset,
+          gridWidth + inset * 2,
+          gridHeight + inset * 2,
+          radius,
+        )
+    }
 
     for (let row = 0; row < ROWS; row++) {
       for (let col = 0; col < COLS; col++) {
         const index = row * COLS + col
-        const dye = DYES[index % DYES.length]
-        const x = originX + col * (TILE_SIZE + GAP) + TILE_SIZE / 2
-        const y = originY + row * (TILE_SIZE + GAP) + TILE_SIZE / 2
+        const dye = dyes[index % dyes.length]
+        const x = originX + col * (TILE_SIZE + shape.gap) + TILE_SIZE / 2
+        const y = originY + row * (TILE_SIZE + shape.gap) + TILE_SIZE / 2
 
-        // A prime stride spreads the idle phases so no two neighbours — in
-        // either direction — are ever in step.
-        const tile = new Tile(this, x, y, dye, index * 7)
+        const tile = new Tile(this, x, y, dye, shape, index)
         tile.on('pointerup', () => this.onSwatchClicked(dye, tile))
       }
     }
   }
 
   private pickTarget(): void {
-    this.target = Phaser.Utils.Array.GetRandom(DYES)
+    this.target = Phaser.Utils.Array.GetRandom(activeTheme().dyes)
   }
 
   private onSwatchClicked(dye: Dye, tile: Tile): void {

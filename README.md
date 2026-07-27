@@ -34,17 +34,21 @@ src/
   main.ts             # new Phaser.Game(gameConfig)
   config.ts           # GameConfig: resolution, scaling, scene order
   debug.ts            # window.dyestopia — test/console handle on the game
-  palette.ts          # colour vocabulary (PALETTE + DYES) — single source of truth
+  palette.ts          # chrome colours (page + text), fixed
+  themes.ts           # the colours the game is played with — a setting
+  settings.ts         # shape + theme, persisted to localStorage
   style.css           # page chrome around the canvas
   text.ts             # addText() — HiDPI-correct replacement for scene.add.text
   scenes/
     BaseScene.ts      # camera setup every scene must inherit
-    BootScene.ts      # preload + loading bar → Menu
+    BootScene.ts      # bakes tile sheets, loading bar → Menu
     MenuScene.ts      # title, swatch animation, start
+    SettingsScene.ts  # shape + theme pickers with a live preview
     GameScene.ts      # placeholder round (find the target colour)
   tiles/
-    bake.ts           # tile artwork → sprite sheets, at boot
+    bake.ts           # shape → sprite sheets, at boot
     Tile.ts           # one playable tile
+    shapes/           # one module per look; add a file, add a shape
 tests/                # Playwright specs
 scripts/screenshot.mjs
 ```
@@ -52,11 +56,12 @@ scripts/screenshot.mjs
 ### Tiles
 
 Tile artwork is baked to sprite sheets at boot ([`src/tiles/bake.ts`](src/tiles/bake.ts))
-rather than drawn live. Soft drop shadows, radial gloss and an organically
-deforming outline are all native to the 2D canvas API and all absent from
-Phaser's `Graphics`; baking each frame once turns them into a plain textured
-quad, so runtime cost is a texture lookup however elaborate the artwork gets.
-The whole bake is single-digit milliseconds.
+rather than drawn live. Soft drop shadows, radial and linear gloss and an
+organically deforming outline are all native to the 2D canvas API and all absent
+from Phaser's `Graphics`; baking each frame once turns them into a plain
+textured quad, so runtime cost is a texture lookup however elaborate the artwork
+gets. Every shape is baked up front — a couple of milliseconds each — which is
+what lets the settings screen switch without a stall.
 
 Two sheets, not one, because **`setTint` multiplies**. Only darkening may be
 baked into the tinted layer — a white highlight there would come back as the
@@ -66,9 +71,37 @@ or the highlight drifts off the silhouette, so only the base plays the
 animation and the gloss follows its `ANIMATION_UPDATE`.
 
 The pay-off is that **colour is a runtime property**: one pair of white sheets
-serves the whole palette, and memory stays flat as dyes are added. Baking per
-colour instead would multiply the atlas by `DYES.length` and grow every time a
-dye is added.
+per shape serves every theme, and memory stays flat as dyes and themes are
+added. Baking per colour instead would multiply the atlas by the number of dyes
+and grow every time one was added.
+
+### Shapes and themes
+
+They're separate settings because they're separate in the renderer — artwork is
+baked white and coloured with a tint, so every combination already works with no
+extra bake. Neither axis knows about the other.
+
+A **shape** ([`src/tiles/shapes/`](src/tiles/shapes/)) owns everything except
+colour: the two layer painters, frame count, padding, board gap, an optional
+grout backdrop, and optional per-tile rotation. Adding one means adding a file
+and listing it — nothing else changes. The two so far:
+
+| | |
+|---|---|
+| **Splash** | A wet blob of paint. The outline itself deforms, which is the one thing no transform can express and the reason it needs 24 frames. |
+| **Mosaic** | Glazed tesserae in grout. Rigid, so its frames carry a glint crossing the glaze instead — the light moves, not the tile. The hand-set feel is a static per-tile rotation, a transform rather than frames. |
+
+A **theme** ([`src/themes.ts`](src/themes.ts)) is just a named list of dyes.
+Names travel with the colours because the round says its target out loud
+("Find: moss").
+
+Both are resolved through their registries when read, so a stale id from an
+older build falls back to the default instead of rendering an empty board.
+
+Scenes read settings as they build, so a change takes effect on the next scene
+start rather than mutating a live board. That keeps `Tile` free of any
+subscription machinery, and it's why the settings preview rebuilds itself
+instead of updating in place.
 
 Work is split by what each technique is good at:
 
@@ -140,6 +173,7 @@ conversions a driver (or you, in the console) needs:
 | `hitTargets(key)` | world positions of interactive objects |
 | `worldToViewport(key, x, y)` | scene coordinates → viewport coordinates |
 | `goTo(key)` | jump straight to a scene |
+| `settings()` / `setSettings(patch)` | read or change shape and theme |
 | `freeze(frame?)` | pause tweens, park every animated sprite on `frame` |
 
 `worldToViewport` is the important one: it lets a test send a **real** mouse
@@ -176,8 +210,15 @@ npm run dev                      # in one terminal
 npm run shots                    # Menu + Game at 2x → .screenshots/
 npm run shots -- Boot Menu Game  # pick scenes
 DPR=1 npm run shots              # non-retina
+SHAPE=mosaic THEME=neon npm run shots
+FRAME=12 npm run shots           # park the idle on a chosen frame
 DYESTOPIA_URL=https://dyestopia.fschmidts.net npm run shots
 ```
+
+`SHAPE`/`THEME` are applied before any scene is entered, and the filename
+carries the combination so shots of different settings don't overwrite each
+other. `FRAME` is how you see an animation without watching it — shoot the same
+scene at a few frames to inspect a loop.
 
 Screenshots are the only way to catch layout bugs — the double-centring in
 `autoCenter` (see [`src/config.ts`](src/config.ts)) passed every assertion while

@@ -2,19 +2,26 @@ import { expect, test } from '@playwright/test'
 
 import { open, startGame } from './helpers'
 
-test('tiles bake to sprite sheets at boot', async ({ page }) => {
+test('every shape bakes its sheets at boot', async ({ page }) => {
   await open(page)
 
   const sheets = await page.evaluate(() => {
     const { textures } = window.dyestopia!.game
-    return ['tile-base', 'tile-gloss'].map((key) => ({
-      key,
-      exists: textures.exists(key),
-      // frame names are '__BASE' plus one per animation frame
-      frames: textures.exists(key) ? textures.get(key).getFrameNames().length : 0,
-    }))
+    return ['blob', 'mosaic'].flatMap((shape) =>
+      ['base', 'gloss'].map((layer) => {
+        const key = `tile-${shape}-${layer}`
+        return {
+          key,
+          exists: textures.exists(key),
+          frames: textures.exists(key) ? textures.get(key).getFrameNames().length : 0,
+        }
+      }),
+    )
   })
 
+  // All shapes are baked up front, not on demand — that's what lets the
+  // settings screen switch without a stall.
+  expect(sheets).toHaveLength(4)
   for (const sheet of sheets) {
     expect(sheet.exists, `${sheet.key} was baked`).toBe(true)
     expect(sheet.frames, `${sheet.key} frame count`).toBe(24)

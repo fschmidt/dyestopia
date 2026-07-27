@@ -1,5 +1,7 @@
 import type Phaser from 'phaser'
 
+import { getSettings, updateSettings, type Settings } from './settings'
+
 /**
  * A handle on the running game, for browser automation and console poking.
  *
@@ -39,6 +41,14 @@ export interface DyestopiaDebug {
   worldToViewport(key: string, x: number, y: number): Point
   /** Stop every running scene and start one. */
   goTo(key: string): void
+  /** The player's current shape and theme. */
+  settings(): Settings
+  /**
+   * Change shape or theme. Scenes read settings when they build, so this only
+   * takes effect on the next `goTo` — which is also what makes it useful for
+   * screenshotting one scene across every combination.
+   */
+  setSettings(patch: Partial<Settings>): Settings
   /**
    * Pause tweens and park every animated sprite on `frame`, so two runs of the
    * same scene produce byte-identical screenshots. Tweens can't be rewound, so
@@ -124,6 +134,10 @@ export function exposeDebugApi(game: Phaser.Game): void {
       }
       game.scene.start(key)
     },
+
+    settings: () => getSettings(),
+
+    setSettings: (patch) => updateSettings(patch),
 
     freeze: (frame = 0) => {
       for (const scene of game.scene.getScenes(true)) {
