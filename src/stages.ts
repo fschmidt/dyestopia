@@ -1,0 +1,202 @@
+import type { Stage } from './stage'
+
+/**
+ * The ten MVP stages, unlocked linearly.
+ *
+ * Stages 1–3 are the tutorial — tiny thresholds, colour sets that force one
+ * concept each (match → merge → cascade) — and the rest curve through purple
+ * and shaped boards into the tertiaries. Refills only drop `seed` colours, so
+ * every secondary a stage plays beyond its opening letters is player-made;
+ * the letters in `board` place the few the first merges need (a merge makes
+ * 2 of the 3 a match wants — the third has to be found or built).
+ *
+ * Thresholds and budgets are tuning numbers, deliberately rough until the
+ * playtest: a plain 3-clear pays 30, a merged one 45, cascades multiply.
+ */
+export const STAGES: Stage[] = [
+  {
+    // Pure match-3: no mixable colours in play, so drops can only swap.
+    name: 'First Splash',
+    hint: 'Drag a tile onto a neighbour to line up 3 of a colour',
+    threshold: 100,
+    moves: 8,
+    active: ['red', 'yellow', 'blue'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '#####', //
+      '#####',
+      '#####',
+      '#####',
+      '#####',
+    ],
+  },
+  {
+    // The twist: orange becomes legal, and three of them wait on the board —
+    // each one a red-on-yellow merge away from a clear.
+    name: 'Mixing Lesson',
+    hint: 'Drop red on yellow to mix orange — clear it beside a third',
+    threshold: 160,
+    moves: 8,
+    active: ['red', 'yellow', 'blue', 'orange'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '######', //
+      '###o##',
+      '######',
+      '#o####',
+      '######',
+      '####o#',
+    ],
+  },
+  {
+    // A taller board gives falls room to chain.
+    name: 'Chain Reaction',
+    hint: 'Falling tiles keep clearing — every extra wave scores more',
+    threshold: 300,
+    moves: 10,
+    active: ['red', 'yellow', 'blue', 'orange', 'green'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '#######', //
+      '##o####',
+      '#####g#',
+      '#######',
+      '#g#####',
+      '####o##',
+      '#######',
+    ],
+  },
+  {
+    name: 'Royal Purple',
+    hint: 'Red and blue make purple',
+    threshold: 450,
+    moves: 12,
+    active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '########', //
+      '###p####',
+      '#o######',
+      '######g#',
+      '########',
+      '##g#####',
+      '#####o##',
+      '########',
+    ],
+  },
+  {
+    // The first shaped board: single-cell tips, and falls that funnel inward.
+    name: 'The Diamond',
+    hint: 'Sharp corners — watch where the falls funnel',
+    threshold: 550,
+    moves: 12,
+    active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '....#....', //
+      '...###...',
+      '..##g##..',
+      '.###o###.',
+      '####p####',
+      '.###g###.',
+      '..##o##..',
+      '...###...',
+      '....#....',
+    ],
+  },
+  {
+    // Two independent wells over a shared floor — matches cross underneath.
+    name: 'Twin Wells',
+    hint: 'Two wells share one floor',
+    threshold: 700,
+    moves: 14,
+    active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '####..####', //
+      '##o#..#g##',
+      '####..####',
+      '#g##..##o#',
+      '####..####',
+      '####p#####',
+      '##########',
+    ],
+  },
+  {
+    // First tertiary: green is player-made from yellow+blue, then dropped on
+    // blue for teal — a two-merge chain, with the preset teal as the payoff.
+    name: 'Deep Teal',
+    hint: 'Blue and green mix into teal',
+    threshold: 800,
+    moves: 14,
+    active: ['red', 'yellow', 'blue', 'orange', 'green', 'teal'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '########', //
+      '##g#####',
+      '######t#',
+      '########',
+      '#t######',
+      '#####g##',
+      '########',
+      '########',
+    ],
+  },
+  {
+    name: 'Amber Glow',
+    hint: 'Yellow and orange mix into amber',
+    threshold: 950,
+    moves: 15,
+    active: ['red', 'yellow', 'blue', 'orange', 'green', 'amber'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '.#######.', //
+      '#########',
+      '##o######',
+      '######a##',
+      '#########',
+      '##a######',
+      '######o##',
+      '#########',
+      '.#######.',
+    ],
+  },
+  {
+    name: 'The Hourglass',
+    hint: 'Everything runs through the waist — red on purple makes magenta',
+    threshold: 1100,
+    moves: 16,
+    active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple', 'magenta'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '#########', //
+      '.##p####.',
+      '..##m##..',
+      '...###...',
+      '..##m##..',
+      '.####p##.',
+      '#########',
+    ],
+  },
+  {
+    // The full 10×10 area, and the widest palette of the MVP.
+    name: 'Full Spectrum',
+    hint: 'Every colour is in play — paint the lot',
+    threshold: 1400,
+    moves: 18,
+    active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple', 'teal', 'amber'],
+    seed: ['red', 'yellow', 'blue'],
+    board: [
+      '##########', //
+      '###o######',
+      '#g######p#',
+      '##########',
+      '#####t####',
+      '##a#######',
+      '########g#',
+      '##########',
+      '#o########',
+      '##########',
+    ],
+  },
+]

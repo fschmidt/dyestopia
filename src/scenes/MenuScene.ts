@@ -40,7 +40,7 @@ export class MenuScene extends BaseScene {
       })
     })
 
-    const start = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'Start game', {
+    const start = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'Play', {
       fontFamily: 'system-ui, sans-serif',
       fontSize: '28px',
       color: toCss(PALETTE.accent),
@@ -50,7 +50,7 @@ export class MenuScene extends BaseScene {
 
     start.on('pointerover', () => start.setScale(1.08))
     start.on('pointerout', () => start.setScale(1))
-    start.on('pointerup', () => this.scene.start('Game'))
+    start.on('pointerup', () => this.fadeTo('StageSelect'))
 
     const settings = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 150, 'Settings', {
       fontFamily: 'system-ui, sans-serif',
@@ -64,8 +64,8 @@ export class MenuScene extends BaseScene {
     settings.on('pointerout', () => settings.setColor(toCss(PALETTE.inkMuted)))
     settings.on('pointerup', () => this.scene.start('Settings'))
 
-    this.input.keyboard?.once('keydown-SPACE', () => this.scene.start('Game'))
-    this.input.keyboard?.once('keydown-ENTER', () => this.scene.start('Game'))
+    this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('StageSelect'))
+    this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('StageSelect'))
 
     addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, 'Press space or click', {
       fontFamily: 'system-ui, sans-serif',

@@ -54,7 +54,7 @@ test('the round deals a full board and a zeroed score', async ({ page }) => {
   await open(page)
   await startGame(page)
 
-  // One draggable tile per masked cell — the M1 stage is a full 8×8.
+  // One draggable tile per masked cell — startGame lands on stage 1.
   const report = await page.evaluate(() => window.dyestopia!.board())
   const swatches = await page.evaluate(() =>
     window.dyestopia!.hitTargets('Game').filter((target) => target.name === 'tile'),
@@ -67,10 +67,13 @@ test('the round deals a full board and a zeroed score', async ({ page }) => {
   expect(texts).toContain('Score: 0')
 })
 
-test('escape returns to the menu', async ({ page }) => {
+test('escape walks back out: game, stage select, menu', async ({ page }) => {
   await open(page)
   await page.evaluate(() => window.dyestopia!.goTo('Game'))
   await waitForScene(page, 'Game')
+
+  await page.keyboard.press('Escape')
+  await waitForScene(page, 'StageSelect')
 
   await page.keyboard.press('Escape')
   await waitForScene(page, 'Menu')

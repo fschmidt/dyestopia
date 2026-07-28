@@ -23,9 +23,11 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import type { ColorId } from '../colors'
 import { flags } from '../flags'
 import { PALETTE, toCss } from '../palette'
+import { recordWin } from '../progress'
 import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
-import { FIRST_STAGE, stageMix } from '../stage'
+import { FIRST_STAGE, stageMix, stagePreset, type Stage } from '../stage'
+import { STAGES } from '../stages'
 import { addText } from '../text'
 import { themedDye } from '../themes'
 import { TILE_SIZE } from '../tiles/bake'
@@ -61,11 +63,31 @@ const COLUMN_STAGGER = 14
 /** Delay per flood step of the combo ripple, ms — the recolour's travel speed. */
 const COMBO_RIPPLE = 70
 
+/** From here down the move counter reads as a warning. */
+const LOW_MOVES = 3
+
+/** How the round starts: which authored stage, none meaning the dev board. */
+export interface GameStartData {
+  /** Index into STAGES; absent = FIRST_STAGE, reachable only via the bridge. */
+  stage?: number
+  /**
+   * Test/console overrides for the win condition — how automation forces a
+   * loss (or instant win) without playing twenty honest moves.
+   */
+  override?: { threshold?: number; moves?: number }
+}
+
 /** What the debug bridge reports about the board — see src/debug.ts. */
 export interface BoardReport {
   cols: number
   rows: number
   score: number
+  /** Index into STAGES, or null on the dev board. */
+  stage: number | null
+  threshold: number
+  /** Moves still in the budget. */
+  moves: number
+  outcome: 'playing' | 'won' | 'lost'
   /** Masked cells only, with their world-space centres. */
   cells: { index: number; col: number; row: number; color: string | null; x: number; y: number }[]
 }
@@ -80,12 +102,18 @@ export interface BoardReport {
  * home. Merge-triggered clears pay a bonus — the twist should be worth
  * choosing.
  *
+ * On top of the loop sits the stage frame (M4): every legal move spends from
+ * the stage's budget, reaching the threshold wins, running dry loses, and
+ * both end in an overlay that offers the next step. Wins feed the linear
+ * unlock in src/progress.ts.
+ *
  * The scene is the animation half of the split with src/board.ts: the model
  * there is authoritative and synchronous, tiles here catch up to it tween by
  * tween, and `resolving` keeps the player out until the two agree again.
  */
 export class GameScene extends BaseScene {
-  private readonly stage = FIRST_STAGE
+  private stage: Stage = FIRST_STAGE
+  private stageIndex?: number
   private readonly mix: MixRule = (a, b) => stageMix(this.stage, a, b)
 
   private grid!: Grid
@@ -94,7 +122,20 @@ export class GameScene extends BaseScene {
   private rng!: Rng
 
   private score = 0
+  private movesLeft = 0
+  private outcome: 'playing' | 'won' | 'lost' = 'playing'
+  /** The threshold moment fires once, however far the score climbs past it. */
+  private thresholdMet = false
+
+  /** What the score text shows right now — it ticks up toward `score`. */
+  private displayScore = 0
+  private scoreTween?: Phaser.Tweens.Tween
   private scoreText!: Phaser.GameObjects.Text
+  private movesText!: Phaser.GameObjects.Text
+  private targetFill!: Phaser.GameObjects.Rectangle
+  private barX = 0
+  private barWidth = 0
+
   /** A move is being resolved — no new moves until the board settles. */
   private resolving = false
 
@@ -114,8 +155,16 @@ export class GameScene extends BaseScene {
     super('Game')
   }
 
-  create(): void {
+  create(data: GameStartData = {}): void {
+    this.stageIndex = data.stage
+    const authored = data.stage !== undefined ? STAGES[data.stage] : FIRST_STAGE
+    this.stage = data.override ? { ...authored, ...data.override } : authored
+
     this.score = 0
+    this.displayScore = 0
+    this.movesLeft = this.stage.moves
+    this.outcome = 'playing'
+    this.thresholdMet = false
     this.resolving = false
     this.dragged = undefined
     this.shape = activeShape()
@@ -123,7 +172,13 @@ export class GameScene extends BaseScene {
 
     this.grid = parseMask(this.stage.board)
     this.layoutBoard()
-    this.cells = generateBoard(this.grid, this.stage.seed, this.rng, this.mix)
+    this.cells = generateBoard(
+      this.grid,
+      this.stage.seed,
+      this.rng,
+      this.mix,
+      stagePreset(this.stage.board, this.grid),
+    )
     this.tiles = new Array(this.cells.length).fill(undefined)
     for (let index = 0; index < this.cells.length; index++) {
       const color = this.cells[index]
@@ -133,30 +188,7 @@ export class GameScene extends BaseScene {
       }
     }
 
-    this.scoreText = addText(this, 24, 20, '', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '20px',
-      color: toCss(PALETTE.ink),
-    })
-    this.updateHud()
-
-    addText(this, GAME_WIDTH - 24, 20, 'ESC = Menu', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '16px',
-      color: toCss(PALETTE.inkMuted),
-    }).setOrigin(1, 0)
-
-    addText(
-      this,
-      GAME_WIDTH / 2,
-      GAME_HEIGHT - 18,
-      'Drag a tile onto a neighbour — mix a colour, or line up 3',
-      {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '14px',
-        color: toCss(PALETTE.inkMuted),
-      },
-    ).setOrigin(0.5, 1)
+    this.buildHud()
 
     this.input.dragDistanceThreshold = DRAG_THRESHOLD
     this.input.on(
@@ -183,14 +215,14 @@ export class GameScene extends BaseScene {
         this.onDragEnd(obj),
     )
 
-    this.input.keyboard?.once('keydown-ESC', () => this.scene.start('Menu'))
+    this.input.keyboard?.once('keydown-ESC', () => this.fadeTo('StageSelect'))
   }
 
   update(_time: number, delta: number): void {
     this.dragged?.follow(delta)
   }
 
-  /** The board and score as data, for tests and console archaeology. */
+  /** The board and stage state as data, for tests and console archaeology. */
   boardState(): BoardReport {
     const cells = []
     for (let index = 0; index < this.grid.mask.length; index++) {
@@ -205,7 +237,84 @@ export class GameScene extends BaseScene {
         y,
       })
     }
-    return { cols: this.grid.cols, rows: this.grid.rows, score: this.score, cells }
+    return {
+      cols: this.grid.cols,
+      rows: this.grid.rows,
+      score: this.score,
+      stage: this.stageIndex ?? null,
+      threshold: this.stage.threshold,
+      moves: this.movesLeft,
+      outcome: this.outcome,
+      cells,
+    }
+  }
+
+  /**
+   * The stage frame around the board: name and way out on top, then the
+   * score/moves row, the threshold bar, and the stage's one hint line at the
+   * bottom where the old generic instruction sat.
+   */
+  private buildHud(): void {
+    const area = boardArea()
+    const label =
+      this.stageIndex !== undefined
+        ? `Stage ${this.stageIndex + 1} — ${this.stage.name}`
+        : this.stage.name
+
+    addText(this, area.marginX, 14, label, {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '15px',
+      color: toCss(PALETTE.inkMuted),
+    })
+
+    const back = addText(this, GAME_WIDTH - area.marginX, 14, '‹ Stages', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '15px',
+      color: toCss(PALETTE.inkMuted),
+    })
+      .setOrigin(1, 0)
+      .setName('back')
+      .setInteractive({ useHandCursor: true })
+    back.on('pointerover', () => back.setColor(toCss(PALETTE.ink)))
+    back.on('pointerout', () => back.setColor(toCss(PALETTE.inkMuted)))
+    back.on('pointerup', () => this.fadeTo('StageSelect'))
+
+    this.scoreText = addText(this, area.marginX, area.top - 66, 'Score: 0', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '20px',
+      color: toCss(PALETTE.ink),
+    })
+
+    this.movesText = addText(this, GAME_WIDTH - area.marginX, area.top - 66, '', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '20px',
+      color: toCss(PALETTE.ink),
+    }).setOrigin(1, 0)
+
+    // The threshold bar: filling it is winning. The label rides its right end.
+    this.barX = area.marginX
+    this.barWidth = GAME_WIDTH - area.marginX * 2
+    addText(this, GAME_WIDTH - area.marginX, area.top - 30, `Target ${this.stage.threshold}`, {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '12px',
+      color: toCss(PALETTE.inkMuted),
+    }).setOrigin(1, 1)
+    this.add
+      .rectangle(this.barX, area.top - 22, this.barWidth, 4, PALETTE.inkMuted, 0.18)
+      .setOrigin(0, 0.5)
+    this.targetFill = this.add
+      .rectangle(this.barX, area.top - 22, 0, 4, PALETTE.accent)
+      .setOrigin(0, 0.5)
+
+    addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 18, this.stage.hint, {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '14px',
+      color: toCss(PALETTE.inkMuted),
+      align: 'center',
+      wordWrap: { width: GAME_WIDTH - 32 },
+    }).setOrigin(0.5, 1)
+
+    this.updateHud()
   }
 
   /**
@@ -318,6 +427,7 @@ export class GameScene extends BaseScene {
     }
 
     this.resolving = true
+    this.spendMove()
 
     if (move.kind === 'merge') {
       // Both tiles stay on their cells and come out dyed the result colour;
@@ -353,7 +463,9 @@ export class GameScene extends BaseScene {
   /**
    * Settle the board after a move: clear, fall, refill, repeat while new
    * lines keep forming — the cascade loop. Waves cost no move and multiply
-   * the score. Ends by reviving a dead board, then hands input back.
+   * the score. Ends by settling the stage's fate: threshold reached wins,
+   * an exhausted budget loses, and anything else revives a dead board if it
+   * must and hands input back.
    */
   private async resolve(merged = false): Promise<void> {
     this.resolving = true
@@ -363,8 +475,14 @@ export class GameScene extends BaseScene {
 
       // The merge bonus applies to the clear the merge itself caused; the
       // cascade waves after it score as cascades, whoever started them.
-      this.score += clearScore(matched.size, wave, merged && wave === 1)
-      this.updateHud()
+      const points = clearScore(matched.size, wave, merged && wave === 1)
+      this.score += points
+      this.floatScore(points, wave, matched)
+      this.updateHud(wave)
+      if (!this.thresholdMet && this.score >= this.stage.threshold) {
+        this.thresholdMet = true
+        this.celebrateThreshold()
+      }
       await Promise.all(
         [...matched].map(
           (index) =>
@@ -382,10 +500,307 @@ export class GameScene extends BaseScene {
       await this.animateDescent(falls, spawns)
     }
 
+    if (this.score >= this.stage.threshold) {
+      await this.win()
+      return
+    }
+
     if (!findLegalMove(this.grid, this.cells, this.mix, flags.combo)) {
       await this.animateReshuffle()
     }
+
+    if (this.movesLeft <= 0) {
+      this.lose()
+      return
+    }
     this.resolving = false
+  }
+
+  /** A legal move leaves the budget; the last few leave it loudly. */
+  private spendMove(): void {
+    this.movesLeft--
+    this.updateHud()
+    if (this.movesLeft <= LOW_MOVES) {
+      this.movesText.setScale(1)
+      this.tweens.chain({
+        targets: this.movesText,
+        tweens: [
+          { scale: 1.3, duration: 100, ease: 'Quad.easeOut' },
+          { scale: 1, duration: 220, ease: 'Back.easeOut' },
+        ],
+      })
+    }
+  }
+
+  /**
+   * Catch the HUD up to the model. The score ticks rather than jumps — the
+   * counter chases `score`, and the threshold bar rides along. Cascade waves
+   * give the score text a pulse that grows with the wave, so the multiplier
+   * is felt in the counter, not just printed by the floats.
+   */
+  private updateHud(wave = 0): void {
+    this.movesText
+      .setText(`Moves: ${this.movesLeft}`)
+      .setColor(toCss(this.movesLeft <= LOW_MOVES ? PALETTE.accent : PALETTE.ink))
+
+    this.scoreTween?.remove()
+    const from = this.displayScore
+    const to = this.score
+    if (from === to) {
+      this.renderScore()
+    } else {
+      this.scoreTween = this.tweens.addCounter({
+        from,
+        to,
+        duration: 320,
+        ease: 'Cubic.easeOut',
+        onUpdate: (tween) => {
+          this.displayScore = tween.getValue() ?? to
+          this.renderScore()
+        },
+        onComplete: () => {
+          this.displayScore = to
+          this.renderScore()
+        },
+      })
+    }
+
+    if (wave > 1) {
+      this.scoreText.setScale(1)
+      this.tweens.chain({
+        targets: this.scoreText,
+        tweens: [
+          { scale: Math.min(1.35, 1.08 + wave * 0.06), duration: 110, ease: 'Quad.easeOut' },
+          { scale: 1, duration: 240, ease: 'Back.easeOut' },
+        ],
+      })
+    }
+  }
+
+  private renderScore(): void {
+    this.scoreText.setText(`Score: ${Math.round(this.displayScore)}`)
+    const share = Math.min(1, this.displayScore / this.stage.threshold)
+    this.targetFill.width = this.barWidth * share
+  }
+
+  /** Floating "+N" over the clear — bigger, hotter, and suffixed per wave. */
+  private floatScore(points: number, wave: number, matched: Set<number>): void {
+    let sx = 0
+    let sy = 0
+    for (const index of matched) {
+      const { x, y } = this.cellCenter(index)
+      sx += x
+      sy += y
+    }
+    const x = sx / matched.size
+    const y = sy / matched.size
+
+    const text = addText(this, x, y, wave > 1 ? `+${points} ×${wave}` : `+${points}`, {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: `${Math.min(34, 18 + (wave - 1) * 5)}px`,
+      fontStyle: 'bold',
+      color: toCss(wave > 1 ? PALETTE.accent : PALETTE.ink),
+    })
+      .setOrigin(0.5)
+      .setDepth(30)
+      .setAlpha(0)
+
+    this.tweens.chain({
+      targets: text,
+      tweens: [
+        { alpha: 1, y: y - 16, duration: 130, ease: 'Quad.easeOut' },
+        { alpha: 0, y: y - 54, duration: 520, ease: 'Quad.easeIn' },
+      ],
+      onComplete: () => text.destroy(),
+    })
+  }
+
+  /**
+   * The moment the threshold is crossed — once per round. The bar flashes
+   * bright and overshoots, and says so in words above it; the round still
+   * ends on its own terms when the board settles.
+   */
+  private celebrateThreshold(): void {
+    const flash = this.add
+      .rectangle(this.barX, this.targetFill.y, this.barWidth, 4, PALETTE.ink, 0.9)
+      .setOrigin(0, 0.5)
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      scaleY: 5,
+      duration: 480,
+      ease: 'Quad.easeOut',
+      onComplete: () => flash.destroy(),
+    })
+
+    const note = addText(this, GAME_WIDTH / 2, this.targetFill.y - 16, 'Target reached!', {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '18px',
+      fontStyle: 'bold',
+      color: toCss(PALETTE.accent),
+    })
+      .setOrigin(0.5, 1)
+      .setDepth(30)
+      .setAlpha(0)
+    this.tweens.chain({
+      targets: note,
+      tweens: [
+        { alpha: 1, scale: 1.15, duration: 160, ease: 'Back.easeOut' },
+        { scale: 1, duration: 160 },
+        { alpha: 0, duration: 500, delay: 600 },
+      ],
+      onComplete: () => note.destroy(),
+    })
+  }
+
+  /**
+   * The stage is won: bank the unlock, burst the whole board outward from
+   * its centre — the celebration is the clear animation played tutti — then
+   * tally up over an overlay that offers the next stage.
+   */
+  private async win(): Promise<void> {
+    this.outcome = 'won'
+    const opened = this.stageIndex !== undefined && recordWin(this.stageIndex)
+
+    const cx = this.originX + (this.grid.cols * this.pitch) / 2
+    const cy = this.originY + (this.grid.rows * this.pitch) / 2
+    const bursts: Promise<void>[] = []
+    for (let index = 0; index < this.tiles.length; index++) {
+      const tile = this.tiles[index]
+      if (!tile) continue
+      this.tiles[index] = undefined
+      const delay = (Math.hypot(tile.x - cx, tile.y - cy) / this.pitch) * 46
+      bursts.push(new Promise((done) => tile.clearOut(delay, done)))
+    }
+    await Promise.all(bursts)
+
+    const next = this.stageIndex !== undefined ? this.stageIndex + 1 : undefined
+    const hasNext = next !== undefined && next < STAGES.length
+    const [tally] = this.buildOverlay('Stage clear!', ['Score: 0'], [
+      hasNext
+        ? {
+            label: 'Next stage',
+            name: 'next',
+            primary: true,
+            action: () => this.fadeTo('Game', { stage: next }),
+          }
+        : {
+            label: 'Replay',
+            name: 'retry',
+            primary: true,
+            action: () => this.fadeTo('Game', { stage: this.stageIndex }),
+          },
+      {
+        label: 'Stages',
+        name: 'stages',
+        action: () => this.fadeTo('StageSelect', opened ? { reveal: next } : {}),
+      },
+    ])
+
+    this.tweens.addCounter({
+      from: 0,
+      to: this.score,
+      duration: 700,
+      ease: 'Cubic.easeOut',
+      onUpdate: (tween) => tally.setText(`Score: ${Math.round(tween.getValue() ?? 0)}`),
+      onComplete: () => tally.setText(`Score: ${this.score}`),
+    })
+  }
+
+  /**
+   * Out of moves. Kind but deflating: the board dims rather than explodes,
+   * and the overlay states the distance without rubbing it in. Retries are
+   * free by design.
+   */
+  private lose(): void {
+    this.outcome = 'lost'
+
+    const dim = this.add
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, PALETTE.background)
+      .setDepth(40)
+      .setAlpha(0)
+    this.tweens.add({ targets: dim, alpha: 0.55, duration: 450, ease: 'Quad.easeOut' })
+
+    this.buildOverlay(
+      'Out of moves',
+      [`Score ${this.score} of ${this.stage.threshold}`, 'Retries are free.'],
+      [
+        {
+          label: 'Retry',
+          name: 'retry',
+          primary: true,
+          action: () => this.fadeTo('Game', { stage: this.stageIndex }),
+        },
+        { label: 'Stages', name: 'stages', action: () => this.fadeTo('StageSelect') },
+      ],
+    )
+  }
+
+  /**
+   * The end-of-round panel: title, a few lines, a row of buttons. Returns the
+   * line texts so a caller can animate one (the win tally). Input stays dead
+   * beneath it — `resolving` never hands back after a win or loss.
+   */
+  private buildOverlay(
+    title: string,
+    lines: string[],
+    buttons: { label: string; name: string; primary?: boolean; action: () => void }[],
+  ): Phaser.GameObjects.Text[] {
+    const width = Math.min(GAME_WIDTH - 48, 440)
+    const height = 150 + lines.length * 30
+    const panel = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT * 0.42).setDepth(50)
+
+    const box = this.add.graphics()
+    box.fillStyle(PALETTE.background, 0.96)
+    box.lineStyle(2, PALETTE.accent, 0.5)
+    box.fillRoundedRect(-width / 2, -height / 2, width, height, 18)
+    box.strokeRoundedRect(-width / 2, -height / 2, width, height, 18)
+    panel.add(box)
+
+    const titleText = addText(this, 0, -height / 2 + 40, title, {
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '32px',
+      fontStyle: 'bold',
+      color: toCss(PALETTE.ink),
+    }).setOrigin(0.5)
+    panel.add(titleText)
+
+    const lineTexts = lines.map((line, i) => {
+      const text = addText(this, 0, -height / 2 + 84 + i * 30, line, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '19px',
+        color: toCss(PALETTE.inkMuted),
+      }).setOrigin(0.5)
+      panel.add(text)
+      return text
+    })
+
+    const y = height / 2 - 36
+    const slot = width / buttons.length
+    buttons.forEach((button, i) => {
+      const text = addText(this, -width / 2 + slot * (i + 0.5), y, button.label, {
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '23px',
+        color: toCss(button.primary ? PALETTE.accent : PALETTE.inkMuted),
+      })
+        .setOrigin(0.5)
+        .setName(button.name)
+        .setInteractive({ useHandCursor: true })
+      text.on('pointerover', () => text.setScale(1.1))
+      text.on('pointerout', () => text.setScale(1))
+      text.on('pointerup', button.action)
+      panel.add(text)
+    })
+
+    panel.setScale(0.92).setAlpha(0)
+    this.tweens.add({
+      targets: panel,
+      scale: 1,
+      alpha: 1,
+      duration: 260,
+      ease: 'Back.easeOut',
+    })
+    return lineTexts
   }
 
   /**
@@ -500,9 +915,5 @@ export class GameScene extends BaseScene {
       }
     }
     return best
-  }
-
-  private updateHud(): void {
-    this.scoreText.setText(`Score: ${this.score}`)
   }
 }

@@ -1,6 +1,7 @@
 import type Phaser from 'phaser'
 
 import { flags } from './flags'
+import { resetProgress, unlockedCount } from './progress'
 import { plantSeed } from './rng'
 import type { BoardReport } from './scenes/GameScene'
 import { getSettings, updateSettings, type Settings } from './settings'
@@ -36,14 +37,19 @@ export interface DyestopiaDebug {
   /** Keys of every scene currently running. */
   activeScenes(): string[]
   isActive(key: string): boolean
-  /** Every Text object's content in a scene, in creation order. */
+  /** Every Text object's content in a scene, containers included, in creation order. */
   texts(key: string): string[]
-  /** World-space centres of every interactive object in a scene. */
+  /** World positions of every interactive object in a scene, containers included. */
   hitTargets(key: string): HitTarget[]
   /** Viewport coordinates — what `page.mouse` wants — for a world point. */
   worldToViewport(key: string, x: number, y: number): Point
-  /** Stop every running scene and start one. */
-  goTo(key: string): void
+  /**
+   * Stop every running scene and start one. `data` goes to the scene's
+   * `create` — `goTo('Game', { stage: 3 })` starts an authored stage, and
+   * `{ stage: 0, override: { moves: 1 } }` bends its rules (see
+   * GameStartData); no data on 'Game' deals the dev board.
+   */
+  goTo(key: string, data?: object): void
   /** The player's current shape and theme. */
   settings(): Settings
   /**
@@ -64,8 +70,11 @@ export interface DyestopiaDebug {
    * One-shot — boards after the seeded one are random again.
    */
   seedRng(seed: number): void
-  /** Cells, colours and score of the running Game scene. */
+  /** Cells, colours, score and stage state of the running Game scene. */
   board(): BoardReport
+  /** How many stages are unlocked, and the lever to wind that back. */
+  progress(): number
+  resetProgress(): void
   /**
    * Toggle the combo-mixing prototype (roadmap M3): a merge's colour absorbs
    * adjacent groups of its own ingredients, and the wave counts toward the
@@ -113,16 +122,24 @@ export function exposeDebugApi(game: Phaser.Game): void {
     isActive: (key) => game.scene.isActive(key),
 
     texts: (key) =>
-      requireScene(game, key)
-        .children.list.filter((child) => child.type === 'Text')
+      // Flattened for the same reason as hitTargets: the end-of-round overlay
+      // keeps its texts inside a container.
+      flatten(requireScene(game, key).children.list)
+        .filter((child) => child.type === 'Text')
         .map((child) => (child as Phaser.GameObjects.Text).text),
 
     hitTargets: (key) =>
-      requireScene(game, key)
-        .children.list.filter((child) => child.input?.enabled === true)
+      // Flattened, because interactive objects can live inside containers (the
+      // end-of-round overlay buttons do) — and those need their coordinates
+      // through the parent transform, not their container-relative x/y.
+      flatten(requireScene(game, key).children.list)
+        .filter((child) => child.input?.enabled === true)
         .map((child) => {
-          const { x, y } = child as Positioned
-          return { type: child.type, name: child.name, x, y }
+          const obj = child as Positioned & {
+            getWorldTransformMatrix?: () => { tx: number; ty: number }
+          }
+          const world = obj.getWorldTransformMatrix?.()
+          return { type: child.type, name: child.name, x: world?.tx ?? obj.x, y: world?.ty ?? obj.y }
         }),
 
     worldToViewport: (key, x, y) => {
@@ -146,11 +163,11 @@ export function exposeDebugApi(game: Phaser.Game): void {
       }
     },
 
-    goTo: (key) => {
+    goTo: (key, data) => {
       for (const scene of game.scene.getScenes(true)) {
         game.scene.stop(scene.scene.key)
       }
-      game.scene.start(key)
+      game.scene.start(key, data)
     },
 
     settings: () => getSettings(),
@@ -158,6 +175,10 @@ export function exposeDebugApi(game: Phaser.Game): void {
     setSettings: (patch) => updateSettings(patch),
 
     seedRng: (seed) => plantSeed(seed),
+
+    progress: () => unlockedCount(),
+
+    resetProgress: () => resetProgress(),
 
     combo: (on) => {
       if (on !== undefined) flags.combo = on

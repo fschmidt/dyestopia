@@ -3,8 +3,8 @@ import type { Page } from '@playwright/test'
 import { isAdjacent, resolveMove, type Cells, type Grid, type MixRule } from '../src/board'
 // Pulls in the `window.dyestopia` global declaration.
 import type {} from '../src/debug'
-import type { BoardReport } from '../src/scenes/GameScene'
-import { FIRST_STAGE, stageMix } from '../src/stage'
+import type { BoardReport, GameStartData } from '../src/scenes/GameScene'
+import { FIRST_STAGE, stageMix, type Stage } from '../src/stage'
 
 /** Coordinate space scenes are written in — mirrors src/config.ts. */
 export const GAME_WIDTH = 960
@@ -36,10 +36,44 @@ export async function clickWorld(
   await page.mouse.click(point.x, point.y)
 }
 
-/** Menu → Game, the way a player gets there. */
+/** The world position of a named interactive object in a scene. */
+export async function hitTarget(page: Page, scene: string, name: string): Promise<WorldPoint> {
+  const target = await page.evaluate(
+    (arg) => window.dyestopia!.hitTargets(arg.scene).find((t) => t.name === arg.name) ?? null,
+    { scene, name },
+  )
+  if (!target) throw new Error(`No hit target "${name}" in ${scene}`)
+  return target
+}
+
+/** Menu → stage select → stage 1, the way a player gets into a round. */
 export async function startGame(page: Page): Promise<void> {
   await clickWorld(page, 'Menu', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90)
+  await waitForScene(page, 'StageSelect')
+  const cell = await hitTarget(page, 'StageSelect', 'stage-0')
+  await clickWorld(page, 'StageSelect', cell.x, cell.y)
   await waitForScene(page, 'Game')
+}
+
+/**
+ * Straight into an authored stage through the bridge — with a seed when the
+ * test needs to predict the deal, and overrides when it needs to bend the
+ * win condition (a 1-move budget forces a loss no honest play could).
+ */
+export async function startStage(
+  page: Page,
+  data: GameStartData,
+  seed?: number,
+): Promise<BoardReport> {
+  await page.evaluate(
+    (arg) => {
+      if (arg.seed !== undefined) window.dyestopia!.seedRng(arg.seed)
+      window.dyestopia!.goTo('Game', arg.data)
+    },
+    { data, seed },
+  )
+  await waitForScene(page, 'Game')
+  return board(page)
 }
 
 /**
@@ -75,8 +109,13 @@ export function toEngine(report: BoardReport): { grid: Grid; cells: Cells } {
   return { grid: { cols: report.cols, rows: report.rows, mask }, cells }
 }
 
-/** The scene's stage rules, mirrored so specs resolve drops the way it will. */
-export const stageRules: MixRule = (a, b) => stageMix(FIRST_STAGE, a, b)
+/** A stage's merge rules, mirrored so specs resolve drops the way the scene will. */
+export function rulesFor(stage: Stage): MixRule {
+  return (a, b) => stageMix(stage, a, b)
+}
+
+/** The dev board's rules — what `startSeededGame` rounds play under. */
+export const stageRules: MixRule = rulesFor(FIRST_STAGE)
 
 /** The first adjacent pair whose drop resolves to `kind`, or null. */
 export function moveOfKind(
@@ -84,12 +123,13 @@ export function moveOfKind(
   cells: Cells,
   kind: 'merge' | 'swap' | 'illegal',
   combo = false,
+  mix: MixRule = stageRules,
 ): [number, number] | null {
   for (let a = 0; a < grid.mask.length; a++) {
     if (!grid.mask[a]) continue
     for (const b of [a + 1, a + grid.cols]) {
       if (!isAdjacent(grid, a, b)) continue
-      if (resolveMove(grid, cells, stageRules, a, b, combo).kind === kind) return [a, b]
+      if (resolveMove(grid, cells, mix, a, b, combo).kind === kind) return [a, b]
     }
   }
   return null

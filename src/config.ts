@@ -4,6 +4,7 @@ import { BootScene } from './scenes/BootScene'
 import { GameScene } from './scenes/GameScene'
 import { MenuScene } from './scenes/MenuScene'
 import { SettingsScene } from './scenes/SettingsScene'
+import { StageSelectScene } from './scenes/StageSelectScene'
 
 /**
  * The coordinate space scenes are written in. Unchanged by the HiDPI handling
@@ -61,5 +62,5 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     width: GAME_WIDTH * DPR,
     height: GAME_HEIGHT * DPR,
   },
-  scene: [BootScene, MenuScene, SettingsScene, GameScene],
+  scene: [BootScene, MenuScene, StageSelectScene, SettingsScene, GameScene],
 }

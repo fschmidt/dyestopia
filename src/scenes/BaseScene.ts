@@ -19,4 +19,18 @@ export class BaseScene extends Phaser.Scene {
     camera.setZoom(DPR)
     camera.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2)
   }
+
+  /**
+   * Leave for another scene behind a short fade to the page background — the
+   * scene transition every navigation shares. Re-entry ignored while the fade
+   * runs, so a double-tap can't start the target scene twice.
+   */
+  protected fadeTo(key: string, data?: object): void {
+    const camera = this.cameras.main
+    if (camera.fadeEffect.isRunning) return
+    camera.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () =>
+      this.scene.start(key, data),
+    )
+    camera.fadeOut(140, 0x12, 0x10, 0x1a)
+  }
 }

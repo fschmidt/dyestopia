@@ -43,7 +43,9 @@ export interface Spawn {
 
 /**
  * Parse a mask from rows of `#` (cell) and `.` (gap) — the shape stages are
- * authored in. Rows may be ragged; short rows pad with gaps.
+ * authored in. Any other letter is also a cell: stages use colour letters to
+ * place tiles in the initial deal (see `stagePreset` in src/stage.ts), and
+ * the mask doesn't care which. Rows may be ragged; short rows pad with gaps.
  */
 export function parseMask(rows: string[]): Grid {
   const cols = Math.max(...rows.map((row) => row.length))
@@ -51,7 +53,7 @@ export function parseMask(rows: string[]): Grid {
     throw new Error(`Board masks must fit ${BOARD_AREA}x${BOARD_AREA}, got ${cols}x${rows.length}`)
   }
   const mask = rows.flatMap((row) =>
-    Array.from({ length: cols }, (_, col) => row[col] === '#'),
+    Array.from({ length: cols }, (_, col) => col < row.length && row[col] !== '.'),
   )
   return { cols, rows: rows.length, mask }
 }
@@ -318,16 +320,30 @@ export function comboConversions(grid: Grid, cells: Cells, changed: number[]): C
 /**
  * A fresh board: every masked cell seeded, no match already sitting on the
  * board, and at least one legal move waiting.
+ *
+ * `preset` fixes chosen cells to authored colours before the random fill —
+ * how stages start a primaries-seeded board with a few secondaries already
+ * placed. Preset cells survive the deal untouched; three of them in a line
+ * is an authoring error, not something the deal can fix, so it throws.
  */
 export function generateBoard(
   grid: Grid,
   seed: ColorId[],
   rng: Rng,
   mix: MixRule = NO_MIX,
+  preset?: (ColorId | undefined)[],
 ): Cells {
   const cells: Cells = new Array(grid.mask.length).fill(null)
+  const fixed = new Set<number>()
   for (let index = 0; index < grid.mask.length; index++) {
-    if (!grid.mask[index]) continue
+    const color = preset?.[index]
+    if (color !== undefined && grid.mask[index]) {
+      cells[index] = color
+      fixed.add(index)
+    }
+  }
+  for (let index = 0; index < grid.mask.length; index++) {
+    if (!grid.mask[index] || fixed.has(index)) continue
     // Only the colours that would not complete a run of 3 with what's already
     // placed left and above. With under three seed colours every choice can be
     // forbidden — then any colour goes and the pre-clear below mops up.
@@ -340,7 +356,11 @@ export function generateBoard(
     cells[index] = allowed.length > 0 ? rngPick(rng, allowed) : rngPick(rng, seed)
   }
   for (let matches = findMatches(grid, cells); matches.size > 0; matches = findMatches(grid, cells)) {
-    for (const index of matches) cells[index] = rngPick(rng, seed)
+    const loose = [...matches].filter((index) => !fixed.has(index))
+    if (loose.length === 0) {
+      throw new Error('Stage preset deals a ready-made match')
+    }
+    for (const index of loose) cells[index] = rngPick(rng, seed)
   }
   if (!findLegalMove(grid, cells, mix)) return reshuffle(grid, cells, rng, mix).cells
   return cells
