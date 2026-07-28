@@ -1,3 +1,4 @@
+import { DEFAULT_BACKGROUND, getBackground, type Background } from './backgrounds'
 import { DEFAULT_THEME, getTheme, type Theme } from './themes'
 import { DEFAULT_SHAPE, getShape } from './tiles/shapes'
 import type { Shape } from './tiles/shapes'
@@ -14,12 +15,18 @@ import type { Shape } from './tiles/shapes'
 export interface Settings {
   shape: string
   theme: string
+  background: string
   sound: boolean
 }
 
 const STORAGE_KEY = 'dyestopia:settings'
 
-const defaults: Settings = { shape: DEFAULT_SHAPE, theme: DEFAULT_THEME, sound: true }
+const defaults: Settings = {
+  shape: DEFAULT_SHAPE,
+  theme: DEFAULT_THEME,
+  background: DEFAULT_BACKGROUND,
+  sound: true,
+}
 
 let current: Settings = load()
 
@@ -33,6 +40,7 @@ function load(): Settings {
     return {
       shape: getShape(parsed.shape ?? '').id,
       theme: getTheme(parsed.theme ?? '').id,
+      background: getBackground(parsed.background ?? '').id,
       // Anything but an explicit false means sound on — same spirit as the
       // registry fallbacks above: a mangled value never mutes the game.
       sound: parsed.sound !== false,
@@ -54,6 +62,10 @@ export function activeShape(): Shape {
 
 export function activeTheme(): Theme {
   return getTheme(current.theme)
+}
+
+export function activeBackground(): Background {
+  return getBackground(current.background)
 }
 
 export function updateSettings(patch: Partial<Settings>): Settings {

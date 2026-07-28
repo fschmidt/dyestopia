@@ -1,6 +1,8 @@
 import Phaser from 'phaser'
 
+import { backgroundTexture } from '../backgrounds'
 import { DPR, GAME_HEIGHT, GAME_WIDTH } from '../config'
+import { activeBackground } from '../settings'
 
 /**
  * Base for every scene. Reconciles the DPR-sized canvas (see `config.ts`) with
@@ -18,6 +20,21 @@ export class BaseScene extends Phaser.Scene {
     const camera = this.cameras.main
     camera.setZoom(DPR)
     camera.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2)
+    this.events.once(Phaser.Scenes.Events.CREATE, () => this.refreshBackground())
+  }
+
+  protected refreshBackground(): void {
+    this.children.getByName('background')?.destroy()
+    const texture = backgroundTexture(activeBackground().id)
+    if (!this.textures.exists(texture)) return
+
+    const source = this.textures.get(texture).getSourceImage() as HTMLImageElement
+    const scale = Math.max(GAME_WIDTH / source.width, GAME_HEIGHT / source.height)
+    this.add
+      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, texture)
+      .setName('background')
+      .setDepth(-1000)
+      .setScale(scale)
   }
 
   /**

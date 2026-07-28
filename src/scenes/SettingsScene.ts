@@ -1,7 +1,13 @@
 import type { ColorId } from '../colors'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { PALETTE, toCss } from '../palette'
-import { activeShape, activeTheme, getSettings, updateSettings } from '../settings'
+import {
+  activeBackground,
+  activeShape,
+  activeTheme,
+  getSettings,
+  updateSettings,
+} from '../settings'
 import { playSfx } from '../sfx'
 import { addText } from '../text'
 import { THEMES, themedDye } from '../themes'
@@ -10,8 +16,8 @@ import { SHAPES } from '../tiles/shapes'
 import { Tile } from '../tiles/Tile'
 import { BaseScene } from './BaseScene'
 
-const ROW_Y = { shape: 170, theme: 310, sound: 450 }
-const PREVIEW_Y = 580
+const ROW_Y = { shape: 125, theme: 235, background: 345, sound: 455 }
+const PREVIEW_Y = 570
 
 /** A representative slice of the wheel: the primaries and their mixes. */
 const PREVIEW_COLORS: ColorId[] = ['red', 'yellow', 'blue', 'orange', 'green', 'purple']
@@ -71,6 +77,21 @@ export class SettingsScene extends BaseScene {
       },
     )
 
+    this.buildRow(
+      'Background',
+      ROW_Y.background,
+      BACKGROUNDS.map((background) => ({
+        id: background.id,
+        label: background.label,
+        blurb: background.blurb,
+      })),
+      () => activeBackground().id,
+      (id) => {
+        updateSettings({ background: id })
+        this.refreshBackground()
+      },
+    )
+
     this.buildPreview()
 
     const back = addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 56, 'Back', {
@@ -121,7 +142,7 @@ export class SettingsScene extends BaseScene {
     for (const option of options) {
       const text = addText(this, x, y, option.label, {
         fontFamily: 'system-ui, sans-serif',
-        fontSize: '28px',
+      fontSize: '22px',
         color: toCss(PALETTE.inkMuted),
       })
         .setName(`option-${option.id}`)
@@ -134,7 +155,7 @@ export class SettingsScene extends BaseScene {
       })
 
       labels.push({ id: option.id, text })
-      x += text.width + 40
+      x += text.width + 24
     }
 
     const blurb = addText(this, this.marginX(), y + 42, '', {
@@ -167,3 +188,4 @@ export class SettingsScene extends BaseScene {
     })
   }
 }
+import { BACKGROUNDS } from '../backgrounds'

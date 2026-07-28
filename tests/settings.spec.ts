@@ -107,6 +107,7 @@ test('the settings screen changes the board', async ({ page }) => {
   expect(await page.evaluate(() => window.dyestopia!.settings())).toEqual({
     shape: 'mosaic',
     theme: 'neon',
+    background: 'canvas-fluid',
     sound: true,
   })
 
@@ -118,7 +119,13 @@ test('the settings screen changes the board', async ({ page }) => {
 
 test('settings survive a reload', async ({ page }) => {
   await open(page)
-  await page.evaluate(() => window.dyestopia!.setSettings({ shape: 'mosaic', theme: 'dusk' }))
+  await page.evaluate(() =>
+    window.dyestopia!.setSettings({
+      shape: 'mosaic',
+      theme: 'dusk',
+      background: 'frosted-glass',
+    } as never),
+  )
 
   await page.reload()
   await waitForScene(page, 'Menu')
@@ -126,6 +133,31 @@ test('settings survive a reload', async ({ page }) => {
   expect(await page.evaluate(() => window.dyestopia!.settings())).toEqual({
     shape: 'mosaic',
     theme: 'dusk',
+    background: 'frosted-glass',
     sound: true,
   })
+})
+
+test('the selected background renders behind every scene', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() =>
+    window.dyestopia!.setSettings({ background: 'fluid-ink' } as never),
+  )
+
+  for (const sceneKey of ['Menu', 'Settings', 'StageSelect', 'Game']) {
+    await page.evaluate((key) => window.dyestopia!.goTo(key), sceneKey)
+    await waitForScene(page, sceneKey)
+
+    const background = await page.evaluate((key) => {
+      const scene = window.dyestopia!.game.scene.getScene(key)!
+      const child = scene.children.list.find(
+        (candidate) => candidate.name === 'background',
+      ) as Phaser.GameObjects.Image | undefined
+      return child
+        ? { texture: child.texture.key, depth: child.depth }
+        : undefined
+    }, sceneKey)
+
+    expect(background).toEqual({ texture: 'background-fluid-ink', depth: -1000 })
+  }
 })

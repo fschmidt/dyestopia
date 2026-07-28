@@ -33,7 +33,9 @@ export class BootScene extends BaseScene {
       fill.width = barWidth * value
     })
 
-    // this.load.image('...', '...') — assets go here.
+    for (const background of BACKGROUNDS) {
+      this.load.image(backgroundTexture(background.id), background.asset)
+    }
   }
 
   create(): void {
@@ -44,3 +46,4 @@ export class BootScene extends BaseScene {
     this.scene.start('Menu')
   }
 }
+import { BACKGROUNDS, backgroundTexture } from '../backgrounds'
