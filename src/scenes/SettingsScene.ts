@@ -1,6 +1,6 @@
 import type { ColorId } from '../colors'
+import { BACKGROUNDS } from '../backgrounds'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
-import { PALETTE, toCss } from '../palette'
 import {
   activeBackground,
   activeShape,
@@ -14,178 +14,175 @@ import { THEMES, themedDye } from '../themes'
 import { TILE_SIZE } from '../tiles/bake'
 import { SHAPES } from '../tiles/shapes'
 import { Tile } from '../tiles/Tile'
+import { addButton, addSegmentedControl, addSurface, addSwitch } from '../ui/components'
+import { ink, resolveVisualProfile } from '../ui/visual-system'
 import { BaseScene } from './BaseScene'
 
-const ROW_Y = { shape: 125, theme: 235, background: 345, sound: 455 }
-const PREVIEW_Y = 570
-
-/** A representative slice of the wheel: the primaries and their mixes. */
 const PREVIEW_COLORS: ColorId[] = ['red', 'yellow', 'blue', 'orange', 'green', 'purple']
 
-/**
- * Shape and theme are picked independently, because they are independent in the
- * renderer: artwork is baked white and coloured with a tint, so every
- * combination already works without rebaking anything.
- *
- * The preview underneath is live — the same `Tile` class the board uses, so
- * what's on screen here is what the game will look like, animation included.
- */
 export class SettingsScene extends BaseScene {
   private preview: Tile[] = []
+  private previewY = 560
+  private backgroundPage = 0
 
   constructor() {
     super('Settings')
   }
 
   create(): void {
-    addText(this, GAME_WIDTH / 2, 90, 'Settings', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '44px',
+    const visual = resolveVisualProfile()
+    const width = Math.min(620, GAME_WIDTH - 28)
+    const left = (GAME_WIDTH - width) / 2
+    const compact = GAME_HEIGHT < 760
+    const titleY = compact ? 42 : 50
+    const rowStart = compact ? 128 : 125
+    const rowGap = compact ? 86 : 96
+
+    addText(this, GAME_WIDTH / 2, titleY, 'SETTINGS', {
+      fontFamily: visual.type.family,
+      fontSize: compact ? '32px' : '38px',
       fontStyle: 'bold',
-      color: toCss(PALETTE.ink),
+      letterSpacing: 3,
+      color: ink(visual.colors.primaryInk),
     }).setOrigin(0.5)
 
-    this.buildRow(
-      'Shape',
-      ROW_Y.shape,
-      SHAPES.map((shape) => ({ id: shape.id, label: shape.label, blurb: shape.blurb })),
+    addSurface(this, GAME_WIDTH / 2, rowStart + rowGap * 1.5, width, rowGap * 4.1, 'settings-panel')
+    this.addLabel(left + 18, rowStart - 42, 'TILE SHAPE')
+    addSegmentedControl(
+      this,
+      GAME_WIDTH / 2,
+      rowStart,
+      width - 36,
+      SHAPES.map(({ id, label }) => ({ id, label })),
       () => activeShape().id,
-      (id) => updateSettings({ shape: id }),
+      (id) => {
+        updateSettings({ shape: id })
+        this.buildPreview()
+      },
     )
 
-    this.buildRow(
-      'Colours',
-      ROW_Y.theme,
-      THEMES.map((theme) => ({ id: theme.id, label: theme.label, blurb: theme.blurb })),
+    this.addLabel(left + 18, rowStart + rowGap - 42, 'COLOUR RECIPE')
+    addSegmentedControl(
+      this,
+      GAME_WIDTH / 2,
+      rowStart + rowGap,
+      width - 36,
+      THEMES.map(({ id, label }) => ({ id, label })),
       () => activeTheme().id,
-      (id) => updateSettings({ theme: id }),
-    )
-
-    this.buildRow(
-      'Sound',
-      ROW_Y.sound,
-      [
-        { id: 'on', label: 'On', blurb: 'Plops, chimes and the odd fanfare.' },
-        { id: 'off', label: 'Off', blurb: 'The game keeps it to itself.' },
-      ],
-      () => (getSettings().sound ? 'on' : 'off'),
       (id) => {
-        updateSettings({ sound: id === 'on' })
-        // Turning it on answers immediately — and the click that got us here
-        // is the user gesture that unlocks the audio context.
-        if (id === 'on') playSfx('merge')
+        updateSettings({ theme: id })
+        this.buildPreview()
       },
     )
 
-    this.buildRow(
-      'Background',
-      ROW_Y.background,
-      BACKGROUNDS.map((background) => ({
-        id: background.id,
-        label: background.label,
-        blurb: background.blurb,
-      })),
-      () => activeBackground().id,
-      (id) => {
-        updateSettings({ background: id })
-        this.refreshBackground()
+    this.addBackgroundPager(left + 18, rowStart + rowGap * 2)
+
+    this.addLabel(left + 18, rowStart + rowGap * 3 - 24, 'SOUND')
+    addText(this, left + 18, rowStart + rowGap * 3 + 8, 'Lab sounds', {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.body,
+      color: ink(visual.colors.primaryInk),
+    }).setOrigin(0, 0.5)
+    addSwitch(
+      this,
+      left + width - 54,
+      rowStart + rowGap * 3 + 8,
+      () => getSettings().sound,
+      (sound) => {
+        updateSettings({ sound })
+        if (sound) playSfx('merge')
       },
     )
 
+    this.previewY = Math.min(GAME_HEIGHT - 124, rowStart + rowGap * 4 + 54)
+    addSurface(this, GAME_WIDTH / 2, this.previewY, width, 118, 'preview-shelf', true)
     this.buildPreview()
 
-    const back = addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 56, 'Back', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '24px',
-      color: toCss(PALETTE.accent),
-    })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-
-    back.on('pointerover', () => back.setScale(1.08))
-    back.on('pointerout', () => back.setScale(1))
-    back.on('pointerup', () => this.scene.start('Menu'))
-
-    this.input.keyboard?.once('keydown-ESC', () => this.scene.start('Menu'))
+    addButton(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 34,
+      Math.min(220, width),
+      '‹  Menu',
+      () => this.fadeTo('Menu'),
+      { kind: 'quiet', name: 'button-back' },
+    )
+    this.input.keyboard?.once('keydown-ESC', () => this.fadeTo('Menu'))
   }
 
-  /** Left edge of the rows — hugs the screen when the world is phone-narrow. */
-  private marginX(): number {
-    return Math.min(120, Math.round(GAME_WIDTH * 0.08))
+  private addLabel(x: number, y: number, label: string): void {
+    const visual = resolveVisualProfile()
+    addText(this, x, y, label, {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.label,
+      fontStyle: 'bold',
+      letterSpacing: 1,
+      color: ink(visual.colors.secondaryInk),
+    }).setDepth(5)
   }
 
-  private buildRow(
-    title: string,
-    y: number,
-    options: { id: string; label: string; blurb: string }[],
-    selected: () => string,
-    choose: (id: string) => void,
-  ): void {
-    addText(this, this.marginX(), y - 44, title.toUpperCase(), {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '14px',
-      color: toCss(PALETTE.inkMuted),
+  private addBackgroundPager(x: number, y: number): void {
+    const visual = resolveVisualProfile()
+    const width = Math.min(620, GAME_WIDTH - 28)
+    const rowY = y + 12
+    this.backgroundPage = Math.max(
+      0,
+      BACKGROUNDS.findIndex((background) => background.id === activeBackground().id),
+    )
+    this.addLabel(x, y - 34, 'BACKGROUND')
+
+    const thumbnail = this.add
+      .image(x + 54, rowY, `background-${activeBackground().id}`)
+      .setDisplaySize(96, 56)
+      .setName('background-thumbnail')
+    const title = addText(this, x + 118, rowY - 12, '', {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.body,
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
     })
-
-    const labels: { id: string; text: Phaser.GameObjects.Text }[] = []
-
+    const count = addText(this, x + 118, rowY + 14, '', {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.small,
+      color: ink(visual.colors.secondaryInk),
+    })
     const repaint = (): void => {
-      for (const { id, text } of labels) {
-        const active = id === selected()
-        text.setColor(toCss(active ? PALETTE.accent : PALETTE.inkMuted))
-      }
-      const current = options.find((option) => option.id === selected())
-      blurb.setText(current?.blurb ?? '')
+      const background = BACKGROUNDS[this.backgroundPage]
+      thumbnail.setTexture(`background-${background.id}`)
+      title.setText(background.label)
+      count.setText(`${this.backgroundPage + 1} / ${BACKGROUNDS.length}`)
+      updateSettings({ background: background.id })
+      this.refreshBackground()
     }
-
-    let x = this.marginX()
-    for (const option of options) {
-      const text = addText(this, x, y, option.label, {
-        fontFamily: 'system-ui, sans-serif',
-      fontSize: '22px',
-        color: toCss(PALETTE.inkMuted),
-      })
-        .setName(`option-${option.id}`)
-        .setInteractive({ useHandCursor: true })
-
-      text.on('pointerup', () => {
-        choose(option.id)
-        repaint()
-        this.buildPreview()
-      })
-
-      labels.push({ id: option.id, text })
-      x += text.width + 24
+    const step = (direction: number): void => {
+      this.backgroundPage =
+        (this.backgroundPage + direction + BACKGROUNDS.length) % BACKGROUNDS.length
+      repaint()
     }
-
-    const blurb = addText(this, this.marginX(), y + 42, '', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '15px',
-      color: toCss(PALETTE.inkMuted),
+    addButton(this, x + width - 116, rowY, 48, '‹', () => step(-1), {
+      kind: 'quiet',
+      name: 'background-prev',
     })
-
+    addButton(this, x + width - 54, rowY, 48, '›', () => step(1), {
+      kind: 'quiet',
+      name: 'background-next',
+    })
     repaint()
   }
 
-  /** Rebuilt from scratch on every change — a handful of sprites. */
   private buildPreview(): void {
     for (const tile of this.preview) tile.destroy()
     this.preview = []
-
     const shape = activeShape()
     const theme = activeTheme()
-    // Full-size tiles when the row fits; scaled to the width when it doesn't
-    // (portrait phones) — same size parameter the board uses.
     const full = PREVIEW_COLORS.length * TILE_SIZE + (PREVIEW_COLORS.length - 1) * shape.gap
-    const scale = Math.min(1, (GAME_WIDTH - 32) / full)
+    const scale = Math.min(0.56, (GAME_WIDTH - 48) / full)
     const originX = (GAME_WIDTH - full * scale) / 2
-
     PREVIEW_COLORS.forEach((id, i) => {
       const x = originX + (i * (TILE_SIZE + shape.gap) + TILE_SIZE / 2) * scale
       this.preview.push(
-        new Tile(this, x, PREVIEW_Y, themedDye(theme, id), shape, i, TILE_SIZE * scale),
+        new Tile(this, x, this.previewY, themedDye(theme, id), shape, i, TILE_SIZE * scale),
       )
     })
   }
 }
-import { BACKGROUNDS } from '../backgrounds'

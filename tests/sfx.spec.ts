@@ -5,6 +5,7 @@ import {
   board,
   clickWorld,
   dragWorld,
+  hitTarget,
   moveOfKind,
   open,
   rulesFor,
@@ -76,14 +77,7 @@ test('mute silences the game and survives a reload', async ({ page }) => {
   // Flip the toggle the way a player would: on the settings screen.
   await page.evaluate(() => window.dyestopia!.goTo('Settings'))
   await waitForScene(page, 'Settings')
-  const off = await page.evaluate(() => {
-    const scene = window.dyestopia!.game.scene.getScene('Settings')!
-    const target = scene.children.list.find((child) => child.name === 'option-off') as
-      | Phaser.GameObjects.Text
-      | undefined
-    if (!target) throw new Error('No sound-off option')
-    return { x: target.x + target.width / 2, y: target.y + target.height / 2 }
-  })
+  const off = await hitTarget(page, 'Settings', 'sound-switch')
   await clickWorld(page, 'Settings', off.x, off.y)
   expect(await page.evaluate(() => window.dyestopia!.settings().sound)).toBe(false)
 

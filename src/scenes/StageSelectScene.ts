@@ -1,10 +1,11 @@
 import Phaser from 'phaser'
 
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
-import { PALETTE, toCss } from '../palette'
 import { unlockedCount } from '../progress'
 import { STAGES } from '../stages'
 import { addText } from '../text'
+import { addButton, addSurface } from '../ui/components'
+import { ink, resolveVisualProfile } from '../ui/visual-system'
 import { BaseScene } from './BaseScene'
 
 /** Stage cells per row — 10 stages read as two rows of five. */
@@ -29,15 +30,27 @@ export class StageSelectScene extends BaseScene {
 
   create(data: { reveal?: number } = {}): void {
     this.reveal = data.reveal
+    const visual = resolveVisualProfile()
 
-    addText(this, GAME_WIDTH / 2, Math.min(90, GAME_HEIGHT * 0.1), 'Stages', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '44px',
+    addText(this, GAME_WIDTH / 2, Math.min(74, GAME_HEIGHT * 0.09), 'STAGE LEDGER', {
+      fontFamily: visual.type.family,
+      fontSize: '38px',
       fontStyle: 'bold',
-      color: toCss(PALETTE.ink),
+      letterSpacing: 3,
+      color: ink(visual.colors.primaryInk),
     }).setOrigin(0.5)
 
     const unlocked = unlockedCount()
+    const rows = Math.ceil(STAGES.length / COLS)
+    const panelHeight = this.cellPitch() * rows + 112
+    addSurface(
+      this,
+      GAME_WIDTH / 2,
+      this.gridTop() + (this.cellPitch() * rows) / 2,
+      Math.min(620, GAME_WIDTH - 28),
+      panelHeight,
+      'stage-ledger',
+    )
     this.buildGrid(unlocked)
 
     const frontier = Math.min(unlocked, STAGES.length) - 1
@@ -47,24 +60,23 @@ export class StageSelectScene extends BaseScene {
       this.gridTop() + this.cellPitch() * Math.ceil(STAGES.length / COLS) + 36,
       `Next: ${frontier + 1} — ${STAGES[frontier].name}`,
       {
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: visual.type.family,
         fontSize: '18px',
-        color: toCss(PALETTE.inkMuted),
+        color: ink(visual.colors.secondaryInk),
       },
     )
       .setOrigin(0.5)
       .setName('frontier')
 
-    const back = addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 56, 'Back', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '24px',
-      color: toCss(PALETTE.accent),
-    })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-    back.on('pointerover', () => back.setScale(1.08))
-    back.on('pointerout', () => back.setScale(1))
-    back.on('pointerup', () => this.fadeTo('Menu'))
+    addButton(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 36,
+      Math.min(220, GAME_WIDTH - 48),
+      '‹  Menu',
+      () => this.fadeTo('Menu'),
+      { kind: 'quiet', name: 'button-back' },
+    )
 
     this.input.keyboard?.once('keydown-ESC', () => this.fadeTo('Menu'))
     this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('Game', { stage: frontier }))
@@ -82,6 +94,7 @@ export class StageSelectScene extends BaseScene {
   }
 
   private buildGrid(unlocked: number): void {
+    const visual = resolveVisualProfile()
     const pitch = this.cellPitch()
     const size = pitch * 0.84
     const originX = (GAME_WIDTH - COLS * pitch) / 2 + pitch / 2
@@ -94,22 +107,22 @@ export class StageSelectScene extends BaseScene {
       const played = i < unlocked - 1
 
       const cell = this.add
-        .rectangle(x, y, size, size, open ? PALETTE.accent : PALETTE.inkMuted, open ? 0.18 : 0.08)
-        .setStrokeStyle(2, open ? PALETTE.accent : PALETTE.inkMuted, open ? 0.9 : 0.25)
+        .rectangle(x, y, size, size, open ? visual.colors.accent : visual.colors.secondaryInk, open ? 0.2 : 0.08)
+        .setStrokeStyle(2, open ? visual.colors.accent : visual.colors.secondaryInk, open ? 0.9 : 0.25)
         .setName(`stage-${i}`)
 
       const number = addText(this, x, y, `${i + 1}`, {
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: visual.type.family,
         fontSize: `${Math.round(size * 0.42)}px`,
         fontStyle: 'bold',
-        color: toCss(open ? PALETTE.ink : PALETTE.inkMuted),
+        color: ink(open ? visual.colors.primaryInk : visual.colors.secondaryInk),
       })
         .setOrigin(0.5)
         .setAlpha(open ? 1 : 0.5)
 
       // A quiet tick under stages already beaten.
       if (played) {
-        this.add.rectangle(x, y + size * 0.32, size * 0.3, 3, PALETTE.accent, 0.9)
+        this.add.rectangle(x, y + size * 0.32, size * 0.3, 3, visual.colors.accent, 0.9)
       }
 
       if (open || i === this.reveal) {
@@ -137,13 +150,14 @@ export class StageSelectScene extends BaseScene {
     number: Phaser.GameObjects.Text,
     onDone: () => void,
   ): void {
+    const visual = resolveVisualProfile()
     this.time.delayedCall(420, () => {
-      cell.setFillStyle(PALETTE.accent, 0.18).setStrokeStyle(2, PALETTE.accent, 0.9)
-      number.setColor(toCss(PALETTE.ink)).setAlpha(1)
+      cell.setFillStyle(visual.colors.accent, 0.18).setStrokeStyle(2, visual.colors.accent, 0.9)
+      number.setColor(ink(visual.colors.primaryInk)).setAlpha(1)
 
       const ring = this.add
         .rectangle(cell.x, cell.y, cell.width, cell.height)
-        .setStrokeStyle(3, PALETTE.accent, 1)
+        .setStrokeStyle(3, visual.colors.accent, 1)
       this.tweens.add({
         targets: ring,
         scale: 1.7,

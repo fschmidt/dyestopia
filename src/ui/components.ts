@@ -1,0 +1,194 @@
+import Phaser from 'phaser'
+
+import { addText } from '../text'
+import { ink, resolveVisualProfile } from './visual-system'
+
+export type ButtonKind = 'primary' | 'secondary' | 'quiet'
+
+export function addSurface(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  name: string,
+  strong = false,
+): Phaser.GameObjects.Graphics {
+  const profile = resolveVisualProfile()
+  const graphics = scene.add
+    .graphics({ x, y })
+    .setName(name)
+    .setData('surfaceSize', { width, height })
+  graphics.fillStyle(
+    strong ? profile.colors.surfaceStrong : profile.colors.surface,
+    strong ? profile.alpha.surfaceStrong : profile.alpha.surface,
+  )
+  graphics.fillRoundedRect(-width / 2, -height / 2, width, height, profile.radii.lg)
+  graphics.lineStyle(1, profile.colors.primaryInk, 0.16)
+  graphics.strokeRoundedRect(-width / 2, -height / 2, width, height, profile.radii.lg)
+  return graphics
+}
+
+export function addButton(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  width: number,
+  label: string,
+  action: () => void,
+  options: { kind?: ButtonKind; name?: string; height?: number; fontSize?: string } = {},
+): Phaser.GameObjects.Container {
+  const profile = resolveVisualProfile()
+  const kind = options.kind ?? 'secondary'
+  const height = options.height ?? 52
+  const radius = Math.min(profile.radii.md, height / 2)
+  const container = scene.add.container(x, y).setSize(width, height).setName(options.name ?? '')
+  const plate = scene.add.graphics()
+  const text = addText(scene, 0, 0, label, {
+    fontFamily: profile.type.family,
+    fontSize: options.fontSize ?? profile.type.body,
+    fontStyle: kind === 'primary' ? 'bold' : 'normal',
+    color: ink(kind === 'primary' ? profile.colors.accentInk : profile.colors.primaryInk),
+  }).setOrigin(0.5)
+  container.add([plate, text])
+
+  let focused = false
+  const paint = (pressed = false): void => {
+    plate.clear()
+    const fill =
+      kind === 'primary'
+        ? profile.colors.accent
+        : kind === 'quiet'
+          ? profile.colors.surfaceStrong
+          : profile.colors.surface
+    const alpha = kind === 'primary' ? 1 : pressed ? 1 : 0.72
+    plate.fillStyle(fill, alpha)
+    plate.fillRoundedRect(-width / 2, -height / 2, width, height, radius)
+    plate.lineStyle(focused ? 3 : 1, focused ? profile.colors.focus : profile.colors.primaryInk, focused ? 1 : 0.18)
+    plate.strokeRoundedRect(-width / 2, -height / 2, width, height, radius)
+  }
+  paint()
+
+  container.setInteractive({ useHandCursor: true })
+  container.on('pointerover', () => {
+    focused = true
+    paint()
+    scene.tweens.add({ targets: container, scale: 1.025, duration: profile.motion.quick })
+  })
+  container.on('pointerout', () => {
+    focused = false
+    paint()
+    scene.tweens.add({ targets: container, scale: 1, duration: profile.motion.quick })
+  })
+  container.on('pointerdown', () => paint(true))
+  container.on('pointerup', () => {
+    paint()
+    action()
+  })
+  return container
+}
+
+export interface Segment {
+  id: string
+  label: string
+}
+
+export function addSegmentedControl(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  width: number,
+  options: Segment[],
+  selected: () => string,
+  choose: (id: string) => void,
+): { repaint: () => void; objects: Phaser.GameObjects.Container[] } {
+  const profile = resolveVisualProfile()
+  const gap = 6
+  const cellWidth = (width - gap * (options.length - 1)) / options.length
+  const objects: Phaser.GameObjects.Container[] = []
+
+  const repaint = (): void => {
+    for (const object of objects) {
+      const active = object.getData('id') === selected()
+      const plate = object.getByName('plate') as Phaser.GameObjects.Graphics
+      const label = object.getByName('label') as Phaser.GameObjects.Text
+      plate.clear()
+      plate.fillStyle(active ? profile.colors.accent : profile.colors.surfaceStrong, active ? 1 : 0.62)
+      plate.fillRoundedRect(-cellWidth / 2, -24, cellWidth, 48, profile.radii.sm)
+      plate.lineStyle(1, active ? profile.colors.accent : profile.colors.primaryInk, active ? 1 : 0.14)
+      plate.strokeRoundedRect(-cellWidth / 2, -24, cellWidth, 48, profile.radii.sm)
+      label.setColor(ink(active ? profile.colors.accentInk : profile.colors.primaryInk))
+    }
+  }
+
+  options.forEach((option, index) => {
+    const cx = x - width / 2 + cellWidth / 2 + index * (cellWidth + gap)
+    const object = scene.add
+      .container(cx, y)
+      .setSize(cellWidth, 48)
+      .setName(`option-${option.id}`)
+      .setData('id', option.id)
+    const plate = scene.add.graphics().setName('plate')
+    const label = addText(scene, 0, 0, option.label, {
+      fontFamily: profile.type.family,
+      fontSize: profile.type.small,
+      fontStyle: 'bold',
+      color: ink(profile.colors.primaryInk),
+      align: 'center',
+      wordWrap: { width: cellWidth - 10 },
+    })
+      .setOrigin(0.5)
+      .setName('label')
+    object.add([plate, label]).setInteractive({ useHandCursor: true })
+    object.on('pointerup', () => {
+      choose(option.id)
+      repaint()
+    })
+    objects.push(object)
+  })
+  repaint()
+  return { repaint, objects }
+}
+
+export function addSwitch(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  value: () => boolean,
+  toggle: (next: boolean) => void,
+  name = 'sound-switch',
+): Phaser.GameObjects.Container {
+  const profile = resolveVisualProfile()
+  const control = scene.add.container(x, y).setSize(64, 44).setName(name)
+  const track = scene.add.graphics()
+  const knob = scene.add.circle(0, 0, 15, profile.colors.primaryInk)
+  control.add([track, knob])
+  const repaint = (): void => {
+    const on = value()
+    track.clear()
+    track.fillStyle(on ? profile.colors.accent : profile.colors.surfaceStrong, 1)
+    track.fillRoundedRect(-32, -18, 64, 36, 18)
+    knob.setX(on ? 14 : -14).setFillStyle(on ? profile.colors.accentInk : profile.colors.secondaryInk)
+  }
+  control.setInteractive({ useHandCursor: true }).on('pointerup', () => {
+    toggle(!value())
+    repaint()
+  })
+  repaint()
+  return control
+}
+
+export function addProgressMeter(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  width: number,
+): { track: Phaser.GameObjects.Rectangle; fill: Phaser.GameObjects.Rectangle } {
+  const profile = resolveVisualProfile()
+  const track = scene.add
+    .rectangle(x, y, width, 8, profile.colors.primaryInk, 0.14)
+    .setOrigin(0, 0.5)
+    .setName('progress-meter')
+  const fill = scene.add.rectangle(x, y, 0, 8, profile.colors.accent).setOrigin(0, 0.5)
+  return { track, fill }
+}

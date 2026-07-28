@@ -22,7 +22,6 @@ import {
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import type { ColorId } from '../colors'
 import { flags } from '../flags'
-import { PALETTE, toCss } from '../palette'
 import { recordWin } from '../progress'
 import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
@@ -34,6 +33,8 @@ import { themedDye } from '../themes'
 import { TILE_SIZE } from '../tiles/bake'
 import { Tile } from '../tiles/Tile'
 import type { Shape } from '../tiles/shapes'
+import { addButton, addProgressMeter, addSurface } from '../ui/components'
+import { ink, resolveVisualProfile } from '../ui/visual-system'
 import { BaseScene } from './BaseScene'
 
 /** Pointer travel below this is a tap; above it, a drag. */
@@ -134,6 +135,7 @@ export class GameScene extends BaseScene {
   private scoreTween?: Phaser.Tweens.Tween
   private scoreText!: Phaser.GameObjects.Text
   private movesText!: Phaser.GameObjects.Text
+  private hintText!: Phaser.GameObjects.Text
   private targetFill!: Phaser.GameObjects.Rectangle
   private barX = 0
   private barWidth = 0
@@ -268,63 +270,63 @@ export class GameScene extends BaseScene {
    */
   private buildHud(): void {
     const area = boardArea()
+    const visual = resolveVisualProfile()
     const label =
       this.stageIndex !== undefined
         ? `Stage ${this.stageIndex + 1} — ${this.stage.name}`
         : this.stage.name
 
-    addText(this, area.marginX, 14, label, {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '15px',
-      color: toCss(PALETTE.inkMuted),
+    addSurface(this, GAME_WIDTH / 2, area.top / 2 - 3, GAME_WIDTH - 16, area.top - 12, 'game-hud', true)
+    addText(this, area.marginX + 8, 11, label.toUpperCase(), {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.label,
+      fontStyle: 'bold',
+      letterSpacing: 1,
+      color: ink(visual.colors.secondaryInk),
     })
-
-    const back = addText(this, GAME_WIDTH - area.marginX, 14, '‹ Stages', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '15px',
-      color: toCss(PALETTE.inkMuted),
-    })
-      .setOrigin(1, 0)
-      .setName('back')
-      .setInteractive({ useHandCursor: true })
-    back.on('pointerover', () => back.setColor(toCss(PALETTE.ink)))
-    back.on('pointerout', () => back.setColor(toCss(PALETTE.inkMuted)))
-    back.on('pointerup', () => this.fadeTo('StageSelect'))
+    addButton(
+      this,
+      GAME_WIDTH - area.marginX - 52,
+      28,
+      88,
+      '‹ Stages',
+      () => this.fadeTo('StageSelect'),
+      { kind: 'quiet', name: 'back', height: 34, fontSize: '14px' },
+    )
 
     this.scoreText = addText(this, area.marginX, area.top - 66, 'Score: 0', {
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: visual.type.family,
       fontSize: '20px',
-      color: toCss(PALETTE.ink),
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
     })
 
-    this.movesText = addText(this, GAME_WIDTH - area.marginX, area.top - 66, '', {
-      fontFamily: 'system-ui, sans-serif',
+    this.movesText = addText(this, GAME_WIDTH - area.marginX, area.top - 51, '', {
+      fontFamily: visual.type.family,
       fontSize: '20px',
-      color: toCss(PALETTE.ink),
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
     }).setOrigin(1, 0)
 
     // The threshold bar: filling it is winning. The label rides its right end.
     this.barX = area.marginX
     this.barWidth = GAME_WIDTH - area.marginX * 2
-    addText(this, GAME_WIDTH - area.marginX, area.top - 30, `Target ${this.stage.threshold}`, {
-      fontFamily: 'system-ui, sans-serif',
+    addText(this, GAME_WIDTH / 2, area.top - 26, `Target ${this.stage.threshold}`, {
+      fontFamily: visual.type.family,
       fontSize: '12px',
-      color: toCss(PALETTE.inkMuted),
-    }).setOrigin(1, 1)
-    this.add
-      .rectangle(this.barX, area.top - 22, this.barWidth, 4, PALETTE.inkMuted, 0.18)
-      .setOrigin(0, 0.5)
-    this.targetFill = this.add
-      .rectangle(this.barX, area.top - 22, 0, 4, PALETTE.accent)
-      .setOrigin(0, 0.5)
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(0.5, 1)
+    const meter = addProgressMeter(this, this.barX, area.top - 20, this.barWidth)
+    this.targetFill = meter.fill
 
-    addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 18, this.stage.hint, {
-      fontFamily: 'system-ui, sans-serif',
+    addSurface(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, GAME_WIDTH - 20, 48, 'hint-strip')
+    this.hintText = addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, this.stage.hint, {
+      fontFamily: visual.type.family,
       fontSize: '14px',
-      color: toCss(PALETTE.inkMuted),
+      color: ink(visual.colors.secondaryInk),
       align: 'center',
       wordWrap: { width: GAME_WIDTH - 32 },
-    }).setOrigin(0.5, 1)
+    }).setOrigin(0.5)
 
     this.updateHud()
   }
@@ -536,6 +538,7 @@ export class GameScene extends BaseScene {
   /** A legal move leaves the budget; the last few leave it loudly. */
   private spendMove(): void {
     this.movesLeft--
+    this.hintText.setAlpha(0.42)
     this.updateHud()
     if (this.movesLeft <= LOW_MOVES) {
       this.movesText.setScale(1)
@@ -556,9 +559,16 @@ export class GameScene extends BaseScene {
    * is felt in the counter, not just printed by the floats.
    */
   private updateHud(wave = 0): void {
+    const visual = resolveVisualProfile()
     this.movesText
       .setText(`Moves: ${this.movesLeft}`)
-      .setColor(toCss(this.movesLeft <= LOW_MOVES ? PALETTE.accent : PALETTE.ink))
+      .setColor(ink(
+        this.movesLeft <= 1
+          ? visual.colors.critical
+          : this.movesLeft <= LOW_MOVES
+            ? visual.colors.warning
+            : visual.colors.primaryInk,
+      ))
 
     this.scoreTween?.remove()
     const from = this.displayScore
@@ -602,6 +612,7 @@ export class GameScene extends BaseScene {
 
   /** Floating "+N" over the clear — bigger, hotter, and suffixed per wave. */
   private floatScore(points: number, wave: number, matched: Set<number>): void {
+    const visual = resolveVisualProfile()
     let sx = 0
     let sy = 0
     for (const index of matched) {
@@ -613,10 +624,10 @@ export class GameScene extends BaseScene {
     const y = sy / matched.size
 
     const text = addText(this, x, y, wave > 1 ? `+${points} ×${wave}` : `+${points}`, {
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: visual.type.family,
       fontSize: `${Math.min(34, 18 + (wave - 1) * 5)}px`,
       fontStyle: 'bold',
-      color: toCss(wave > 1 ? PALETTE.accent : PALETTE.ink),
+      color: ink(wave > 1 ? visual.colors.accent : visual.colors.primaryInk),
     })
       .setOrigin(0.5)
       .setDepth(30)
@@ -638,9 +649,10 @@ export class GameScene extends BaseScene {
    * ends on its own terms when the board settles.
    */
   private celebrateThreshold(): void {
+    const visual = resolveVisualProfile()
     playSfx('threshold')
     const flash = this.add
-      .rectangle(this.barX, this.targetFill.y, this.barWidth, 4, PALETTE.ink, 0.9)
+      .rectangle(this.barX, this.targetFill.y, this.barWidth, 4, visual.colors.primaryInk, 0.9)
       .setOrigin(0, 0.5)
     this.tweens.add({
       targets: flash,
@@ -652,10 +664,10 @@ export class GameScene extends BaseScene {
     })
 
     const note = addText(this, GAME_WIDTH / 2, this.targetFill.y - 16, 'Target reached!', {
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: visual.type.family,
       fontSize: '18px',
       fontStyle: 'bold',
-      color: toCss(PALETTE.accent),
+      color: ink(visual.colors.accent),
     })
       .setOrigin(0.5, 1)
       .setDepth(30)
@@ -732,11 +744,12 @@ export class GameScene extends BaseScene {
    * free by design.
    */
   private lose(): void {
+    const visual = resolveVisualProfile()
     this.outcome = 'lost'
     playSfx('lose')
 
     const dim = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, PALETTE.background)
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, visual.colors.surfaceStrong)
       .setDepth(40)
       .setAlpha(0)
     this.tweens.add({ targets: dim, alpha: 0.55, duration: 450, ease: 'Quad.easeOut' })
@@ -766,30 +779,31 @@ export class GameScene extends BaseScene {
     lines: string[],
     buttons: { label: string; name: string; primary?: boolean; action: () => void }[],
   ): Phaser.GameObjects.Text[] {
+    const visual = resolveVisualProfile()
     const width = Math.min(GAME_WIDTH - 48, 440)
     const height = 150 + lines.length * 30
     const panel = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT * 0.42).setDepth(50)
 
-    const box = this.add.graphics()
-    box.fillStyle(PALETTE.background, 0.96)
-    box.lineStyle(2, PALETTE.accent, 0.5)
-    box.fillRoundedRect(-width / 2, -height / 2, width, height, 18)
-    box.strokeRoundedRect(-width / 2, -height / 2, width, height, 18)
+    const box = this.add.graphics().setName('round-overlay')
+    box.fillStyle(visual.colors.surfaceStrong, visual.alpha.surfaceStrong)
+    box.lineStyle(2, visual.colors.accent, 0.5)
+    box.fillRoundedRect(-width / 2, -height / 2, width, height, visual.radii.lg)
+    box.strokeRoundedRect(-width / 2, -height / 2, width, height, visual.radii.lg)
     panel.add(box)
 
     const titleText = addText(this, 0, -height / 2 + 40, title, {
-      fontFamily: 'system-ui, sans-serif',
+      fontFamily: visual.type.family,
       fontSize: '32px',
       fontStyle: 'bold',
-      color: toCss(PALETTE.ink),
+      color: ink(visual.colors.primaryInk),
     }).setOrigin(0.5)
     panel.add(titleText)
 
     const lineTexts = lines.map((line, i) => {
       const text = addText(this, 0, -height / 2 + 84 + i * 30, line, {
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: visual.type.family,
         fontSize: '19px',
-        color: toCss(PALETTE.inkMuted),
+        color: ink(visual.colors.secondaryInk),
       }).setOrigin(0.5)
       panel.add(text)
       return text
@@ -798,18 +812,11 @@ export class GameScene extends BaseScene {
     const y = height / 2 - 36
     const slot = width / buttons.length
     buttons.forEach((button, i) => {
-      const text = addText(this, -width / 2 + slot * (i + 0.5), y, button.label, {
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '23px',
-        color: toCss(button.primary ? PALETTE.accent : PALETTE.inkMuted),
-      })
-        .setOrigin(0.5)
-        .setName(button.name)
-        .setInteractive({ useHandCursor: true })
-      text.on('pointerover', () => text.setScale(1.1))
-      text.on('pointerout', () => text.setScale(1))
-      text.on('pointerup', button.action)
-      panel.add(text)
+      const control = addButton(this, 0, 0, slot - 16, button.label, button.action, {
+        kind: button.primary ? 'primary' : 'quiet',
+        name: button.name,
+      }).setPosition(-width / 2 + slot * (i + 0.5), y)
+      panel.add(control)
     })
 
     panel.setScale(0.92).setAlpha(0)

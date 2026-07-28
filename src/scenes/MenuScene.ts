@@ -1,8 +1,9 @@
 import type { ColorId } from '../colors'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
-import { PALETTE, toCss } from '../palette'
 import { activeTheme } from '../settings'
 import { addText } from '../text'
+import { addButton, addSurface } from '../ui/components'
+import { ink, resolveVisualProfile } from '../ui/visual-system'
 import { BaseScene } from './BaseScene'
 
 /** Title flourish: the primaries and their mixes, in wheel order. */
@@ -14,11 +15,13 @@ export class MenuScene extends BaseScene {
   }
 
   create(): void {
-    addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 - 120, 'DYESTOPIA', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '64px',
+    const visual = resolveVisualProfile()
+    addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 - 150, 'DYESTOPIA', {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.display,
       fontStyle: 'bold',
-      color: toCss(PALETTE.ink),
+      letterSpacing: 5,
+      color: ink(visual.colors.primaryInk),
     }).setOrigin(0.5)
 
     // A row of swatches, purely as a title flourish.
@@ -40,37 +43,24 @@ export class MenuScene extends BaseScene {
       })
     })
 
-    const start = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, 'Play', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '28px',
-      color: toCss(PALETTE.accent),
-    })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-
-    start.on('pointerover', () => start.setScale(1.08))
-    start.on('pointerout', () => start.setScale(1))
-    start.on('pointerup', () => this.fadeTo('StageSelect'))
-
-    const settings = addText(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 150, 'Settings', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '22px',
-      color: toCss(PALETTE.inkMuted),
-    })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true })
-
-    settings.on('pointerover', () => settings.setColor(toCss(PALETTE.ink)))
-    settings.on('pointerout', () => settings.setColor(toCss(PALETTE.inkMuted)))
-    settings.on('pointerup', () => this.scene.start('Settings'))
+    const controlsWidth = Math.min(360, GAME_WIDTH - 48)
+    addSurface(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, controlsWidth, 150, 'menu-controls')
+    addButton(
+      this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, controlsWidth - 32, 'PLAY',
+      () => this.fadeTo('StageSelect'), { kind: 'primary', name: 'button-play' },
+    )
+    addButton(
+      this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 150, controlsWidth - 32, 'Settings',
+      () => this.fadeTo('Settings'), { kind: 'quiet', name: 'button-settings' },
+    )
 
     this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('StageSelect'))
     this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('StageSelect'))
 
     addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, 'Press space or click', {
-      fontFamily: 'system-ui, sans-serif',
-      fontSize: '16px',
-      color: toCss(PALETTE.inkMuted),
+      fontFamily: visual.type.family,
+      fontSize: visual.type.small,
+      color: ink(visual.colors.secondaryInk),
     }).setOrigin(0.5)
   }
 }

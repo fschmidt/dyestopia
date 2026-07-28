@@ -121,7 +121,7 @@ The heart, replacing the repaint-in-place demo in
 - Deterministic RNG seeding hook so Playwright tests can assert board states
   via the existing `window.dyestopia` bridge.
 - **Animations** (per shape, blob + mosaic, extending
-  [tile-motion.md](tile-motion.md)):
+  [tile-motion.md](design/tiles/tile-motion.md)):
   - **Destruction/clear** — the one wholly new primitive (blob: liquid
     pop/burst; mosaic: crack out of the grout). The genre's feel hangs on it.
   - **Gravity fall** — per-column stagger and fall physics; landing reuses
@@ -186,7 +186,72 @@ The heart, replacing the repaint-in-place demo in
 
 *Exit: it feels like a game, not a tech demo, on a phone.*
 
-### M6 — Friends release (S)
+### M6 — Coherent visual system (M)
+
+Give menus and the in-round HUD one readable, recognisable language across
+every selectable background. The direction is **dye-lab labels over pigment**:
+backgrounds stay expressive, while information and controls sit on restrained
+surfaces with predictable contrast.
+
+#### Architecture boundary
+
+This milestone is a presentation layer, not a new dependency of the game:
+
+- Define semantic visual tokens (surface, primary/secondary ink, accent,
+  warning, spacing, type scale, radii and motion) behind one visual-system
+  resolver. Scenes ask for roles such as `surface` and `primaryInk`; they do
+  not contain background ids, sampled colours or contrast heuristics.
+- Build a small set of Phaser UI factories/components — surface, button,
+  segmented control, info strip and progress meter — which own their artwork,
+  interaction states and text styling. Scene code supplies content, position
+  and actions.
+- Start with one universal high-contrast recipe that works over all five
+  backgrounds. Leave an optional `VisualProfile`/resolver seam so a future
+  background can select a light, dark or tinted recipe without changing scene
+  layout or the background registry.
+- Keep `board.ts`, stage data, scoring, move resolution, `Tile` and colour
+  themes independent of UI profiles. The visual layer may observe game state;
+  game state must not know how it is presented.
+- Keep the primitives Phaser-local and shallow. No component framework,
+  dependency-injection container or general design-system machinery is
+  introduced for five scenes.
+
+#### Screen work
+
+- **Game HUD:** replace loose text with one compact top label containing stage,
+  score/target progress, moves and the route back to stages. Moves gain semantic
+  warning/critical states; the board itself remains unboxed.
+- **Hint strip:** place the stage hint on a readable bottom surface; dim it
+  after the first valid move and allow contextual re-emphasis later without
+  coupling that behaviour to the board engine.
+- **Menu:** preserve the large title and pigment strip, but group Play and
+  Settings into a deliberate control surface with clear primary/secondary
+  hierarchy.
+- **Settings:** use segmented controls for shape and colours, a real sound
+  switch, and visual background thumbnails in a swipeable/paged selector so no
+  option can overflow the phone viewport. Keep the live tile preview on a
+  neutral preview shelf.
+- **Stage select and round overlays:** apply the same surfaces, button hierarchy
+  and typography to navigation, unlock, win and lose states.
+- Verify safe-area/portrait layout, keyboard and pointer focus states, minimum
+  touch targets, and readable contrast over every background at both supported
+  DPRs.
+
+#### Verification and changeability
+
+- Add component-level tests for semantic states and scene tests for hierarchy,
+  bounds and persistence; avoid pixel-perfect snapshots as the primary
+  contract.
+- Capture a small visual matrix (five backgrounds × the menu, settings and game
+  HUD) for human review.
+- Prove the seam before exit by swapping the resolver to a second test profile
+  without changing any scene or gameplay code.
+
+*Exit: every MVP screen is readable and visually coherent on every background,
+and a future visual recipe can replace or adapt the current one entirely inside
+the presentation layer.*
+
+### M7 — Friends release (S)
 
 - Playtest + bug pass, tune thresholds/scoring.
 - A lightweight way to receive feedback (even just a mailto link on the menu).
