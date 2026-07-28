@@ -1,0 +1,2 @@
+- create architechture rules
+- phaser/game development skill
