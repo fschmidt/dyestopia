@@ -166,24 +166,20 @@ export function swapClears(grid: Grid, cells: Cells, a: number, b: number): bool
 }
 
 /**
- * Would merging `a` and `b` into `result` clear anything? Both tiles take the
- * result colour in place — the merge supplies 2 of the 3 a match needs, so
- * this is true exactly when a third result-coloured tile already lines up.
- * With `combo` on (the M3 prototype), the dry run includes the absorb wave,
- * so a merge can be legal *because* its wave lines three up.
+ * Would dyeing `target` to `result` clear anything? The mix-legality dry run,
+ * and deliberately *narrower* than the mix's actual effect: only the target
+ * converts here, so a mix is legal exactly when the dyed target completes a
+ * line with two result-coloured tiles already in place. The dragged tile
+ * (which also converts when the mix goes ahead) supplies nothing to legality,
+ * and neither does the combo wave — mixes are earned by setup, not conjured
+ * by the pair itself. This is what makes drops directional: dragging yellow
+ * onto a red beside two oranges mixes; dragging that red onto the yellow
+ * does not.
  */
-export function mergeClears(
-  grid: Grid,
-  cells: Cells,
-  a: number,
-  b: number,
-  result: ColorId,
-  combo = false,
-): boolean {
-  if (cells[a] === null || cells[b] === null) return false
+export function mergeClears(grid: Grid, cells: Cells, target: number, result: ColorId): boolean {
+  if (cells[target] === null) return false
   const trial = cells.slice()
-  trial[a] = trial[b] = result
-  if (combo) comboConversions(grid, trial, [a, b])
+  trial[target] = result
   return findMatches(grid, trial).size > 0
 }
 
@@ -192,52 +188,51 @@ export type Move = { kind: 'merge'; result: ColorId } | { kind: 'swap' } | { kin
 
 /**
  * The single entry point for a drop onto a neighbour: merge before swap.
+ * `from` is the dragged tile, `to` the one it lands on — and since mix
+ * legality anchors on the target (see `mergeClears`), the same pair can
+ * resolve differently in the two directions: the dye pours from the dragged
+ * tile onto the target.
  *
- * 1. If the pair mixes and the merge would clear, it merges.
+ * 1. If the pair mixes and the dyed *target* would complete a line, it
+ *    merges (both tiles then take the result colour).
  * 2. Otherwise, if the swap would clear, it swaps — which also catches
- *    mergeable pairs whose merge would not match: the swap gets its chance
- *    rather than the drop dead-ending.
+ *    mergeable pairs whose mix would not match: the swap gets its chance
+ *    rather than the drop dead-ending. Swaps stay direction-blind.
  * 3. Neither clears → illegal; the drop returns home and costs nothing.
  *
  * A same-colour drop falls out illegal by construction: identical colours
  * mix into nothing, and `swapClears` knows swapping them changes nothing.
  */
-export function resolveMove(
-  grid: Grid,
-  cells: Cells,
-  mix: MixRule,
-  a: number,
-  b: number,
-  combo = false,
-): Move {
-  const first = cells[a]
-  const second = cells[b]
-  if (first === null || second === null || !isAdjacent(grid, a, b)) return { kind: 'illegal' }
-  const result = mix(first, second)
-  if (result && mergeClears(grid, cells, a, b, result, combo)) return { kind: 'merge', result }
-  if (swapClears(grid, cells, a, b)) return { kind: 'swap' }
+export function resolveMove(grid: Grid, cells: Cells, mix: MixRule, from: number, to: number): Move {
+  const dragged = cells[from]
+  const target = cells[to]
+  if (dragged === null || target === null || !isAdjacent(grid, from, to)) return { kind: 'illegal' }
+  const result = mix(dragged, target)
+  if (result && mergeClears(grid, cells, to, result)) return { kind: 'merge', result }
+  if (swapClears(grid, cells, from, to)) return { kind: 'swap' }
   return { kind: 'illegal' }
 }
 
 /**
  * Any legal move on the board — swap or merge — or null: the dead-board
- * detector, and later the hint system.
+ * detector, and later the hint system. Returned as `[from, to]` in a
+ * direction that actually resolves: mixes are directional, so each adjacent
+ * pair is tried both ways.
  */
 export function findLegalMove(
   grid: Grid,
   cells: Cells,
   mix: MixRule = NO_MIX,
-  combo = false,
 ): [number, number] | null {
   for (let index = 0; index < grid.mask.length; index++) {
     if (!grid.mask[index]) continue
-    const right = index + 1
-    if (resolveMove(grid, cells, mix, index, right, combo).kind !== 'illegal') {
-      return [index, right]
-    }
-    const below = index + grid.cols
-    if (resolveMove(grid, cells, mix, index, below, combo).kind !== 'illegal') {
-      return [index, below]
+    for (const other of [index + 1, index + grid.cols]) {
+      if (resolveMove(grid, cells, mix, index, other).kind !== 'illegal') {
+        return [index, other]
+      }
+      if (resolveMove(grid, cells, mix, other, index).kind !== 'illegal') {
+        return [other, index]
+      }
     }
   }
   return null

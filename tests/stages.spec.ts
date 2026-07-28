@@ -104,7 +104,7 @@ test('the select screen opens only the frontier', async ({ page }) => {
 async function playClearingSwap(page: Page): Promise<void> {
   const report = await board(page)
   const { grid, cells } = toEngine(report)
-  const move = moveOfKind(grid, cells, 'swap', false, rulesFor(STAGES[report.stage!]))
+  const move = moveOfKind(grid, cells, 'swap', rulesFor(STAGES[report.stage!]))
   expect(move).not.toBeNull()
   await dragWorld(
     page,
@@ -185,7 +185,7 @@ test('a legal move spends from the budget; a refused drop does not', async ({ pa
   const budget = report.moves
 
   const { grid, cells } = toEngine(report)
-  const refused = moveOfKind(grid, cells, 'illegal', false, rulesFor(STAGES[0]))
+  const refused = moveOfKind(grid, cells, 'illegal', rulesFor(STAGES[0]))
   expect(refused).not.toBeNull()
   await dragWorld(
     page,

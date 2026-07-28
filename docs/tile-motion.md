@@ -113,9 +113,10 @@ travels on top.
 The thematic heart: dyes mixing. Merges happen between orthogonal neighbours
 and *both tiles survive the mix*: each stays on its cell and both come out
 dyed the result colour. Whether a drop merges at all is game logic
-(`resolveMove` in `src/board.ts`: merge before swap, and only if the merge
-clears — the pair supplies 2 of the 3 result tiles a match needs). The colour
-change is a tint tween on the base sprite — interpolate with
+(`resolveMove` in `src/board.ts`: merge before swap, and only if the dyed
+*target* completes a line with two result-coloured tiles already in place —
+mixing is directional, the dye pours from the dragged tile onto the target).
+The colour change is a tint tween on the base sprite — interpolate with
 `Phaser.Display.Color.Interpolate` in an `onUpdate`, since tint isn't
 directly tweenable.
 
@@ -164,9 +165,10 @@ the pair comes out of the kiln in the new colour.
 Behind a debug toggle (`dyestopia.combo(true)`, or `?combo` in the URL for
 phones): a freshly mixed colour **absorbs its own ingredients** — an orange
 merge soaks up adjacent red and yellow groups, flood-fill style, and freshly
-absorbed tiles keep the wave rolling. With the toggle on, the merge dry-run
-includes the wave, so a merge can be legal *because* its wave lines three
-up — which is what makes combos aimable rather than accidental.
+absorbed tiles keep the wave rolling. The wave is pure effect: mix legality
+is the target-anchored rule either way (the playtest showed wave-made
+legality handed out free combos), so a combo is earned by the same setup as
+any mix, and the wave is the payoff rolling outward.
 
 The animation is half the prototype — each absorbed tile plays a lighter,
 quicker cousin of the merge pulse, delayed by its flood distance (70 ms per

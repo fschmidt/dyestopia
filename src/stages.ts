@@ -6,9 +6,12 @@ import type { Stage } from './stage'
  * Stages 1–3 are the tutorial — tiny thresholds, colour sets that force one
  * concept each (match → merge → cascade) — and the rest curve through purple
  * and shaped boards into the tertiaries. Refills only drop `seed` colours, so
- * every secondary a stage plays beyond its opening letters is player-made;
- * the letters in `board` place the few the first merges need (a merge makes
- * 2 of the 3 a match wants — the third has to be found or built).
+ * every secondary a stage plays beyond its opening letters is player-made.
+ * A mix is legal only when the dyed target completes a line with two
+ * result-coloured tiles already in place, so the letters author *in-line
+ * pairs* — each one a made mix away from a clear, once the right primary
+ * drifts next door. Loose result tiles beyond those come only from merge
+ * survivors (a converted dragged tile the cleared line didn't include).
  *
  * Thresholds and budgets are tuning numbers, deliberately rough until the
  * playtest: a plain 3-clear pays 30, a merged one 45, cascades multiply.
@@ -31,21 +34,21 @@ export const STAGES: Stage[] = [
     ],
   },
   {
-    // The twist: orange becomes legal, and three of them wait on the board —
-    // each one a red-on-yellow merge away from a clear.
+    // The twist: orange becomes legal, and two waiting pairs teach the rule —
+    // dye the tile beside a pair and the line completes.
     name: 'Mixing Lesson',
-    hint: 'Drop red on yellow to mix orange — clear it beside a third',
+    hint: 'Drop red on a yellow beside two oranges — the mix completes the line',
     threshold: 160,
     moves: 8,
     active: ['red', 'yellow', 'blue', 'orange'],
     seed: ['red', 'yellow', 'blue'],
     board: [
       '######', //
-      '###o##',
+      '##oo##',
       '######',
-      '#o####',
       '######',
-      '####o#',
+      '#oo###',
+      '######',
     ],
   },
   {
@@ -58,11 +61,11 @@ export const STAGES: Stage[] = [
     seed: ['red', 'yellow', 'blue'],
     board: [
       '#######', //
-      '##o####',
-      '#####g#',
+      '##oo###',
       '#######',
-      '#g#####',
-      '####o##',
+      '#######',
+      '#gg####',
+      '#######',
       '#######',
     ],
   },
@@ -75,12 +78,12 @@ export const STAGES: Stage[] = [
     seed: ['red', 'yellow', 'blue'],
     board: [
       '########', //
-      '###p####',
-      '#o######',
-      '######g#',
+      '###pp###',
       '########',
-      '##g#####',
-      '#####o##',
+      '#oo#####',
+      '########',
+      '#####gg#',
+      '########',
       '########',
     ],
   },
@@ -95,11 +98,11 @@ export const STAGES: Stage[] = [
     board: [
       '....#....', //
       '...###...',
-      '..##g##..',
-      '.###o###.',
-      '####p####',
-      '.###g###.',
-      '..##o##..',
+      '..#####..',
+      '.##oo###.',
+      '###pp####',
+      '.###gg##.',
+      '..#####..',
       '...###...',
       '....#....',
     ],
@@ -114,11 +117,11 @@ export const STAGES: Stage[] = [
     seed: ['red', 'yellow', 'blue'],
     board: [
       '####..####', //
-      '##o#..#g##',
+      '#oo#..#gg#',
       '####..####',
-      '#g##..##o#',
+      '#gg#..#oo#',
       '####..####',
-      '####p#####',
+      '####pp####',
       '##########',
     ],
   },
@@ -133,11 +136,11 @@ export const STAGES: Stage[] = [
     seed: ['red', 'yellow', 'blue'],
     board: [
       '########', //
-      '##g#####',
-      '######t#',
+      '##gg####',
+      '#####tt#',
       '########',
-      '#t######',
-      '#####g##',
+      '#tt#####',
+      '####gg##',
       '########',
       '########',
     ],
@@ -152,11 +155,11 @@ export const STAGES: Stage[] = [
     board: [
       '.#######.', //
       '#########',
-      '##o######',
-      '######a##',
+      '##oo#####',
+      '#####aa##',
       '#########',
-      '##a######',
-      '######o##',
+      '##aa#####',
+      '#####oo##',
       '#########',
       '.#######.',
     ],
@@ -170,11 +173,11 @@ export const STAGES: Stage[] = [
     seed: ['red', 'yellow', 'blue'],
     board: [
       '#########', //
-      '.##p####.',
-      '..##m##..',
+      '.##pp###.',
+      '..#mm##..',
       '...###...',
-      '..##m##..',
-      '.####p##.',
+      '..##mm#..',
+      '.###pp##.',
       '#########',
     ],
   },
@@ -188,14 +191,14 @@ export const STAGES: Stage[] = [
     seed: ['red', 'yellow', 'blue'],
     board: [
       '##########', //
-      '###o######',
-      '#g######p#',
+      '###oo#####',
+      '#gg####pp#',
       '##########',
-      '#####t####',
-      '##a#######',
-      '########g#',
+      '#####tt###',
+      '##aa######',
       '##########',
-      '#o########',
+      '#######gg#',
+      '#oo#######',
       '##########',
     ],
   },

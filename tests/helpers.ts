@@ -117,19 +117,23 @@ export function rulesFor(stage: Stage): MixRule {
 /** The dev board's rules — what `startSeededGame` rounds play under. */
 export const stageRules: MixRule = rulesFor(FIRST_STAGE)
 
-/** The first adjacent pair whose drop resolves to `kind`, or null. */
+/**
+ * The first drop that resolves to `kind`, as `[from, to]`, or null. Mixes
+ * are directional (the dye pours onto the target), so each adjacent pair is
+ * tried both ways.
+ */
 export function moveOfKind(
   grid: Grid,
   cells: Cells,
   kind: 'merge' | 'swap' | 'illegal',
-  combo = false,
   mix: MixRule = stageRules,
 ): [number, number] | null {
   for (let a = 0; a < grid.mask.length; a++) {
     if (!grid.mask[a]) continue
     for (const b of [a + 1, a + grid.cols]) {
       if (!isAdjacent(grid, a, b)) continue
-      if (resolveMove(grid, cells, mix, a, b, combo).kind === kind) return [a, b]
+      if (resolveMove(grid, cells, mix, a, b).kind === kind) return [a, b]
+      if (resolveMove(grid, cells, mix, b, a).kind === kind) return [b, a]
     }
   }
   return null

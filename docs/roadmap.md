@@ -18,7 +18,13 @@ no tools, no accounts.
 - **Merging is the twist.** Dragging a tile onto an orthogonal neighbour whose
   colour it mixes with (per the RYB rules in [`src/colors.ts`](../src/colors.ts),
   gated by the stage's active list) turns **both tiles into the result
-  colour** — the merge supplies 2 of the 3 needed for a match.
+  colour**. *Revised 2026-07-28 (combo playtest):* the mix is only legal when
+  the dyed **target** completes a line with **two result-coloured tiles
+  already in place** — the pair no longer supplies 2 of the 3, and the dye
+  pours from the dragged tile onto the target, so **direction matters**:
+  `orange|orange|red|yellow` mixes when the yellow is dragged onto the red,
+  not the other way around. Mixed matches are earned by setup, which is what
+  keeps player-made colours precious.
 - **Move legality.** A move — swap *or* merge — is only allowed if it results
   in the destruction of at least 3 matching tiles. Illegal drops return home.
 - **Cascades auto-resolve, cost nothing, and score**, with a rising multiplier
@@ -74,16 +80,19 @@ When a tile is dropped on an orthogonal neighbour, the engine resolves in
 order:
 
 1. **Merge?** If the pair mixes and the result is stage-active, dry-run the
-   merge (both tiles become the result). Clears 3+ → merge happens.
+   **target alone** taking the result colour (revised 2026-07-28 — the
+   dragged tile joins only in the real effect). The dyed target completes a
+   3-line → the merge happens and both tiles convert.
 2. **Swap?** Otherwise dry-run the swap. Clears 3+ → swap happens. This
-   exception also covers mergeable pairs whose merge would *not* match — the
+   exception also covers mergeable pairs whose mix would *not* match — the
    swap gets its chance rather than the drop dead-ending.
 3. **Illegal.** Neither clears → the tile returns home; no move is spent.
 
 Consequences, accepted for MVP: the player cannot force a swap when a merge
-would also match (a "force swap" gesture is parking-lot material), and a
+would also match (a "force swap" gesture is parking-lot material); a
 same-colour drop is always illegal — identical tiles can't merge, and
-swapping them can't change the board.
+swapping them can't change the board; and since mixing anchors on the
+target, the same pair can resolve differently in the two drag directions.
 
 ### Other decisions
 

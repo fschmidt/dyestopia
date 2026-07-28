@@ -28,7 +28,7 @@ const sfxLog = (page: Page): Promise<string[]> =>
 async function playMove(page: Page, kind: 'swap' | 'illegal'): Promise<void> {
   const report = await board(page)
   const { grid, cells } = toEngine(report)
-  const move = moveOfKind(grid, cells, kind, false, rulesFor(STAGES[report.stage!]))
+  const move = moveOfKind(grid, cells, kind, rulesFor(STAGES[report.stage!]))
   expect(move, `a ${kind} move exists`).not.toBeNull()
   await dragWorld(
     page,

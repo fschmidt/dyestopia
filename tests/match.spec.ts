@@ -79,7 +79,9 @@ test('a merge dyes the pair in place, clears, and pays the merge bonus', async (
   const grid = parseMask(FIRST_STAGE.board)
   let seed = -1
   let pair: [number, number] | null = null
-  for (let s = 1; s < 200 && !pair; s++) {
+  // Legal merges need two in-line result tiles at the target now, so the
+  // random deal serves them up less often — sweep a wide seed range.
+  for (let s = 1; s < 5000 && !pair; s++) {
     const cells = generateBoard(grid, FIRST_STAGE.seed, mulberry32(s), stageRules)
     pair = moveOfKind(grid, cells, 'merge')
     if (pair) seed = s
@@ -111,19 +113,22 @@ test('a merge dyes the pair in place, clears, and pays the merge bonus', async (
 })
 
 test('the combo prototype ripples the merge into adjacent groups', async ({ page }) => {
-  // Predict, offline, a seed whose merge sets off at least one conversion —
-  // then replay the entire resolve (conversions, cascade, refills) on the
-  // same rng stream the scene will consume, down to the exact settled board.
+  // Predict, offline, a seed whose (target-anchored) legal merge sets off at
+  // least one conversion — then replay the entire resolve (conversions,
+  // cascade, refills) on the same rng stream the scene will consume, down to
+  // the exact settled board. Legal merges with an adjacent ingredient group
+  // are rarer than merges were when the wave itself could legalise one, so
+  // the search sweeps a wider seed range.
   const grid = parseMask(FIRST_STAGE.board)
   let seed = -1
   let pair: [number, number] | null = null
   let settled: (string | null)[] = []
-  for (let s = 1; s < 300 && !pair; s++) {
+  for (let s = 1; s < 5000 && !pair; s++) {
     const rng = mulberry32(s)
     const cells = generateBoard(grid, FIRST_STAGE.seed, rng, stageRules)
-    const move = moveOfKind(grid, cells, 'merge', true)
+    const move = moveOfKind(grid, cells, 'merge')
     if (!move) continue
-    const resolved = resolveMove(grid, cells, stageRules, move[0], move[1], true)
+    const resolved = resolveMove(grid, cells, stageRules, move[0], move[1])
     if (resolved.kind !== 'merge') continue
     cells[move[0]] = cells[move[1]] = resolved.result
     const conversions = comboConversions(grid, cells, [move[0], move[1]])
@@ -135,7 +140,7 @@ test('the combo prototype ripples the merge into adjacent groups', async ({ page
     }
     // A dead settled board would reshuffle live and spend rng the replay
     // didn't — skip such seeds rather than model it.
-    if (!findLegalMove(grid, cells, stageRules, true)) continue
+    if (!findLegalMove(grid, cells, stageRules)) continue
     seed = s
     pair = move
     settled = cells

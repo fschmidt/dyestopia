@@ -27,8 +27,9 @@ export interface Stage {
 /**
  * The colour letters `board` rows may use. Refills only ever drop `seed`
  * colours, so these are how a stage places the secondaries and tertiaries its
- * first merges need — a merge supplies 2 of the 3 result-coloured tiles a
- * match wants, and the third has to already be there.
+ * first mixes need — a mix is legal only when the dyed target completes a
+ * line with two result-coloured tiles already in place, so stages author
+ * them as in-line pairs.
  */
 const LETTER_COLORS: Record<string, ColorId> = {
   r: 'red',

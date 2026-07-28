@@ -145,23 +145,43 @@ test.describe('move legality', () => {
 test.describe('merge resolution', () => {
   const grid = parseMask(['####', '####', '####'])
 
-  test('a merge clears exactly when a third result tile lines up', () => {
-    // r+y at 0-1 become orange, joining the two already on the row.
+  test('a mix clears exactly when the dyed target completes a line', () => {
+    // Dragging the r at 0 onto the y at 1: the dyed target joins the two
+    // oranges already on the row. The dragged tile supplies nothing.
     const cells = cellsOf(grid, ['ryoo', 'bgbg', 'gbgb'])
-    expect(mergeClears(grid, cells, 0, 1, 'orange')).toBe(true)
-    // The same pair aimed at a colour with no third on the board.
-    expect(mergeClears(grid, cells, 0, 1, 'green')).toBe(false)
+    expect(mergeClears(grid, cells, 1, 'orange')).toBe(true)
+    // The other direction: dyeing 0 leaves it out of line with the pair.
+    expect(mergeClears(grid, cells, 0, 'orange')).toBe(false)
+    // A colour with no pair on the board never clears.
+    expect(mergeClears(grid, cells, 1, 'green')).toBe(false)
+  })
+
+  test('mixing is directional — the dye pours onto the target', () => {
+    // The roadmap's canonical example: o-o-r-y. Dragging the yellow onto the
+    // red dyes it orange beside the pair; dragging the red onto the yellow
+    // dyes a tile no orange lines up with, and the swap clears nothing
+    // either.
+    const row = parseMask(['####'])
+    const cells = cellsOf(row, ['oory'])
+    expect(resolveMove(row, cells, mixResult, 3, 2)).toEqual({
+      kind: 'merge',
+      result: 'orange',
+    })
+    expect(resolveMove(row, cells, mixResult, 2, 3)).toEqual({ kind: 'illegal' })
   })
 
   test('merge wins over a swap that would also clear', () => {
-    // Merging 0-1 lines up o-o-o-o on the top row; swapping them would line
-    // up y-y-y down the left column. Merge-before-swap picks the merge.
+    // Dragging r(0) onto y(1) lines the dyed target up with the oranges;
+    // swapping them would line up y-y-y down the left column instead.
+    // Merge-before-swap picks the merge — and the other direction, whose
+    // mix cannot clear, falls through to that same swap.
     const cells = cellsOf(grid, ['ryoo', 'yrgb', 'ybgg'])
     expect(swapClears(grid, cells, 0, 1)).toBe(true)
     expect(resolveMove(grid, cells, mixResult, 0, 1)).toEqual({
       kind: 'merge',
       result: 'orange',
     })
+    expect(resolveMove(grid, cells, mixResult, 1, 0)).toEqual({ kind: 'swap' })
   })
 
   test('the swap gets its chance when the merge would not clear', () => {
@@ -179,25 +199,32 @@ test.describe('merge resolution', () => {
     expect(resolveMove(grid, cells, mixResult, 0, 2)).toEqual({ kind: 'illegal' })
   })
 
-  test('with the combo on, the wave itself can make the merge legal', () => {
+  test('the pair alone never makes a mix legal — setup does', () => {
     const row = parseMask(['####'])
-    // No third orange anywhere and the swap clears nothing — but the wave
-    // absorbs the red at 2, lining up three oranges.
+    // r+y would mix, but the dyed target completes no orange line: the pair
+    // supplies nothing to legality, in either direction.
     const cells = cellsOf(row, ['ryrb'])
     expect(resolveMove(row, cells, mixResult, 0, 1)).toEqual({ kind: 'illegal' })
-    expect(resolveMove(row, cells, mixResult, 0, 1, true)).toEqual({
+    expect(resolveMove(row, cells, mixResult, 1, 0)).toEqual({ kind: 'illegal' })
+
+    // The setup tiles may also flank the target: dragging the red up onto
+    // the yellow dyes the cell *between* the two oranges.
+    const cross = parseMask(['###', '.#.'])
+    const flanked = cellsOf(cross, ['oyo', '.r.'])
+    expect(resolveMove(cross, flanked, mixResult, 4, 1)).toEqual({
       kind: 'merge',
       result: 'orange',
     })
   })
 
-  test('a board dead to swaps can be alive through a merge', () => {
-    // One row: no swap rearranges o-r-y-o into a run, but merging r+y makes
-    // the whole row orange.
+  test('a board dead to swaps can be alive through a mix', () => {
+    // One row: no swap rearranges o-o-r-y into a run, but dragging the
+    // yellow onto the red dyes it into the pair's line — and the finder
+    // reports the working direction.
     const row = parseMask(['####'])
-    const cells = cellsOf(row, ['oryo'])
+    const cells = cellsOf(row, ['oory'])
     expect(findLegalMove(row, cells)).toBeNull()
-    expect(findLegalMove(row, cells, mixResult)).toEqual([1, 2])
+    expect(findLegalMove(row, cells, mixResult)).toEqual([3, 2])
   })
 })
 
