@@ -26,10 +26,18 @@
 - Combo mixing?
 - color mixing should lead to multipliers on the final score of each score (so the final score is multiplied by 2 in all scorings -> initial and subsequent)
 
+# Color mixing mechanics
+- mixing a color increases the muliplier (2x)
+- mixing a color already mixed in the current "chain" maintains the multiplier (2x)
+- swapping instead of mixing drops the multiplier (1x)
+- mixing an additional color within the current chain increases the multiplier (3x)
+
+
 - color mixing increases the chances of new tiles matching the color that has the most tiles on the board. This multiplier is increased upon multiple mixes in a row and reset once no mix was done
 
 # Visuals
 - higher combos/scores in a single move lead to more prominent animations and visual effects
+- color mixing multipliers should change the visual style of the score info
 
 # Dev/Debug
 - toggle to show internal modifiers
