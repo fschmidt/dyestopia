@@ -1,8 +1,6 @@
 import type { ColorId } from '../colors'
-import { BACKGROUNDS } from '../backgrounds'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import {
-  activeBackground,
   activeShape,
   activeTheme,
   getSettings,
@@ -23,7 +21,6 @@ const PREVIEW_COLORS: ColorId[] = ['red', 'yellow', 'blue', 'orange', 'green', '
 export class SettingsScene extends BaseScene {
   private preview: Tile[] = []
   private previewY = 560
-  private backgroundPage = 0
 
   constructor() {
     super('Settings')
@@ -75,17 +72,13 @@ export class SettingsScene extends BaseScene {
       },
     )
 
-    this.addBackgroundPager(left + 18, rowStart + rowGap * 2)
-
-    const utilityY = rowStart + rowGap * 3 + 8
-    const styleWidth = width - 132
-    this.addLabel(left + 18, rowStart + rowGap * 3 - 24, 'VISUAL STYLE')
-    this.addLabel(left + width - 94, rowStart + rowGap * 3 - 24, 'SOUND')
+    const styleY = rowStart + rowGap * 2
+    this.addLabel(left + 18, styleY - 42, 'VISUAL STYLE')
     addSegmentedControl(
       this,
-      left + 18 + styleWidth / 2,
-      utilityY,
-      styleWidth,
+      GAME_WIDTH / 2,
+      styleY,
+      width - 36,
       VISUAL_PROFILES.map(({ id, label }) => ({ id, label })),
       () => getSettings().visualStyle,
       (visualStyle) => {
@@ -95,10 +88,13 @@ export class SettingsScene extends BaseScene {
         this.scene.restart()
       },
     )
+
+    const soundY = rowStart + rowGap * 3
+    this.addLabel(left + 18, soundY - 46, 'SOUND')
     addSwitch(
       this,
-      left + width - 54,
-      utilityY,
+      left + 82,
+      soundY,
       () => getSettings().sound,
       (sound) => {
         updateSettings({ sound })
@@ -131,55 +127,6 @@ export class SettingsScene extends BaseScene {
       letterSpacing: 1,
       color: ink(visual.colors.secondaryInk),
     }).setDepth(5)
-  }
-
-  private addBackgroundPager(x: number, y: number): void {
-    const visual = resolveVisualProfile()
-    const width = Math.min(620, GAME_WIDTH - 28)
-    const rowY = y + 12
-    this.backgroundPage = Math.max(
-      0,
-      BACKGROUNDS.findIndex((background) => background.id === activeBackground().id),
-    )
-    this.addLabel(x, y - 34, 'BACKGROUND')
-
-    const thumbnail = this.add
-      .image(x + 54, rowY, `background-${activeBackground().id}`)
-      .setDisplaySize(96, 56)
-      .setName('background-thumbnail')
-    const title = addText(this, x + 118, rowY - 12, '', {
-      fontFamily: visual.type.family,
-      fontSize: visual.type.body,
-      fontStyle: 'bold',
-      color: ink(visual.colors.primaryInk),
-    })
-    const count = addText(this, x + 118, rowY + 14, '', {
-      fontFamily: visual.type.family,
-      fontSize: visual.type.small,
-      color: ink(visual.colors.secondaryInk),
-    })
-    const repaint = (): void => {
-      const background = BACKGROUNDS[this.backgroundPage]
-      thumbnail.setTexture(`background-${background.id}`)
-      title.setText(background.label)
-      count.setText(`${this.backgroundPage + 1} / ${BACKGROUNDS.length}`)
-      updateSettings({ background: background.id })
-      this.refreshBackground()
-    }
-    const step = (direction: number): void => {
-      this.backgroundPage =
-        (this.backgroundPage + direction + BACKGROUNDS.length) % BACKGROUNDS.length
-      repaint()
-    }
-    addButton(this, x + width - 116, rowY, 48, '‹', () => step(-1), {
-      kind: 'quiet',
-      name: 'background-prev',
-    })
-    addButton(this, x + width - 54, rowY, 48, '›', () => step(1), {
-      kind: 'quiet',
-      name: 'background-next',
-    })
-    repaint()
   }
 
   private buildPreview(): void {

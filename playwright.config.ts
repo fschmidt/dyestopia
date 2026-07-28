@@ -20,11 +20,22 @@ export default defineConfig({
   projects: [
     {
       name: '1x',
+      testIgnore: /iphone-layout\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 1 },
     },
     {
       name: '2x',
+      testIgnore: /iphone-layout\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 2 },
+    },
+    {
+      name: 'iphone-15-pro-max',
+      testMatch: /iphone-layout\.spec\.ts/,
+      use: {
+        ...devices['iPhone 15 Pro Max'],
+        browserName: 'chromium',
+        viewport: { width: 430, height: 730 },
+      },
     },
   ],
 

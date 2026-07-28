@@ -122,7 +122,7 @@ test('Spray Can menu uses the reference composition rather than the lab layout',
   expect(composition.play.width).toBe(composition.settings.width)
 })
 
-test('settings controls use touch-sized segmented choices and a sound switch', async ({ page }) => {
+test('settings controls use touch-sized choices and a framed ON/OFF sound row', async ({ page }) => {
   await open(page)
   await page.evaluate(() => window.dyestopia!.goTo('Settings'))
   await waitForScene(page, 'Settings')
@@ -132,9 +132,33 @@ test('settings controls use touch-sized segmented choices and a sound switch', a
   expect(options.length).toBeGreaterThan(4)
   expect(options.every((item) => item.width >= 44 && item.height >= 44)).toBe(true)
   expect(objects.some((item) => item.name === 'sound-switch')).toBe(true)
+  expect(objects.some((item) => item.name === 'sound-on')).toBe(true)
+  expect(objects.some((item) => item.name === 'sound-off')).toBe(true)
   expect(objects.some((item) => item.name === 'preview-shelf')).toBe(true)
   expect(objects.some((item) => item.name === 'option-spray-can')).toBe(true)
   expect(objects.some((item) => item.name === 'option-lab-dark')).toBe(true)
+  expect(objects.some((item) => item.name.startsWith('background-'))).toBe(false)
+
+  const rows = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Settings')!
+    const text = (value: string) =>
+      (scene.children.list.find(
+        (item) => item.type === 'Text' && (item as Phaser.GameObjects.Text).text === value,
+      ) as Phaser.GameObjects.Text).getBounds()
+    const style = (scene.children.getByName('option-spray-can') as Phaser.GameObjects.Container).getBounds()
+    const sound = (scene.children.getByName('sound-switch') as Phaser.GameObjects.Container).getBounds()
+    return {
+      hasBackgroundLabel: scene.children.list.some(
+        (item) => item.type === 'Text' && (item as Phaser.GameObjects.Text).text === 'BACKGROUND',
+      ),
+      styleBottom: style.bottom,
+      soundLabelTop: text('SOUND').top,
+      soundTop: sound.top,
+    }
+  })
+  expect(rows.hasBackgroundLabel).toBe(false)
+  expect(rows.soundLabelTop).toBeGreaterThan(rows.styleBottom)
+  expect(rows.soundTop).toBeGreaterThan(rows.styleBottom)
 })
 
 test('game presents one HUD label and one separate hint strip', async ({ page }) => {
@@ -159,8 +183,62 @@ test('Spray Can game HUD separates the paper stage label from score and moves', 
 
   expect(objects.some((item) => item.name === 'stage-label')).toBe(true)
   expect(objects.some((item) => item.name === 'score-block')).toBe(true)
+  expect(objects.some((item) => item.name === 'target-block')).toBe(true)
   expect(objects.some((item) => item.name === 'moves-block')).toBe(true)
+  expect(objects.filter((item) => item.name === 'tool-slot')).toHaveLength(0)
   expect(objects.some((item) => item.name === 'skin-atmosphere')).toBe(true)
+})
+
+test('Spray Can stage placard toggles its objective panel', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => {
+    window.dyestopia!.setSettings({ visualStyle: 'spray-can' })
+    window.dyestopia!.goTo('Game', { stage: 1 })
+  })
+  await waitForScene(page, 'Game')
+
+  expect(await hitTarget(page, 'Game', 'stage-label')).toBeTruthy()
+  const placard = await hitTarget(page, 'Game', 'stage-label')
+  await clickWorld(page, 'Game', placard.x, placard.y)
+  expect(
+    await page.evaluate(() =>
+      Boolean(window.dyestopia!.game.scene.getScene('Game')!.children.getByName('objective-panel')),
+    ),
+  ).toBe(true)
+
+  await clickWorld(page, 'Game', placard.x, placard.y)
+  expect(
+    await page.evaluate(() =>
+      Boolean(window.dyestopia!.game.scene.getScene('Game')!.children.getByName('objective-panel')),
+    ),
+  ).toBe(false)
+})
+
+test('Spray Can pause dialog resumes or routes to settings', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => {
+    window.dyestopia!.setSettings({ visualStyle: 'spray-can' })
+    window.dyestopia!.goTo('Game', { stage: 1 })
+  })
+  await waitForScene(page, 'Game')
+
+  const pause = await hitTarget(page, 'Game', 'pause')
+  await clickWorld(page, 'Game', pause.x, pause.y)
+  expect(await hitTarget(page, 'Game', 'resume')).toBeTruthy()
+  expect(await hitTarget(page, 'Game', 'pause-settings')).toBeTruthy()
+
+  const resume = await hitTarget(page, 'Game', 'resume')
+  await clickWorld(page, 'Game', resume.x, resume.y)
+  expect(
+    await page.evaluate(() =>
+      Boolean(window.dyestopia!.game.scene.getScene('Game')!.children.getByName('pause-dialog')),
+    ),
+  ).toBe(false)
+
+  await clickWorld(page, 'Game', pause.x, pause.y)
+  const settings = await hitTarget(page, 'Game', 'pause-settings')
+  await clickWorld(page, 'Game', settings.x, settings.y)
+  await waitForScene(page, 'Settings')
 })
 
 test('settings content remains inside its surfaces after a live selection', async ({ page }) => {
@@ -185,7 +263,7 @@ test('settings content remains inside its surfaces after a live selection', asyn
     const shelf = surfaceBounds('preview-shelf')
     const texts = scene.children.list.filter((item) => item.type === 'Text') as Phaser.GameObjects.Text[]
     const labels = texts.filter((text) =>
-      ['TILE SHAPE', 'COLOUR RECIPE', 'BACKGROUND', 'SOUND', 'Lab sounds'].includes(text.text),
+      ['TILE SHAPE', 'COLOUR RECIPE', 'VISUAL STYLE', 'SOUND', 'Lab sounds'].includes(text.text),
     )
     const tiles = scene.children.list.filter((item) => item.name === 'tile') as Phaser.GameObjects.Container[]
     return {
@@ -240,7 +318,7 @@ test('Spray Can stage select uses ledger labels and a clipped industrial panel',
   })
 })
 
-test('stage navigation does not overlap moves or target text', async ({ page }) => {
+test('stage pause control does not overlap moves', async ({ page }) => {
   await open(page)
   await page.evaluate(() => window.dyestopia!.goTo('Game', { stage: 0 }))
   await waitForScene(page, 'Game')
@@ -249,12 +327,12 @@ test('stage navigation does not overlap moves or target text', async ({ page }) 
     const scene = window.dyestopia!.game.scene.getScene('Game')!
     const hud = scene.children.getByName('game-hud') as Phaser.GameObjects.Graphics
     const hudSize = hud.getData('surfaceSize') as { width: number; height: number }
-    const back = scene.children.getByName('back') as Phaser.GameObjects.Container
-    const backBounds = {
-      left: back.x - (back.width * back.scaleX) / 2,
-      right: back.x + (back.width * back.scaleX) / 2,
-      top: back.y - (back.height * back.scaleY) / 2,
-      bottom: back.y + (back.height * back.scaleY) / 2,
+    const pause = scene.children.getByName('pause') as Phaser.GameObjects.Container
+    const pauseBounds = {
+      left: pause.x - (pause.width * pause.scaleX) / 2,
+      right: pause.x + (pause.width * pause.scaleX) / 2,
+      top: pause.y - (pause.height * pause.scaleY) / 2,
+      bottom: pause.y + (pause.height * pause.scaleY) / 2,
     }
     const movesBlock = scene.children.getByName('moves-block') as
       | Phaser.GameObjects.Container
@@ -263,18 +341,18 @@ test('stage navigation does not overlap moves or target text', async ({ page }) 
     const moves = texts.find((text) => text.text.startsWith('Moves:'))
     const other = movesBlock?.getBounds() ?? moves!.getBounds()
     const overlaps = !(
-      backBounds.right + 4 <= other.left ||
-      backBounds.left >= other.right + 4 ||
-      backBounds.bottom + 4 <= other.top ||
-      backBounds.top >= other.bottom + 4
+      pauseBounds.right + 4 <= other.left ||
+      pauseBounds.left >= other.right + 4 ||
+      pauseBounds.bottom + 4 <= other.top ||
+      pauseBounds.top >= other.bottom + 4
     )
     return {
       overlaps,
       contained:
-        backBounds.left >= hud.x - hudSize.width / 2 + 8 &&
-        backBounds.right <= hud.x + hudSize.width / 2 - 8 &&
-        backBounds.top >= hud.y - hudSize.height / 2 + 8 &&
-        backBounds.bottom <= hud.y + hudSize.height / 2 - 8,
+        pauseBounds.left >= hud.x - hudSize.width / 2 + 8 &&
+        pauseBounds.right <= hud.x + hudSize.width / 2 - 8 &&
+        pauseBounds.top >= hud.y - hudSize.height / 2 + 8 &&
+        pauseBounds.bottom <= hud.y + hudSize.height / 2 - 8,
     }
   })
   expect(layout.overlaps).toBe(false)

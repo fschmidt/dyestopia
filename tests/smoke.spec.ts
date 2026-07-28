@@ -70,14 +70,23 @@ test('the round deals a full board and a zeroed score', async ({ page }) => {
   expect(texts).toContain('0')
 })
 
-test('escape walks back out: game, stage select, menu', async ({ page }) => {
+test('escape toggles pause without abandoning the round', async ({ page }) => {
   await open(page)
   await page.evaluate(() => window.dyestopia!.goTo('Game'))
   await waitForScene(page, 'Game')
 
   await page.keyboard.press('Escape')
-  await waitForScene(page, 'StageSelect')
+  await expect.poll(() =>
+    page.evaluate(() =>
+      Boolean(window.dyestopia!.game.scene.getScene('Game')!.children.getByName('pause-dialog')),
+    ),
+  ).toBe(true)
 
   await page.keyboard.press('Escape')
-  await waitForScene(page, 'Menu')
+  await expect.poll(() =>
+    page.evaluate(() =>
+      Boolean(window.dyestopia!.game.scene.getScene('Game')!.children.getByName('pause-dialog')),
+    ),
+  ).toBe(false)
+  expect(await page.evaluate(() => window.dyestopia!.isActive('Game'))).toBe(true)
 })

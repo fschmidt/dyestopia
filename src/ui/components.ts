@@ -209,16 +209,39 @@ export function addSwitch(
   name = 'sound-switch',
 ): Phaser.GameObjects.Container {
   const profile = resolveVisualProfile()
-  const control = scene.add.container(x, y).setSize(64, 44).setName(name)
-  const track = scene.add.graphics()
-  const knob = scene.add.circle(0, 0, 15, profile.colors.primaryInk)
-  control.add([track, knob])
+  const width = 128
+  const height = 52
+  const control = scene.add.container(x, y).setSize(width, height).setName(name)
+  const shadow = scene.add.rectangle(5, 5, width, height, 0x000000, 0.55)
+  const frame = scene.add.graphics()
+  const onLabel = addText(scene, -32, 0, 'ON', {
+    fontFamily: profile.type.family,
+    fontSize: profile.type.small,
+    fontStyle: 'bold',
+    letterSpacing: 2,
+    color: ink(profile.colors.primaryInk),
+  }).setOrigin(0.5).setName('sound-on')
+  const offLabel = addText(scene, 32, 0, 'OFF', {
+    fontFamily: profile.type.family,
+    fontSize: profile.type.small,
+    fontStyle: 'bold',
+    letterSpacing: 2,
+    color: ink(profile.colors.secondaryInk),
+  }).setOrigin(0.5).setName('sound-off')
+  control.add([shadow, frame, onLabel, offLabel])
   const repaint = (): void => {
     const on = value()
-    track.clear()
-    track.fillStyle(on ? profile.colors.accent : profile.colors.surfaceStrong, 1)
-    track.fillRoundedRect(-32, -18, 64, 36, 18)
-    knob.setX(on ? 14 : -14).setFillStyle(on ? profile.colors.accentInk : profile.colors.secondaryInk)
+    frame.clear()
+    frame.fillStyle(profile.colors.surfaceStrong, 0.94)
+    frame.fillRect(-width / 2, -height / 2, width, height)
+    frame.fillStyle(profile.colors.accent, 1)
+    frame.fillRect(on ? -width / 2 + 5 : 0, -height / 2 + 5, width / 2 - 5, height - 10)
+    frame.lineStyle(2, profile.colors.primaryInk, 0.65)
+    frame.strokeRect(-width / 2, -height / 2, width, height)
+    frame.lineStyle(2, profile.colors.primaryInk, 1)
+    frame.strokeRect(on ? -width / 2 + 6 : 1, -height / 2 + 6, width / 2 - 7, height - 12)
+    onLabel.setColor(ink(on ? profile.colors.accentInk : profile.colors.secondaryInk))
+    offLabel.setColor(ink(on ? profile.colors.secondaryInk : profile.colors.accentInk))
   }
   control.setInteractive({ useHandCursor: true }).on('pointerup', () => {
     toggle(!value())

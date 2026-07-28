@@ -50,14 +50,16 @@ const DRAG_THRESHOLD = 8
  * still in their temporal dead zone (same trap as `bakeDpr` in bake.ts).
  */
 function boardArea(): { top: number; bottom: number; marginX: number } {
-  const referenceSkin = resolveVisualProfile().treatment !== 'lab'
+  const sprayCan = resolveVisualProfile().treatment === 'spray-can'
   // The margins shrink with the world: on a portrait phone the board is the
   // screen's one job, so it runs nearly edge to edge.
   return {
-    top: referenceSkin
-      ? Math.min(150, Math.round(GAME_HEIGHT * 0.18))
+    top: sprayCan
+      ? Math.min(272, Math.round(GAME_HEIGHT * 0.28))
       : Math.min(110, Math.round(GAME_HEIGHT * 0.14)),
-    bottom: GAME_HEIGHT - Math.min(56, Math.round(GAME_HEIGHT * 0.08)),
+    bottom: GAME_HEIGHT - (sprayCan
+      ? Math.min(160, Math.round(GAME_HEIGHT * 0.16))
+      : Math.min(56, Math.round(GAME_HEIGHT * 0.08))),
     marginX: Math.min(40, Math.round(GAME_WIDTH * 0.03)),
   }
 }
@@ -143,6 +145,9 @@ export class GameScene extends BaseScene {
   private barX = 0
   private barWidth = 0
   private sprayHud = false
+  private objectivePanel?: Phaser.GameObjects.Container
+  private pauseDialog?: Phaser.GameObjects.Container
+  private paused = false
 
   /** A move is being resolved — no new moves until the board settles. */
   private resolving = false
@@ -174,6 +179,9 @@ export class GameScene extends BaseScene {
     this.outcome = 'playing'
     this.thresholdMet = false
     this.resolving = false
+    this.paused = false
+    this.objectivePanel = undefined
+    this.pauseDialog = undefined
     this.dragged = undefined
     this.shape = activeShape()
     this.rng = mulberry32(takeSeed() ?? Math.floor(Math.random() * 0xffffffff))
@@ -223,7 +231,11 @@ export class GameScene extends BaseScene {
         this.onDragEnd(obj),
     )
 
-    this.input.keyboard?.once('keydown-ESC', () => this.fadeTo('StageSelect'))
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.outcome !== 'playing') return
+      if (this.paused) this.closePause()
+      else this.openPause()
+    })
   }
 
   update(_time: number, delta: number): void {
@@ -281,7 +293,7 @@ export class GameScene extends BaseScene {
         : this.stage.name
     this.sprayHud = visual.treatment === 'spray-can'
     if (this.sprayHud) {
-      this.buildSprayHud(area, label)
+      this.buildSprayHud(area)
       return
     }
 
@@ -340,10 +352,7 @@ export class GameScene extends BaseScene {
     this.updateHud()
   }
 
-  private buildSprayHud(
-    area: ReturnType<typeof boardArea>,
-    label: string,
-  ): void {
+  private buildSprayHud(area: ReturnType<typeof boardArea>): void {
     const visual = resolveVisualProfile()
     const hud = this.add
       .graphics()
@@ -351,37 +360,50 @@ export class GameScene extends BaseScene {
       .setData('surfaceSize', { width: GAME_WIDTH - 16, height: area.top - 12 })
     hud.setPosition(GAME_WIDTH / 2, area.top / 2 - 3)
 
-    const backWidth = 86
-    const paperWidth = Math.max(150, GAME_WIDTH - area.marginX * 2 - backWidth - 16)
-    const paper = this.add.container(area.marginX + paperWidth / 2, 24).setName('stage-label')
+    const pauseSize = 56
+    const paperWidth = Math.max(170, GAME_WIDTH - area.marginX * 2 - pauseSize - 20)
+    const paperHeight = 62
+    const paper = this.add
+      .container(area.marginX + paperWidth / 2, 42)
+      .setName('stage-label')
+      .setSize(paperWidth, paperHeight)
     const paperPlate = this.add.graphics()
     paperPlate.fillStyle(0xe8e4d9, 1)
     paperPlate.fillPoints([
-      new Phaser.Math.Vector2(-paperWidth / 2 + 3, -16),
-      new Phaser.Math.Vector2(paperWidth / 2, -17),
-      new Phaser.Math.Vector2(paperWidth / 2 - 2, 16),
-      new Phaser.Math.Vector2(-paperWidth / 2, 15),
+      new Phaser.Math.Vector2(-paperWidth / 2 + 3, -paperHeight / 2),
+      new Phaser.Math.Vector2(paperWidth / 2, -paperHeight / 2 - 2),
+      new Phaser.Math.Vector2(paperWidth / 2 - 2, paperHeight / 2),
+      new Phaser.Math.Vector2(-paperWidth / 2, paperHeight / 2 - 1),
     ], true)
-    const paperText = addText(this, 0, 0, label.toUpperCase(), {
+    const stageNumber = this.stageIndex !== undefined ? this.stageIndex + 1 : 0
+    const paperKicker = addText(this, -paperWidth / 2 + 18, -18, `STAGE ${String(stageNumber).padStart(2, '0')}`, {
       fontFamily: visual.type.family,
-      fontSize: visual.type.label,
+      fontSize: '11px',
       fontStyle: 'bold',
-      letterSpacing: 1,
-      color: ink(0x292621),
-    }).setOrigin(0.5)
-    paper.add([paperPlate, paperText]).setAngle(-1)
+      letterSpacing: 3,
+      color: ink(0x74736e),
+    })
+    const paperText = addText(this, -paperWidth / 2 + 18, -2, this.stage.name.toUpperCase(), {
+      fontFamily: visual.type.family,
+      fontSize: GAME_WIDTH < 500 ? '22px' : '25px',
+      fontStyle: 'bold',
+      color: ink(0x171815),
+    })
+    paper.add([paperPlate, paperKicker, paperText]).setAngle(-1)
+    paper.setInteractive({ useHandCursor: true }).on('pointerup', () => this.toggleObjective())
 
     addButton(
       this,
-      GAME_WIDTH - area.marginX - backWidth / 2,
-      28,
-      backWidth,
-      '‹ STAGES',
-      () => this.fadeTo('StageSelect'),
-      { kind: 'quiet', name: 'back', height: 34, fontSize: '13px' },
+      GAME_WIDTH - area.marginX - pauseSize / 2,
+      42,
+      pauseSize,
+      'Ⅱ',
+      () => this.openPause(),
+      { kind: 'quiet', name: 'pause', height: pauseSize, fontSize: '24px' },
     )
 
-    const scoreBlock = this.add.container(area.marginX, area.top - 60).setName('score-block')
+    const metricY = area.top - 86
+    const scoreBlock = this.add.container(area.marginX, metricY).setName('score-block')
     const scoreLabel = addText(this, 0, -14, 'SCORE', {
       fontFamily: visual.type.family,
       fontSize: '11px',
@@ -397,8 +419,26 @@ export class GameScene extends BaseScene {
     })
     scoreBlock.add([scoreLabel, this.scoreText])
 
+    const targetBlock = this.add
+      .container(GAME_WIDTH / 2, metricY)
+      .setName('target-block')
+    const targetLabel = addText(this, 0, -14, 'TARGET', {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 3,
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(0.5, 0)
+    const targetText = addText(this, 0, -2, `${this.stage.threshold}`, {
+      fontFamily: visual.type.family,
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
+    }).setOrigin(0.5, 0)
+    targetBlock.add([targetLabel, targetText])
+
     const movesBlock = this.add
-      .container(GAME_WIDTH - area.marginX, area.top - 60)
+      .container(GAME_WIDTH - area.marginX, metricY)
       .setName('moves-block')
     const movesLabel = addText(this, 0, -14, 'MOVES', {
       fontFamily: visual.type.family,
@@ -417,38 +457,134 @@ export class GameScene extends BaseScene {
 
     this.barX = area.marginX
     this.barWidth = GAME_WIDTH - area.marginX * 2
-    addText(this, this.barX, area.top - 20, `TARGET ${this.stage.threshold}`, {
+    const meter = addProgressMeter(this, this.barX, area.top - 38, this.barWidth)
+    this.targetFill = meter.fill
+
+    this.add.graphics().setName('hint-strip').setVisible(false)
+      .setData('surfaceSize', { width: 0, height: 0 })
+    this.hintText = addText(this, 0, 0, this.stage.hint, {
+      fontFamily: visual.type.family,
+      fontSize: '1px',
+      color: ink(visual.colors.secondaryInk),
+    }).setVisible(false)
+
+    this.updateHud()
+  }
+
+  private toggleObjective(): void {
+    if (this.paused || this.outcome !== 'playing') return
+    if (this.objectivePanel) {
+      this.objectivePanel.destroy(true)
+      this.objectivePanel = undefined
+      return
+    }
+
+    const visual = resolveVisualProfile()
+    const width = GAME_WIDTH - boardArea().marginX * 2
+    const panel = this.add
+      .container(GAME_WIDTH / 2, boardArea().top - 5)
+      .setName('objective-panel')
+      .setDepth(20)
+    const plate = this.add.graphics()
+    plate.fillStyle(0xe8e4d9, 1)
+    plate.fillRect(-width / 2, -42, width, 84)
+    const kicker = addText(this, -width / 2 + 18, -28, 'OBJECTIVE', {
       fontFamily: visual.type.family,
       fontSize: '11px',
       fontStyle: 'bold',
-      letterSpacing: 2,
-      color: ink(visual.colors.secondaryInk),
-    }).setOrigin(0, 1)
-    const meter = addProgressMeter(this, this.barX, area.top - 14, this.barWidth)
-    this.targetFill = meter.fill
-
-    const hintWidth = GAME_WIDTH - 24
-    const hintPlate = this.add
-      .graphics({ x: GAME_WIDTH / 2, y: GAME_HEIGHT - 30 })
-      .setName('hint-strip')
-      .setData('surfaceSize', { width: hintWidth, height: 48 })
-    hintPlate.fillStyle(0xe8e4d9, 0.98)
-    hintPlate.fillPoints([
-      new Phaser.Math.Vector2(-hintWidth / 2 + 4, -20),
-      new Phaser.Math.Vector2(hintWidth / 2, -18),
-      new Phaser.Math.Vector2(hintWidth / 2 - 3, 20),
-      new Phaser.Math.Vector2(-hintWidth / 2, 18),
-    ], true)
-    this.hintText = addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, this.stage.hint, {
+      letterSpacing: 3,
+      color: ink(0x74736e),
+    })
+    const copy = addText(this, -width / 2 + 18, -6, this.stage.hint, {
       fontFamily: visual.type.family,
-      fontSize: '14px',
+      fontSize: GAME_WIDTH < 500 ? '15px' : '17px',
       fontStyle: 'bold',
-      color: ink(0x37332d),
-      align: 'center',
-      wordWrap: { width: GAME_WIDTH - 38 },
-    }).setOrigin(0.5)
+      color: ink(0x171815),
+      wordWrap: { width: width - 36 },
+    })
+    panel.add([plate, kicker, copy]).setAlpha(0).setScale(0.98)
+    this.objectivePanel = panel
+    this.tweens.add({
+      targets: panel,
+      alpha: 1,
+      scale: 1,
+      duration: visual.motion.standard,
+      ease: 'Quad.easeOut',
+    })
+  }
 
-    this.updateHud()
+  private openPause(): void {
+    if (this.paused || this.outcome !== 'playing') return
+    this.paused = true
+    const visual = resolveVisualProfile()
+    const width = Math.min(GAME_WIDTH - 48, 520)
+    const height = 390
+    const panel = this.add
+      .container(GAME_WIDTH / 2, GAME_HEIGHT / 2)
+      .setName('pause-dialog')
+      .setDepth(100)
+    const blocker = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x050706, 0.82)
+      .setInteractive()
+    const plate = this.add.graphics()
+    plate.fillStyle(visual.colors.surface, 1)
+    plate.lineStyle(2, visual.colors.secondaryInk, 0.62)
+    plate.fillRect(-width / 2, -height / 2, width, height)
+    plate.strokeRect(-width / 2, -height / 2, width, height)
+    plate.lineStyle(1, visual.colors.secondaryInk, 0.24)
+    plate.lineBetween(-width / 2, -height / 2 + 78, width / 2, -height / 2 + 78)
+    const title = addText(this, -width / 2 + 28, -height / 2 + 30, 'PAUSED', {
+      fontFamily: visual.type.family,
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
+    })
+    const stage = addText(
+      this,
+      width / 2 - 28,
+      -height / 2 + 42,
+      `STAGE ${String((this.stageIndex ?? -1) + 1).padStart(2, '0')}`,
+      {
+        fontFamily: visual.type.family,
+        fontSize: '11px',
+        fontStyle: 'bold',
+        letterSpacing: 3,
+        color: ink(visual.colors.secondaryInk),
+      },
+    ).setOrigin(1, 0)
+    panel.add([blocker, plate, title, stage])
+
+    const buttonWidth = width - 56
+    const actions = [
+      { label: 'RESUME', name: 'resume', kind: 'primary' as const, action: () => this.closePause() },
+      { label: 'SETTINGS', name: 'pause-settings', kind: 'secondary' as const, action: () => this.fadeTo('Settings') },
+      { label: 'MAIN MENU', name: 'pause-menu', kind: 'secondary' as const, action: () => this.fadeTo('Menu') },
+    ]
+    actions.forEach((action, index) => {
+      const button = addButton(this, 0, -56 + index * 92, buttonWidth, action.label, action.action, {
+        kind: action.kind,
+        name: action.name,
+        height: 70,
+        fontSize: '24px',
+      })
+      panel.add(button)
+    })
+    panel.setAlpha(0).setScale(0.96)
+    this.pauseDialog = panel
+    this.tweens.add({
+      targets: panel,
+      alpha: 1,
+      scale: 1,
+      duration: visual.motion.standard,
+      ease: 'Back.easeOut',
+    })
+  }
+
+  private closePause(): void {
+    if (!this.pauseDialog) return
+    this.pauseDialog.destroy(true)
+    this.pauseDialog = undefined
+    this.paused = false
   }
 
   /**
@@ -515,7 +651,7 @@ export class GameScene extends BaseScene {
   }
 
   private onDragStart(obj: Phaser.GameObjects.GameObject): void {
-    if (!(obj instanceof Tile) || obj.busy || this.resolving) return
+    if (!(obj instanceof Tile) || obj.busy || this.resolving || this.paused) return
     const origin = this.tiles.indexOf(obj)
     if (origin === -1) return
     this.dragged = obj

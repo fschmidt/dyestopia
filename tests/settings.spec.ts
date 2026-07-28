@@ -107,7 +107,7 @@ test('the settings screen changes the board', async ({ page }) => {
   expect(await page.evaluate(() => window.dyestopia!.settings())).toEqual({
     shape: 'mosaic',
     theme: 'neon',
-    background: 'canvas-fluid',
+    background: 'fluid-ink',
     visualStyle: 'spray-can',
     sound: true,
   })
@@ -135,7 +135,7 @@ test('settings survive a reload', async ({ page }) => {
   expect(await page.evaluate(() => window.dyestopia!.settings())).toEqual({
     shape: 'mosaic',
     theme: 'dusk',
-    background: 'frosted-glass',
+    background: 'fluid-ink',
     visualStyle: 'spray-can',
     sound: true,
   })
