@@ -26,6 +26,7 @@ import { PALETTE, toCss } from '../palette'
 import { recordWin } from '../progress'
 import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
+import { playSfx } from '../sfx'
 import { FIRST_STAGE, stageMix, stagePreset, type Stage } from '../stage'
 import { STAGES } from '../stages'
 import { addText } from '../text'
@@ -96,11 +97,12 @@ export interface BoardReport {
  * The match-3 round. Tiles clear when 3+ of a colour line up; gravity pulls
  * the board down, seed colours refill from above, cascades resolve on their
  * own and score with a rising wave multiplier. Every drop goes through the
- * merge-before-swap order in `resolveMove`: if the pair mixes and the merge
- * would clear, both tiles take the result colour where they stand; otherwise
- * the swap gets its chance; neither clearing means the drop shakes and goes
- * home. Merge-triggered clears pay a bonus — the twist should be worth
- * choosing.
+ * merge-before-swap order in `resolveMove`: if the pair mixes and the dyed
+ * *target* would complete a line (mixing is directional — the dye pours from
+ * the dragged tile onto the target), both tiles take the result colour where
+ * they stand; otherwise the swap gets its chance; neither clearing means the
+ * drop shakes and goes home. Merge-triggered clears pay a bonus — the twist
+ * should be worth choosing.
  *
  * On top of the loop sits the stage frame (M4): every legal move spends from
  * the stage's budget, reaching the threshold wins, running dry loses, and
@@ -220,6 +222,16 @@ export class GameScene extends BaseScene {
 
   update(_time: number, delta: number): void {
     this.dragged?.follow(delta)
+  }
+
+  /**
+   * Rotation mid-round restarts the stage from move one: the board's whole
+   * geometry (pitch, origins, every tween in flight) is built for one world
+   * size, and a half-resolved cascade can't be rehomed. Losing a round to a
+   * rotation is the accepted price; retries are free by design.
+   */
+  relayout(): void {
+    this.scene.restart({ stage: this.stageIndex } satisfies GameStartData)
   }
 
   /** The board and stage state as data, for tests and console archaeology. */
@@ -388,6 +400,7 @@ export class GameScene extends BaseScene {
     this.dragOrigin = origin
     this.dragTarget.set(obj.x, obj.y)
     obj.pickUp()
+    playSfx('pick')
   }
 
   private onDragEnd(obj: Phaser.GameObjects.GameObject): void {
@@ -416,11 +429,12 @@ export class GameScene extends BaseScene {
     }
 
     const other = this.tiles[cell]
-    const move = resolveMove(this.grid, this.cells, this.mix, origin, cell, flags.combo)
+    const move = resolveMove(this.grid, this.cells, this.mix, origin, cell)
 
     if (move.kind === 'illegal') {
       // A real attempt the rules refuse: both tiles say no, so the legality
       // rule teaches itself.
+      playSfx('illegal')
       tile.refuse(home.x, home.y, origin)
       other.reject()
       return
@@ -433,6 +447,7 @@ export class GameScene extends BaseScene {
       // Both tiles stay on their cells and come out dyed the result colour;
       // the dragged one glides home while the pair pulses. The pulse hands
       // off into the destruction, so mix → burst reads as cause and effect.
+      playSfx('merge')
       this.cells[origin] = this.cells[cell] = move.result
       // The combo prototype: the fresh colour absorbs adjacent groups of its
       // own ingredients. Model-wise it happens now, in full; the animation
@@ -477,6 +492,8 @@ export class GameScene extends BaseScene {
       // cascade waves after it score as cascades, whoever started them.
       const points = clearScore(matched.size, wave, merged && wave === 1)
       this.score += points
+      // The wave pitches the plop up — the cascade multiplier, audible.
+      playSfx('match', wave)
       this.floatScore(points, wave, matched)
       this.updateHud(wave)
       if (!this.thresholdMet && this.score >= this.stage.threshold) {
@@ -505,7 +522,7 @@ export class GameScene extends BaseScene {
       return
     }
 
-    if (!findLegalMove(this.grid, this.cells, this.mix, flags.combo)) {
+    if (!findLegalMove(this.grid, this.cells, this.mix)) {
       await this.animateReshuffle()
     }
 
@@ -621,6 +638,7 @@ export class GameScene extends BaseScene {
    * ends on its own terms when the board settles.
    */
   private celebrateThreshold(): void {
+    playSfx('threshold')
     const flash = this.add
       .rectangle(this.barX, this.targetFill.y, this.barWidth, 4, PALETTE.ink, 0.9)
       .setOrigin(0, 0.5)
@@ -660,6 +678,7 @@ export class GameScene extends BaseScene {
    */
   private async win(): Promise<void> {
     this.outcome = 'won'
+    playSfx('win')
     const opened = this.stageIndex !== undefined && recordWin(this.stageIndex)
 
     const cx = this.originX + (this.grid.cols * this.pitch) / 2
@@ -714,6 +733,7 @@ export class GameScene extends BaseScene {
    */
   private lose(): void {
     this.outcome = 'lost'
+    playSfx('lose')
 
     const dim = this.add
       .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, PALETTE.background)
@@ -879,6 +899,7 @@ export class GameScene extends BaseScene {
    * than teleporting.
    */
   private animateReshuffle(): Promise<unknown> {
+    playSfx('reshuffle')
     const { cells, moves } = reshuffle(this.grid, this.cells, this.rng, this.mix)
     this.cells = cells
 

@@ -21,6 +21,16 @@ export class BaseScene extends Phaser.Scene {
   }
 
   /**
+   * The world was re-measured — a rotation, mostly (see `watchViewport` in
+   * config.ts). Scenes position everything off GAME_WIDTH/HEIGHT when they
+   * build, so rebuilding *is* the relayout; scenes with state worth carrying
+   * across the rebuild override this and pass it through their start data.
+   */
+  relayout(): void {
+    this.scene.restart()
+  }
+
+  /**
    * Leave for another scene behind a short fade to the page background — the
    * scene transition every navigation shares. Re-entry ignored while the fade
    * runs, so a double-tap can't start the target scene twice.

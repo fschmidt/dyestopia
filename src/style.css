@@ -13,6 +13,19 @@ body {
   /* Stop iOS from treating game taps as double-tap-to-zoom. */
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
+  /* A drag is a move, never a text selection or a long-press callout. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  /* Dragging off the top edge must not pull-to-refresh away the round. */
+  overscroll-behavior: none;
+}
+
+body {
+  /* The *dynamic* viewport height: with plain 100%, iOS Safari leaves a dead
+     strip behind the collapsing URL bar. Browsers without dvh keep the 100%
+     from above. */
+  height: 100dvh;
 }
 
 #game {

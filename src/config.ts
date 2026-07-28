@@ -14,11 +14,14 @@ import { StageSelectScene } from './scenes/StageSelectScene'
  * On portrait screens — phones, where the fixed landscape world would shrink
  * to a strip — the world adopts the viewport's own CSS-pixel size instead, so
  * one world unit is one CSS pixel, the canvas fills the screen, and the board
- * can use the full width. Decided once at boot: scenes position off these
- * constants when they build, so a rotation mid-session letterboxes until the
- * next reload (the proper resize pass is M5).
+ * can use the full width.
+ *
+ * `let`, not `const`: a rotation re-measures the world (see `watchViewport`),
+ * and importers see the new numbers through the live module bindings. Scenes
+ * still read them only when they build — the relayout is a scene restart, not
+ * anything reactive.
  */
-const logical = (() => {
+function measure(): { width: number; height: number } {
   const w = window.innerWidth
   const h = window.innerHeight
   if (!w || !h || w >= h) return { width: 960, height: 720 }
@@ -27,10 +30,43 @@ const logical = (() => {
   // only bites on absurdly tall windows.
   const height = Math.max(480, Math.min(Math.round((h * width) / w), 1400))
   return { width, height }
-})()
+}
 
-export const GAME_WIDTH = logical.width
-export const GAME_HEIGHT = logical.height
+const logical = measure()
+
+export let GAME_WIDTH = logical.width
+export let GAME_HEIGHT = logical.height
+
+/**
+ * The M5 resize pass: when the viewport is reshaped (rotation, a resized
+ * window), re-measure the world, resize the canvas and rebuild every running
+ * scene, since scenes position everything off GAME_WIDTH/HEIGHT at build time.
+ *
+ * Only a changed *width* triggers it. On phones the height also moves every
+ * time the URL bar breathes, and restarting a scene (which forfeits a running
+ * round — see GameScene.relayout) over browser chrome would be absurd;
+ * Scale.FIT absorbs pure height changes with a sliver of letterbox instead.
+ * On desktop `measure()` returns the same fixed landscape world at any size,
+ * so window-dragging never restarts anything either.
+ */
+export function watchViewport(game: Phaser.Game): void {
+  let pending: ReturnType<typeof setTimeout> | undefined
+  window.addEventListener('resize', () => {
+    clearTimeout(pending)
+    pending = setTimeout(() => {
+      const next = measure()
+      if (next.width === GAME_WIDTH) return
+      GAME_WIDTH = next.width
+      GAME_HEIGHT = next.height
+      game.scale.setGameSize(GAME_WIDTH * DPR, GAME_HEIGHT * DPR)
+      for (const scene of game.scene.getScenes(true)) {
+        // Scenes carrying state that must survive a rebuild override relayout
+        // (BaseScene's default is a bare restart).
+        ;(scene as Phaser.Scene & { relayout?: () => void }).relayout?.()
+      }
+    }, 200)
+  })
+}
 
 /**
  * Device pixels per CSS pixel, capped.

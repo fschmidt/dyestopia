@@ -3,9 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- maximum-scale pins the layout viewport: without it, iOS zooms on fast
+         repeated taps — which is exactly what playing a match-3 produces. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="description" content="Dyestopia – a colour game." />
     <meta name="theme-color" content="#12101a" />
+    <!-- Added to a home screen, the game runs full-screen without browser chrome. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Dyestopia" />
     <title>Dyestopia</title>
   </head>
   <body>

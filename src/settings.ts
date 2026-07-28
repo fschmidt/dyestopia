@@ -7,17 +7,19 @@ import type { Shape } from './tiles/shapes'
  *
  * Shape and theme are separate keys on purpose — they're orthogonal in the
  * renderer (artwork is baked white, colour is a tint), so there's no reason to
- * make the player choose them as a pair.
+ * make the player choose them as a pair. Sound is the M5 mute toggle; the SFX
+ * module checks it on every play, so flipping it takes effect mid-round.
  */
 
 export interface Settings {
   shape: string
   theme: string
+  sound: boolean
 }
 
 const STORAGE_KEY = 'dyestopia:settings'
 
-const defaults: Settings = { shape: DEFAULT_SHAPE, theme: DEFAULT_THEME }
+const defaults: Settings = { shape: DEFAULT_SHAPE, theme: DEFAULT_THEME, sound: true }
 
 let current: Settings = load()
 
@@ -31,6 +33,9 @@ function load(): Settings {
     return {
       shape: getShape(parsed.shape ?? '').id,
       theme: getTheme(parsed.theme ?? '').id,
+      // Anything but an explicit false means sound on — same spirit as the
+      // registry fallbacks above: a mangled value never mutes the game.
+      sound: parsed.sound !== false,
     }
   } catch {
     // Private browsing, disabled storage, or corrupt JSON. Not worth failing

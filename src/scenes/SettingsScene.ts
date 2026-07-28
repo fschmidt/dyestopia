@@ -1,7 +1,8 @@
 import type { ColorId } from '../colors'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { PALETTE, toCss } from '../palette'
-import { activeShape, activeTheme, updateSettings } from '../settings'
+import { activeShape, activeTheme, getSettings, updateSettings } from '../settings'
+import { playSfx } from '../sfx'
 import { addText } from '../text'
 import { THEMES, themedDye } from '../themes'
 import { TILE_SIZE } from '../tiles/bake'
@@ -9,8 +10,8 @@ import { SHAPES } from '../tiles/shapes'
 import { Tile } from '../tiles/Tile'
 import { BaseScene } from './BaseScene'
 
-const ROW_Y = { shape: 190, theme: 340 }
-const PREVIEW_Y = 540
+const ROW_Y = { shape: 170, theme: 310, sound: 450 }
+const PREVIEW_Y = 580
 
 /** A representative slice of the wheel: the primaries and their mixes. */
 const PREVIEW_COLORS: ColorId[] = ['red', 'yellow', 'blue', 'orange', 'green', 'purple']
@@ -52,6 +53,22 @@ export class SettingsScene extends BaseScene {
       THEMES.map((theme) => ({ id: theme.id, label: theme.label, blurb: theme.blurb })),
       () => activeTheme().id,
       (id) => updateSettings({ theme: id }),
+    )
+
+    this.buildRow(
+      'Sound',
+      ROW_Y.sound,
+      [
+        { id: 'on', label: 'On', blurb: 'Plops, chimes and the odd fanfare.' },
+        { id: 'off', label: 'Off', blurb: 'The game keeps it to itself.' },
+      ],
+      () => (getSettings().sound ? 'on' : 'off'),
+      (id) => {
+        updateSettings({ sound: id === 'on' })
+        // Turning it on answers immediately — and the click that got us here
+        // is the user gesture that unlocks the audio context.
+        if (id === 'on') playSfx('merge')
+      },
     )
 
     this.buildPreview()

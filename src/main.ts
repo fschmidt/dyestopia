@@ -1,7 +1,9 @@
 import Phaser from 'phaser'
 
-import { gameConfig } from './config'
+import { gameConfig, watchViewport } from './config'
 import { exposeDebugApi } from './debug'
 import './style.css'
 
-exposeDebugApi(new Phaser.Game(gameConfig))
+const game = new Phaser.Game(gameConfig)
+exposeDebugApi(game)
+watchViewport(game)

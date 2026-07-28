@@ -4,6 +4,7 @@ import { flags } from './flags'
 import { resetProgress, unlockedCount } from './progress'
 import { plantSeed } from './rng'
 import type { BoardReport } from './scenes/GameScene'
+import { sfxLog } from './sfx'
 import { getSettings, updateSettings, type Settings } from './settings'
 
 /**
@@ -72,14 +73,21 @@ export interface DyestopiaDebug {
   seedRng(seed: number): void
   /** Cells, colours, score and stage state of the running Game scene. */
   board(): BoardReport
+  /**
+   * Names of the sounds played this page load, oldest first (capped). Logged
+   * before the audio stack is touched, so it works in headless browsers with
+   * no audio output — which is what makes SFX testable at all.
+   */
+  sfxLog(): string[]
   /** How many stages are unlocked, and the lever to wind that back. */
   progress(): number
   resetProgress(): void
   /**
-   * Toggle the combo-mixing prototype (roadmap M3): a merge's colour absorbs
-   * adjacent groups of its own ingredients, and the wave counts toward the
-   * merge's legality. Takes effect on the next drop — mid-round is fine.
-   * Also on via `?combo` in the URL, for phones. Returns the current state.
+   * Toggle the combo-mixing prototype (roadmap M3): after a legal mix, the
+   * result colour absorbs adjacent groups of its own ingredients. Pure
+   * effect — legality is the target-anchored rule either way. Takes effect
+   * on the next drop — mid-round is fine. Also on via `?combo` in the URL,
+   * for phones. Returns the current state.
    */
   combo(on?: boolean): boolean
 }
@@ -177,6 +185,8 @@ export function exposeDebugApi(game: Phaser.Game): void {
     seedRng: (seed) => plantSeed(seed),
 
     progress: () => unlockedCount(),
+
+    sfxLog: () => sfxLog(),
 
     resetProgress: () => resetProgress(),
 
