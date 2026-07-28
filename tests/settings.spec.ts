@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { clickWorld, open, waitForScene } from './helpers'
+import { clickWorld, hitTarget, open, waitForScene } from './helpers'
 
 /** Texture key and tint of every tile on the board. */
 async function boardLook(page: Page): Promise<{ texture: string; tint: number }[]> {
@@ -108,6 +108,7 @@ test('the settings screen changes the board', async ({ page }) => {
     shape: 'mosaic',
     theme: 'neon',
     background: 'canvas-fluid',
+    visualStyle: 'spray-can',
     sound: true,
   })
 
@@ -124,6 +125,7 @@ test('settings survive a reload', async ({ page }) => {
       shape: 'mosaic',
       theme: 'dusk',
       background: 'frosted-glass',
+      visualStyle: 'spray-can',
     } as never),
   )
 
@@ -134,8 +136,49 @@ test('settings survive a reload', async ({ page }) => {
     shape: 'mosaic',
     theme: 'dusk',
     background: 'frosted-glass',
+    visualStyle: 'spray-can',
     sound: true,
   })
+})
+
+test('the selected visual style survives reload and drives scene components', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() =>
+    window.dyestopia!.setSettings({ visualStyle: 'spray-can' } as never),
+  )
+
+  await page.reload()
+  await waitForScene(page, 'Menu')
+
+  const result = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Menu')!
+    const play = scene.children.getByName('button-play') as Phaser.GameObjects.Container
+    return {
+      setting: window.dyestopia!.settings().visualStyle,
+      treatment: play.getData('visualTreatment'),
+    }
+  })
+  expect(result).toEqual({ setting: 'spray-can', treatment: 'spray-can' })
+})
+
+test('the settings style control applies another treatment without moving scenes', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => window.dyestopia!.goTo('Settings'))
+  await waitForScene(page, 'Settings')
+
+  const lab = await hitTarget(page, 'Settings', 'option-lab-dark')
+  await clickWorld(page, 'Settings', lab.x, lab.y)
+  await waitForScene(page, 'Settings')
+
+  const result = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Settings')!
+    const back = scene.children.getByName('button-back') as Phaser.GameObjects.Container
+    return {
+      setting: window.dyestopia!.settings().visualStyle,
+      treatment: back.getData('visualTreatment'),
+    }
+  })
+  expect(result).toEqual({ setting: 'lab-dark', treatment: 'lab' })
 })
 
 test('the selected background renders behind every scene', async ({ page }) => {

@@ -50,10 +50,13 @@ const DRAG_THRESHOLD = 8
  * still in their temporal dead zone (same trap as `bakeDpr` in bake.ts).
  */
 function boardArea(): { top: number; bottom: number; marginX: number } {
+  const referenceSkin = resolveVisualProfile().treatment !== 'lab'
   // The margins shrink with the world: on a portrait phone the board is the
   // screen's one job, so it runs nearly edge to edge.
   return {
-    top: Math.min(110, Math.round(GAME_HEIGHT * 0.14)),
+    top: referenceSkin
+      ? Math.min(150, Math.round(GAME_HEIGHT * 0.18))
+      : Math.min(110, Math.round(GAME_HEIGHT * 0.14)),
     bottom: GAME_HEIGHT - Math.min(56, Math.round(GAME_HEIGHT * 0.08)),
     marginX: Math.min(40, Math.round(GAME_WIDTH * 0.03)),
   }
@@ -139,6 +142,7 @@ export class GameScene extends BaseScene {
   private targetFill!: Phaser.GameObjects.Rectangle
   private barX = 0
   private barWidth = 0
+  private sprayHud = false
 
   /** A move is being resolved — no new moves until the board settles. */
   private resolving = false
@@ -275,6 +279,11 @@ export class GameScene extends BaseScene {
       this.stageIndex !== undefined
         ? `Stage ${this.stageIndex + 1} — ${this.stage.name}`
         : this.stage.name
+    this.sprayHud = visual.treatment === 'spray-can'
+    if (this.sprayHud) {
+      this.buildSprayHud(area, label)
+      return
+    }
 
     addSurface(this, GAME_WIDTH / 2, area.top / 2 - 3, GAME_WIDTH - 16, area.top - 12, 'game-hud', true)
     addText(this, area.marginX + 8, 11, label.toUpperCase(), {
@@ -326,6 +335,117 @@ export class GameScene extends BaseScene {
       color: ink(visual.colors.secondaryInk),
       align: 'center',
       wordWrap: { width: GAME_WIDTH - 32 },
+    }).setOrigin(0.5)
+
+    this.updateHud()
+  }
+
+  private buildSprayHud(
+    area: ReturnType<typeof boardArea>,
+    label: string,
+  ): void {
+    const visual = resolveVisualProfile()
+    const hud = this.add
+      .graphics()
+      .setName('game-hud')
+      .setData('surfaceSize', { width: GAME_WIDTH - 16, height: area.top - 12 })
+    hud.setPosition(GAME_WIDTH / 2, area.top / 2 - 3)
+
+    const backWidth = 86
+    const paperWidth = Math.max(150, GAME_WIDTH - area.marginX * 2 - backWidth - 16)
+    const paper = this.add.container(area.marginX + paperWidth / 2, 24).setName('stage-label')
+    const paperPlate = this.add.graphics()
+    paperPlate.fillStyle(0xe8e4d9, 1)
+    paperPlate.fillPoints([
+      new Phaser.Math.Vector2(-paperWidth / 2 + 3, -16),
+      new Phaser.Math.Vector2(paperWidth / 2, -17),
+      new Phaser.Math.Vector2(paperWidth / 2 - 2, 16),
+      new Phaser.Math.Vector2(-paperWidth / 2, 15),
+    ], true)
+    const paperText = addText(this, 0, 0, label.toUpperCase(), {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.label,
+      fontStyle: 'bold',
+      letterSpacing: 1,
+      color: ink(0x292621),
+    }).setOrigin(0.5)
+    paper.add([paperPlate, paperText]).setAngle(-1)
+
+    addButton(
+      this,
+      GAME_WIDTH - area.marginX - backWidth / 2,
+      28,
+      backWidth,
+      '‹ STAGES',
+      () => this.fadeTo('StageSelect'),
+      { kind: 'quiet', name: 'back', height: 34, fontSize: '13px' },
+    )
+
+    const scoreBlock = this.add.container(area.marginX, area.top - 60).setName('score-block')
+    const scoreLabel = addText(this, 0, -14, 'SCORE', {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 3,
+      color: ink(visual.colors.secondaryInk),
+    })
+    this.scoreText = addText(this, 0, -2, '0', {
+      fontFamily: visual.type.family,
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.accent),
+    })
+    scoreBlock.add([scoreLabel, this.scoreText])
+
+    const movesBlock = this.add
+      .container(GAME_WIDTH - area.marginX, area.top - 60)
+      .setName('moves-block')
+    const movesLabel = addText(this, 0, -14, 'MOVES', {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 3,
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(1, 0)
+    this.movesText = addText(this, 0, -2, '', {
+      fontFamily: visual.type.family,
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
+    }).setOrigin(1, 0)
+    movesBlock.add([movesLabel, this.movesText])
+
+    this.barX = area.marginX
+    this.barWidth = GAME_WIDTH - area.marginX * 2
+    addText(this, this.barX, area.top - 20, `TARGET ${this.stage.threshold}`, {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 2,
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(0, 1)
+    const meter = addProgressMeter(this, this.barX, area.top - 14, this.barWidth)
+    this.targetFill = meter.fill
+
+    const hintWidth = GAME_WIDTH - 24
+    const hintPlate = this.add
+      .graphics({ x: GAME_WIDTH / 2, y: GAME_HEIGHT - 30 })
+      .setName('hint-strip')
+      .setData('surfaceSize', { width: hintWidth, height: 48 })
+    hintPlate.fillStyle(0xe8e4d9, 0.98)
+    hintPlate.fillPoints([
+      new Phaser.Math.Vector2(-hintWidth / 2 + 4, -20),
+      new Phaser.Math.Vector2(hintWidth / 2, -18),
+      new Phaser.Math.Vector2(hintWidth / 2 - 3, 20),
+      new Phaser.Math.Vector2(-hintWidth / 2, 18),
+    ], true)
+    this.hintText = addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 30, this.stage.hint, {
+      fontFamily: visual.type.family,
+      fontSize: '14px',
+      fontStyle: 'bold',
+      color: ink(0x37332d),
+      align: 'center',
+      wordWrap: { width: GAME_WIDTH - 38 },
     }).setOrigin(0.5)
 
     this.updateHud()
@@ -561,7 +681,7 @@ export class GameScene extends BaseScene {
   private updateHud(wave = 0): void {
     const visual = resolveVisualProfile()
     this.movesText
-      .setText(`Moves: ${this.movesLeft}`)
+      .setText(this.sprayHud ? `${this.movesLeft}` : `Moves: ${this.movesLeft}`)
       .setColor(ink(
         this.movesLeft <= 1
           ? visual.colors.critical
@@ -605,7 +725,11 @@ export class GameScene extends BaseScene {
   }
 
   private renderScore(): void {
-    this.scoreText.setText(`Score: ${Math.round(this.displayScore)}`)
+    this.scoreText.setText(
+      this.sprayHud
+        ? `${Math.round(this.displayScore)}`
+        : `Score: ${Math.round(this.displayScore)}`,
+    )
     const share = Math.min(1, this.displayScore / this.stage.threshold)
     this.targetFill.width = this.barWidth * share
   }
@@ -787,8 +911,28 @@ export class GameScene extends BaseScene {
     const box = this.add.graphics().setName('round-overlay')
     box.fillStyle(visual.colors.surfaceStrong, visual.alpha.surfaceStrong)
     box.lineStyle(2, visual.colors.accent, 0.5)
-    box.fillRoundedRect(-width / 2, -height / 2, width, height, visual.radii.lg)
-    box.strokeRoundedRect(-width / 2, -height / 2, width, height, visual.radii.lg)
+    if (visual.treatment === 'spray-can') {
+      const points = [
+        new Phaser.Math.Vector2(-width / 2 + 8, -height / 2),
+        new Phaser.Math.Vector2(width / 2, -height / 2 + 5),
+        new Phaser.Math.Vector2(width / 2 - 5, height / 2),
+        new Phaser.Math.Vector2(-width / 2, height / 2 - 3),
+      ]
+      box.fillPoints(points, true)
+      box.strokePoints(points, true)
+      box.lineStyle(1, visual.colors.primaryInk, 0.04)
+      for (let stripe = -width / 2; stripe < width / 2 + height; stripe += 14) {
+        box.lineBetween(
+          Math.max(-width / 2, stripe - height),
+          height / 2,
+          Math.min(width / 2, stripe),
+          -height / 2,
+        )
+      }
+    } else {
+      box.fillRoundedRect(-width / 2, -height / 2, width, height, visual.radii.lg)
+      box.strokeRoundedRect(-width / 2, -height / 2, width, height, visual.radii.lg)
+    }
     panel.add(box)
 
     const titleText = addText(this, 0, -height / 2 + 40, title, {

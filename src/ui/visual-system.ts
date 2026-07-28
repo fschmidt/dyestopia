@@ -2,6 +2,9 @@ import { toCss } from '../palette'
 
 export interface VisualProfile {
   id: string
+  label: string
+  blurb: string
+  treatment: 'lab' | 'spray-can' | 'splash-colors'
   colors: {
     surface: number
     surfaceStrong: number
@@ -33,6 +36,9 @@ export interface VisualProfile {
 /** Opaque lab stock: restrained enough for every expressive pigment backdrop. */
 export const LAB_PROFILE: VisualProfile = {
   id: 'lab-dark',
+  label: 'Lab',
+  blurb: 'The original restrained dye-lab interface.',
+  treatment: 'lab',
   colors: {
     surface: 0x11131a,
     surfaceStrong: 0x090b10,
@@ -61,6 +67,7 @@ export const LAB_PROFILE: VisualProfile = {
 export const PAPER_PROFILE: VisualProfile = {
   ...LAB_PROFILE,
   id: 'paper-test',
+  label: 'Paper test',
   colors: {
     ...LAB_PROFILE.colors,
     surface: 0xf5eedf,
@@ -72,10 +79,56 @@ export const PAPER_PROFILE: VisualProfile = {
   },
 }
 
+/**
+ * Industrial spray-booth labels over wet pigment: condensed type, hot yellow
+ * actions, hard edges and visible construction lines.
+ */
+export const SPRAY_CAN_PROFILE: VisualProfile = {
+  id: 'spray-can',
+  label: 'Spray Can',
+  blurb: 'Dark spray-booth labels with signal-yellow controls.',
+  treatment: 'spray-can',
+  colors: {
+    surface: 0x171815,
+    surfaceStrong: 0x0b0c0b,
+    primaryInk: 0xf4f0e6,
+    secondaryInk: 0xaaa69d,
+    accent: 0xffcd2e,
+    accentInk: 0x17150d,
+    warning: 0xff9d24,
+    critical: 0xe93476,
+    focus: 0x43bedc,
+  },
+  alpha: { surface: 0.9, surfaceStrong: 0.97, disabled: 0.4 },
+  spacing: { xs: 6, sm: 10, md: 16, lg: 24, xl: 36 },
+  radii: { sm: 2, md: 3, lg: 18, pill: 3 },
+  type: {
+    family: '"Arial Narrow", "Roboto Condensed", Impact, sans-serif',
+    display: '64px',
+    label: '13px',
+    body: '18px',
+    small: '14px',
+  },
+  motion: { quick: 90, standard: 150 },
+}
+
+export const VISUAL_PROFILES: VisualProfile[] = [SPRAY_CAN_PROFILE, LAB_PROFILE]
+export const DEFAULT_VISUAL_PROFILE = SPRAY_CAN_PROFILE.id
+
+export function getVisualProfile(id: string): VisualProfile {
+  return VISUAL_PROFILES.find((profile) => profile.id === id) ?? LAB_PROFILE
+}
+
 let override: VisualProfile | undefined
+let selected = getVisualProfile(DEFAULT_VISUAL_PROFILE)
 
 export function resolveVisualProfile(): VisualProfile {
-  return override ?? LAB_PROFILE
+  return override ?? selected
+}
+
+export function selectVisualProfile(id: string): VisualProfile {
+  selected = getVisualProfile(id)
+  return selected
 }
 
 /** Test/design seam. Background selection remains intentionally uninvolved. */

@@ -48,7 +48,8 @@ export async function hitTarget(page: Page, scene: string, name: string): Promis
 
 /** Menu → stage select → stage 1, the way a player gets into a round. */
 export async function startGame(page: Page): Promise<void> {
-  await clickWorld(page, 'Menu', GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90)
+  const play = await hitTarget(page, 'Menu', 'button-play')
+  await clickWorld(page, 'Menu', play.x, play.y)
   await waitForScene(page, 'StageSelect')
   const cell = await hitTarget(page, 'StageSelect', 'stage-0')
   await clickWorld(page, 'StageSelect', cell.x, cell.y)

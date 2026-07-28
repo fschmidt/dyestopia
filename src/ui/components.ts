@@ -19,13 +19,40 @@ export function addSurface(
     .graphics({ x, y })
     .setName(name)
     .setData('surfaceSize', { width, height })
-  graphics.fillStyle(
-    strong ? profile.colors.surfaceStrong : profile.colors.surface,
-    strong ? profile.alpha.surfaceStrong : profile.alpha.surface,
-  )
-  graphics.fillRoundedRect(-width / 2, -height / 2, width, height, profile.radii.lg)
-  graphics.lineStyle(1, profile.colors.primaryInk, 0.16)
-  graphics.strokeRoundedRect(-width / 2, -height / 2, width, height, profile.radii.lg)
+    .setData('visualTreatment', profile.treatment)
+  if (profile.treatment === 'spray-can') {
+    const cut = Math.min(14, width * 0.04, height * 0.12)
+    const points = [
+      new Phaser.Math.Vector2(-width / 2 + cut, -height / 2),
+      new Phaser.Math.Vector2(width / 2 - cut * 0.4, -height / 2 + 1),
+      new Phaser.Math.Vector2(width / 2, -height / 2 + cut),
+      new Phaser.Math.Vector2(width / 2 - 2, height / 2 - cut * 0.35),
+      new Phaser.Math.Vector2(width / 2 - cut, height / 2),
+      new Phaser.Math.Vector2(-width / 2, height / 2 - 2),
+      new Phaser.Math.Vector2(-width / 2 + 1, -height / 2 + cut),
+    ]
+    graphics.fillStyle(
+      strong ? profile.colors.surfaceStrong : profile.colors.surface,
+      strong ? profile.alpha.surfaceStrong : profile.alpha.surface,
+    )
+    graphics.fillPoints(points, true)
+    graphics.lineStyle(1, profile.colors.primaryInk, 0.22)
+    graphics.strokePoints(points, true)
+    graphics.lineStyle(1, profile.colors.primaryInk, 0.035)
+    for (let stripe = -width / 2 - height; stripe < width / 2; stripe += 14) {
+      const startX = Math.max(-width / 2, stripe)
+      const endX = Math.min(width / 2, stripe + height)
+      graphics.lineBetween(startX, height / 2, endX, -height / 2)
+    }
+  } else {
+    graphics.fillStyle(
+      strong ? profile.colors.surfaceStrong : profile.colors.surface,
+      strong ? profile.alpha.surfaceStrong : profile.alpha.surface,
+    )
+    graphics.fillRoundedRect(-width / 2, -height / 2, width, height, profile.radii.lg)
+    graphics.lineStyle(1, profile.colors.primaryInk, 0.16)
+    graphics.strokeRoundedRect(-width / 2, -height / 2, width, height, profile.radii.lg)
+  }
   return graphics
 }
 
@@ -42,7 +69,11 @@ export function addButton(
   const kind = options.kind ?? 'secondary'
   const height = options.height ?? 52
   const radius = Math.min(profile.radii.md, height / 2)
-  const container = scene.add.container(x, y).setSize(width, height).setName(options.name ?? '')
+  const container = scene.add
+    .container(x, y)
+    .setSize(width, height)
+    .setName(options.name ?? '')
+    .setData('visualTreatment', profile.treatment)
   const plate = scene.add.graphics()
   const text = addText(scene, 0, 0, label, {
     fontFamily: profile.type.family,
@@ -62,6 +93,25 @@ export function addButton(
           ? profile.colors.surfaceStrong
           : profile.colors.surface
     const alpha = kind === 'primary' ? 1 : pressed ? 1 : 0.72
+    if (profile.treatment === 'spray-can') {
+      const skew = Math.min(9, height * 0.15)
+      const points = [
+        new Phaser.Math.Vector2(-width / 2 + skew, -height / 2),
+        new Phaser.Math.Vector2(width / 2 - skew * 0.35, -height / 2 + 1),
+        new Phaser.Math.Vector2(width / 2, height / 2 - 3),
+        new Phaser.Math.Vector2(-width / 2 + skew * 0.35, height / 2),
+      ]
+      if (kind === 'primary') {
+        const shadow = points.map((point) => new Phaser.Math.Vector2(point.x + 5, point.y + 7))
+        plate.fillStyle(profile.colors.surfaceStrong, 0.88)
+        plate.fillPoints(shadow, true)
+      }
+      plate.fillStyle(fill, kind === 'quiet' ? 0.38 : alpha)
+      plate.fillPoints(points, true)
+      plate.lineStyle(focused ? 3 : 2, focused ? profile.colors.focus : profile.colors.primaryInk, focused ? 1 : kind === 'primary' ? 0.42 : 0.62)
+      plate.strokePoints(points, true)
+      return
+    }
     plate.fillStyle(fill, alpha)
     plate.fillRoundedRect(-width / 2, -height / 2, width, height, radius)
     plate.lineStyle(focused ? 3 : 1, focused ? profile.colors.focus : profile.colors.primaryInk, focused ? 1 : 0.18)
@@ -189,6 +239,8 @@ export function addProgressMeter(
     .rectangle(x, y, width, 8, profile.colors.primaryInk, 0.14)
     .setOrigin(0, 0.5)
     .setName('progress-meter')
-  const fill = scene.add.rectangle(x, y, 0, 8, profile.colors.accent).setOrigin(0, 0.5)
+  const fillColor =
+    profile.treatment === 'spray-can' ? profile.colors.critical : profile.colors.accent
+  const fill = scene.add.rectangle(x, y, 0, 8, fillColor).setOrigin(0, 0.5)
   return { track, fill }
 }

@@ -251,7 +251,56 @@ This milestone is a presentation layer, not a new dependency of the game:
 and a future visual recipe can replace or adapt the current one entirely inside
 the presentation layer.*
 
-### M7 — Friends release (S)
+### M7 — Switchable art direction (M)
+
+Turn the M6 presentation seam into player-selectable visual skins. **Spray
+Can** is the reference implementation; **Splash Colors** follows as a strict
+restyle of the same composition.
+
+#### Skin contract
+
+- Persist a `visualStyle` setting independently from tile shape, colour recipe
+  and background. A stale skin id falls back safely.
+- A skin owns semantic colours, typography, radii, borders, shadows, surface
+  texture and component motion. It may not own game rules, stage data or scene
+  navigation.
+- Shared UI factories expose a small number of deliberate treatment variants
+  instead of scenes branching on skin ids.
+- Selecting a skin rebuilds the presentation scene so every object reads one
+  coherent profile. Switching never changes progress or an in-flight setting.
+
+#### Spray Can reference skin
+
+- Translate the exploration's dark spray-booth language: condensed label type,
+  signal-yellow primary actions, hard offset shadows, construction-line
+  borders, subtle diagonal surface texture and vivid pigment accents.
+- Apply it to menu, settings, stage ledger, game HUD/hint strip, and win/lose
+  overlays; retain the M6 readability and touch-target guarantees.
+- Review all backgrounds, both supported DPRs, and portrait/landscape layouts.
+
+#### Splash Colors follow-up
+
+- Implement Splash Colors using **the exact object positions, dimensions,
+  hierarchy and responsive breakpoints established by Spray Can**.
+- Change only visual tokens and component drawing: light surfaces, soft
+  shadows, rounded geometry, playful type, gradients and decorative colour
+  treatment.
+- Any desired positional change is a shared layout improvement and must be
+  applied and verified for every skin, never hidden in Splash-specific code.
+
+#### Verification
+
+- Test registry fallback, persistence, user selection and scene-wide treatment
+  consistency.
+- Keep bounds, touch targets and navigation tests skin-independent.
+- Capture a Spray Can visual matrix before accepting the reference skin, then
+  capture matching views for Splash Colors to prove layout parity.
+
+*Exit: Spray Can and Splash Colors can be selected in Settings; every MVP scene
+changes coherently, gameplay and layout remain invariant, and both skins pass
+the same behavioural/layout suite.*
+
+### M8 — Friends release (S)
 
 - Playtest + bug pass, tune thresholds/scoring.
 - A lightweight way to receive feedback (even just a mailto link on the menu).

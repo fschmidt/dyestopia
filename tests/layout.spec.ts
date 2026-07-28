@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { clickWorld, open, waitForScene } from './helpers'
+import { clickWorld, hitTarget, open, waitForScene } from './helpers'
 
 /**
  * The M5 mobile layout: on portrait screens the world adopts the viewport's
@@ -41,7 +41,8 @@ test('rotation re-measures the world and rebuilds the scene', async ({ page }) =
   // The menu rebuilt against the new world: its Play button hit-tests where
   // the *new* coordinate space says it is.
   await waitForScene(page, 'Menu')
-  await clickWorld(page, 'Menu', 960 / 2, 720 / 2 + 90)
+  const play = await hitTarget(page, 'Menu', 'button-play')
+  await clickWorld(page, 'Menu', play.x, play.y)
   await waitForScene(page, 'StageSelect')
 })
 

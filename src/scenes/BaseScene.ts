@@ -3,6 +3,7 @@ import Phaser from 'phaser'
 import { backgroundTexture } from '../backgrounds'
 import { DPR, GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { activeBackground } from '../settings'
+import { resolveVisualProfile } from '../ui/visual-system'
 
 /**
  * Base for every scene. Reconciles the DPR-sized canvas (see `config.ts`) with
@@ -25,6 +26,7 @@ export class BaseScene extends Phaser.Scene {
 
   protected refreshBackground(): void {
     this.children.getByName('background')?.destroy()
+    this.children.getByName('skin-atmosphere')?.destroy()
     const texture = backgroundTexture(activeBackground().id)
     if (!this.textures.exists(texture)) return
 
@@ -35,6 +37,58 @@ export class BaseScene extends Phaser.Scene {
       .setName('background')
       .setDepth(-1000)
       .setScale(scale)
+
+    if (resolveVisualProfile().treatment === 'spray-can') {
+      const atmosphere = this.sprayAtmosphereTexture()
+      this.add
+        .image(GAME_WIDTH / 2, GAME_HEIGHT / 2, atmosphere)
+        .setName('skin-atmosphere')
+        .setDepth(-900)
+    }
+  }
+
+  /** Responsive, resolution-independent spray-booth atmosphere. */
+  private sprayAtmosphereTexture(): string {
+    const key = `spray-atmosphere-${GAME_WIDTH}x${GAME_HEIGHT}`
+    if (this.textures.exists(key)) return key
+
+    const texture = this.textures.createCanvas(key, GAME_WIDTH, GAME_HEIGHT)
+    if (!texture) return '__WHITE'
+    const context = texture.context
+    const wash = context.createLinearGradient(0, 0, GAME_WIDTH, GAME_HEIGHT)
+    wash.addColorStop(0, 'rgba(20, 18, 12, .92)')
+    wash.addColorStop(0.46, 'rgba(10, 12, 13, .94)')
+    wash.addColorStop(1, 'rgba(24, 19, 14, .9)')
+    context.fillStyle = wash
+    context.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT)
+
+    const bloom = (
+      x: number,
+      y: number,
+      radius: number,
+      color: [number, number, number],
+      alpha: number,
+    ): void => {
+      const gradient = context.createRadialGradient(x, y, 0, x, y, radius)
+      gradient.addColorStop(0, `rgba(${color.join(',')},${alpha})`)
+      gradient.addColorStop(1, `rgba(${color.join(',')},0)`)
+      context.fillStyle = gradient
+      context.fillRect(x - radius, y - radius, radius * 2, radius * 2)
+    }
+    bloom(GAME_WIDTH * 0.18, GAME_HEIGHT * 0.16, GAME_WIDTH * 0.75, [255, 196, 42], 0.13)
+    bloom(GAME_WIDTH * 0.78, GAME_HEIGHT * 0.72, GAME_WIDTH * 0.85, [228, 49, 116], 0.18)
+    bloom(GAME_WIDTH * 0.08, GAME_HEIGHT * 0.95, GAME_WIDTH * 0.7, [52, 184, 211], 0.12)
+
+    context.strokeStyle = 'rgba(255,255,255,.035)'
+    context.lineWidth = 1
+    for (let x = -GAME_HEIGHT; x < GAME_WIDTH; x += 13) {
+      context.beginPath()
+      context.moveTo(x, GAME_HEIGHT)
+      context.lineTo(x + GAME_HEIGHT * 0.42, 0)
+      context.stroke()
+    }
+    texture.refresh()
+    return key
   }
 
   /**

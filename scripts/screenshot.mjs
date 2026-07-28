@@ -20,6 +20,8 @@ const url = process.env.DYESTOPIA_URL ?? 'http://localhost:5173'
 const outDir = process.env.OUT_DIR ?? '.screenshots'
 const dpr = Number(process.env.DPR ?? 2)
 const frame = Number(process.env.FRAME ?? 0)
+const viewportWidth = Number(process.env.VIEWPORT_WIDTH ?? 1280)
+const viewportHeight = Number(process.env.VIEWPORT_HEIGHT ?? 720)
 const shape = process.env.SHAPE
 const theme = process.env.THEME
 const scenes = process.argv.slice(2)
@@ -32,7 +34,7 @@ await mkdir(outDir, { recursive: true })
 
 const browser = await chromium.launch()
 const page = await browser.newPage({
-  viewport: { width: 1280, height: 720 },
+  viewport: { width: viewportWidth, height: viewportHeight },
   deviceScaleFactor: dpr,
 })
 

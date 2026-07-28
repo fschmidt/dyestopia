@@ -4,7 +4,9 @@ import { GAME_WIDTH, open, startGame, waitForScene } from './helpers'
 
 test('boots through to the menu', async ({ page }) => {
   await open(page)
-  expect(await page.evaluate(() => window.dyestopia!.texts('Menu'))).toContain('DYESTOPIA')
+  const texts = await page.evaluate(() => window.dyestopia!.texts('Menu'))
+  expect(texts).toContain('DYES')
+  expect(texts).toContain('TOPIA')
 })
 
 test('canvas is sized in device pixels', async ({ page }) => {
@@ -64,7 +66,8 @@ test('the round deals a full board and a zeroed score', async ({ page }) => {
   expect(report.cells.every((cell) => cell.color !== null)).toBe(true)
 
   const texts = await page.evaluate(() => window.dyestopia!.texts('Game'))
-  expect(texts).toContain('Score: 0')
+  expect(texts).toContain('SCORE')
+  expect(texts).toContain('0')
 })
 
 test('escape walks back out: game, stage select, menu', async ({ page }) => {

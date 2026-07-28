@@ -15,7 +15,7 @@ import { TILE_SIZE } from '../tiles/bake'
 import { SHAPES } from '../tiles/shapes'
 import { Tile } from '../tiles/Tile'
 import { addButton, addSegmentedControl, addSurface, addSwitch } from '../ui/components'
-import { ink, resolveVisualProfile } from '../ui/visual-system'
+import { ink, resolveVisualProfile, VISUAL_PROFILES } from '../ui/visual-system'
 import { BaseScene } from './BaseScene'
 
 const PREVIEW_COLORS: ColorId[] = ['red', 'yellow', 'blue', 'orange', 'green', 'purple']
@@ -77,16 +77,28 @@ export class SettingsScene extends BaseScene {
 
     this.addBackgroundPager(left + 18, rowStart + rowGap * 2)
 
-    this.addLabel(left + 18, rowStart + rowGap * 3 - 24, 'SOUND')
-    addText(this, left + 18, rowStart + rowGap * 3 + 8, 'Lab sounds', {
-      fontFamily: visual.type.family,
-      fontSize: visual.type.body,
-      color: ink(visual.colors.primaryInk),
-    }).setOrigin(0, 0.5)
+    const utilityY = rowStart + rowGap * 3 + 8
+    const styleWidth = width - 132
+    this.addLabel(left + 18, rowStart + rowGap * 3 - 24, 'VISUAL STYLE')
+    this.addLabel(left + width - 94, rowStart + rowGap * 3 - 24, 'SOUND')
+    addSegmentedControl(
+      this,
+      left + 18 + styleWidth / 2,
+      utilityY,
+      styleWidth,
+      VISUAL_PROFILES.map(({ id, label }) => ({ id, label })),
+      () => getSettings().visualStyle,
+      (visualStyle) => {
+        updateSettings({ visualStyle })
+        // Profiles are read as objects are built. Rebuilding this presentation
+        // scene applies the new skin without changing any of its coordinates.
+        this.scene.restart()
+      },
+    )
     addSwitch(
       this,
       left + width - 54,
-      rowStart + rowGap * 3 + 8,
+      utilityY,
       () => getSettings().sound,
       (sound) => {
         updateSettings({ sound })

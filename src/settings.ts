@@ -2,20 +2,27 @@ import { DEFAULT_BACKGROUND, getBackground, type Background } from './background
 import { DEFAULT_THEME, getTheme, type Theme } from './themes'
 import { DEFAULT_SHAPE, getShape } from './tiles/shapes'
 import type { Shape } from './tiles/shapes'
+import {
+  DEFAULT_VISUAL_PROFILE,
+  getVisualProfile,
+  selectVisualProfile,
+} from './ui/visual-system'
 
 /**
  * Player settings, persisted across visits.
  *
- * Shape and theme are separate keys on purpose — they're orthogonal in the
- * renderer (artwork is baked white, colour is a tint), so there's no reason to
- * make the player choose them as a pair. Sound is the M5 mute toggle; the SFX
- * module checks it on every play, so flipping it takes effect mid-round.
+ * Shape, colour theme, background and visual style are separate keys on
+ * purpose. The visual style owns UI treatment, never tile artwork or pigment
+ * identity, which keeps later skins from multiplying every other setting.
+ * Sound is the M5 mute toggle; the SFX module checks it on every play, so
+ * flipping it takes effect mid-round.
  */
 
 export interface Settings {
   shape: string
   theme: string
   background: string
+  visualStyle: string
   sound: boolean
 }
 
@@ -25,6 +32,7 @@ const defaults: Settings = {
   shape: DEFAULT_SHAPE,
   theme: DEFAULT_THEME,
   background: DEFAULT_BACKGROUND,
+  visualStyle: DEFAULT_VISUAL_PROFILE,
   sound: true,
 }
 
@@ -41,6 +49,7 @@ function load(): Settings {
       shape: getShape(parsed.shape ?? '').id,
       theme: getTheme(parsed.theme ?? '').id,
       background: getBackground(parsed.background ?? '').id,
+      visualStyle: getVisualProfile(parsed.visualStyle ?? DEFAULT_VISUAL_PROFILE).id,
       // Anything but an explicit false means sound on — same spirit as the
       // registry fallbacks above: a mangled value never mutes the game.
       sound: parsed.sound !== false,
@@ -51,6 +60,8 @@ function load(): Settings {
     return { ...defaults }
   }
 }
+
+selectVisualProfile(current.visualStyle)
 
 export function getSettings(): Settings {
   return { ...current }
@@ -70,6 +81,8 @@ export function activeBackground(): Background {
 
 export function updateSettings(patch: Partial<Settings>): Settings {
   current = { ...current, ...patch }
+  current.visualStyle = getVisualProfile(current.visualStyle).id
+  selectVisualProfile(current.visualStyle)
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(current))
   } catch {

@@ -51,12 +51,12 @@ export interface DyestopiaDebug {
    * GameStartData); no data on 'Game' deals the dev board.
    */
   goTo(key: string, data?: object): void
-  /** The player's current shape and theme. */
+  /** The player's current shape, colour theme, background and visual style. */
   settings(): Settings
   /**
-   * Change shape or theme. Scenes read settings when they build, so this only
-   * takes effect on the next `goTo` — which is also what makes it useful for
-   * screenshotting one scene across every combination.
+   * Change a player setting. Scenes read visual settings when they build, so
+   * those take effect on the next `goTo` — which is also what makes this useful
+   * for screenshotting one scene across every combination.
    */
   setSettings(patch: Partial<Settings>): Settings
   /**

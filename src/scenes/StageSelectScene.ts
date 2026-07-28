@@ -32,13 +32,38 @@ export class StageSelectScene extends BaseScene {
     this.reveal = data.reveal
     const visual = resolveVisualProfile()
 
-    addText(this, GAME_WIDTH / 2, Math.min(74, GAME_HEIGHT * 0.09), 'STAGE LEDGER', {
-      fontFamily: visual.type.family,
-      fontSize: '38px',
-      fontStyle: 'bold',
-      letterSpacing: 3,
-      color: ink(visual.colors.primaryInk),
-    }).setOrigin(0.5)
+    const titleY = Math.min(74, GAME_HEIGHT * 0.09)
+    if (visual.treatment === 'spray-can') {
+      const width = Math.min(420, GAME_WIDTH - 48)
+      const title = this.add
+        .container(GAME_WIDTH / 2, titleY)
+        .setName('stage-title-label')
+        .setAngle(-1)
+      const plate = this.add.graphics()
+      plate.fillStyle(0xe8e4d9, 1)
+      plate.fillPoints([
+        new Phaser.Math.Vector2(-width / 2 + 4, -28),
+        new Phaser.Math.Vector2(width / 2, -27),
+        new Phaser.Math.Vector2(width / 2 - 3, 28),
+        new Phaser.Math.Vector2(-width / 2, 26),
+      ], true)
+      const text = addText(this, 0, 0, 'STAGE LEDGER', {
+        fontFamily: visual.type.family,
+        fontSize: '34px',
+        fontStyle: 'bold',
+        letterSpacing: 3,
+        color: ink(0x292621),
+      }).setOrigin(0.5)
+      title.add([plate, text])
+    } else {
+      addText(this, GAME_WIDTH / 2, titleY, 'STAGE LEDGER', {
+        fontFamily: visual.type.family,
+        fontSize: '38px',
+        fontStyle: 'bold',
+        letterSpacing: 3,
+        color: ink(visual.colors.primaryInk),
+      }).setOrigin(0.5)
+    }
 
     const unlocked = unlockedCount()
     const rows = Math.ceil(STAGES.length / COLS)
@@ -54,15 +79,36 @@ export class StageSelectScene extends BaseScene {
     this.buildGrid(unlocked)
 
     const frontier = Math.min(unlocked, STAGES.length) - 1
+    const frontierY =
+      this.gridTop() + this.cellPitch() * Math.ceil(STAGES.length / COLS) + 36
+    if (visual.treatment === 'spray-can') {
+      const width = Math.min(360, GAME_WIDTH - 64)
+      const plate = this.add
+        .graphics({ x: GAME_WIDTH / 2, y: frontierY })
+        .setName('frontier-label')
+        .setAngle(1)
+      plate.fillStyle(0xe8e4d9, 0.96)
+      plate.fillPoints([
+        new Phaser.Math.Vector2(-width / 2 + 3, -20),
+        new Phaser.Math.Vector2(width / 2, -19),
+        new Phaser.Math.Vector2(width / 2 - 2, 20),
+        new Phaser.Math.Vector2(-width / 2, 19),
+      ], true)
+    }
     addText(
       this,
       GAME_WIDTH / 2,
-      this.gridTop() + this.cellPitch() * Math.ceil(STAGES.length / COLS) + 36,
+      frontierY,
       `Next: ${frontier + 1} — ${STAGES[frontier].name}`,
       {
         fontFamily: visual.type.family,
         fontSize: '18px',
-        color: ink(visual.colors.secondaryInk),
+        fontStyle: visual.treatment === 'spray-can' ? 'bold' : 'normal',
+        color: ink(
+          visual.treatment === 'spray-can'
+            ? 0x37332d
+            : visual.colors.secondaryInk,
+        ),
       },
     )
       .setOrigin(0.5)
@@ -105,17 +151,36 @@ export class StageSelectScene extends BaseScene {
       // The freshly unlocked cell starts asleep and wakes in the reveal.
       const open = i < unlocked && i !== this.reveal
       const played = i < unlocked - 1
+      const current = i === unlocked - 1
 
       const cell = this.add
         .rectangle(x, y, size, size, open ? visual.colors.accent : visual.colors.secondaryInk, open ? 0.2 : 0.08)
         .setStrokeStyle(2, open ? visual.colors.accent : visual.colors.secondaryInk, open ? 0.9 : 0.25)
         .setName(`stage-${i}`)
+      if (visual.treatment === 'spray-can' && open) {
+        cell
+          .setFillStyle(
+            current ? visual.colors.accent : visual.colors.surfaceStrong,
+            current ? 0.88 : 0.72,
+          )
+          .setStrokeStyle(
+            current ? 3 : 2,
+            current ? visual.colors.primaryInk : visual.colors.accent,
+            current ? 0.72 : 0.9,
+          )
+      }
 
       const number = addText(this, x, y, `${i + 1}`, {
         fontFamily: visual.type.family,
         fontSize: `${Math.round(size * 0.42)}px`,
         fontStyle: 'bold',
-        color: ink(open ? visual.colors.primaryInk : visual.colors.secondaryInk),
+        color: ink(
+          visual.treatment === 'spray-can' && current
+            ? visual.colors.accentInk
+            : open
+              ? visual.colors.primaryInk
+              : visual.colors.secondaryInk,
+        ),
       })
         .setOrigin(0.5)
         .setAlpha(open ? 1 : 0.5)
