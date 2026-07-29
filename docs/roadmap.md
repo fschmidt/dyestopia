@@ -127,8 +127,8 @@ The heart, replacing the repaint-in-place demo in
 - Legal-move detection + auto-reshuffle on dead boards.
 - Deterministic RNG seeding hook so Playwright tests can assert board states
   via the existing `window.dyestopia` bridge.
-- **Animations** (per shape, blob + mosaic, extending
-  [tile-motion.md](design/tiles/tile-motion.md)):
+- **Animations** (per shape, blob + mosaic, extending the motion language the
+  shipped tiles already carry):
   - **Destruction/clear** — the one wholly new primitive (blob: liquid
     pop/burst; mosaic: crack out of the grout). The genre's feel hangs on it.
   - **Gravity fall** — per-column stagger and fall physics; landing reuses
