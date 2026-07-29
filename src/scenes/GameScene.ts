@@ -165,7 +165,8 @@ export class GameScene extends BaseScene {
   private scoreTween?: Phaser.Tweens.Tween
   private scoreText!: Phaser.GameObjects.Text
   private multiplierText!: Phaser.GameObjects.Text
-  private rainbowChain!: Phaser.GameObjects.Container
+  private chainRing!: Phaser.GameObjects.Container
+  private chainComplete = false
   private movesText!: Phaser.GameObjects.Text
   private hintText!: Phaser.GameObjects.Text
   private targetFill!: Phaser.GameObjects.Rectangle
@@ -209,6 +210,7 @@ export class GameScene extends BaseScene {
     this.endless = false
     this.outcome = 'playing'
     this.thresholdMet = false
+    this.chainComplete = false
     this.resolving = false
     this.paused = false
     this.objectivePanel = undefined
@@ -363,13 +365,13 @@ export class GameScene extends BaseScene {
     const multiplierBlock = this.add
       .container(GAME_WIDTH / 2, area.top - 66)
       .setName('multiplier-block')
-    this.multiplierText = addText(this, 0, 0, '×1', {
+    this.multiplierText = addText(this, 0, 8, '×1', {
       fontFamily: visual.type.family,
       fontSize: '20px',
       fontStyle: 'bold',
       color: ink(visual.colors.accent),
-    }).setOrigin(0.5, 0)
-    this.rainbowChain = this.addRainbowRail(multiplierBlock, 26, 64)
+    }).setOrigin(0.5)
+    this.chainRing = this.addChainRing(multiplierBlock, 8, 25)
     multiplierBlock.add(this.multiplierText)
 
     this.movesText = addText(this, GAME_WIDTH - area.marginX, area.top - 51, '', {
@@ -471,21 +473,16 @@ export class GameScene extends BaseScene {
 
     const multiplierX = area.marginX + (GAME_WIDTH - area.marginX * 2) / 3
     const multiplierBlock = this.add.container(multiplierX, metricY).setName('multiplier-block')
-    const multiplierLabel = addText(this, 0, -14, 'CHAIN', {
+    const chainY = 12
+    const chainRadius = 16
+    this.multiplierText = addText(this, 0, chainY, '×1', {
       fontFamily: visual.type.family,
-      fontSize: '11px',
-      fontStyle: 'bold',
-      letterSpacing: 3,
-      color: ink(visual.colors.secondaryInk),
-    }).setOrigin(0.5, 0)
-    this.multiplierText = addText(this, 0, -2, '×1', {
-      fontFamily: visual.type.family,
-      fontSize: '30px',
+      fontSize: '20px',
       fontStyle: 'bold',
       color: ink(visual.colors.accent),
-    }).setOrigin(0.5, 0)
-    this.rainbowChain = this.addRainbowRail(multiplierBlock, 34, 70)
-    multiplierBlock.add([multiplierLabel, this.multiplierText])
+    }).setOrigin(0.5)
+    this.chainRing = this.addChainRing(multiplierBlock, chainY, chainRadius)
+    multiplierBlock.add(this.multiplierText)
 
     const targetBlock = this.add
       .container(area.marginX + ((GAME_WIDTH - area.marginX * 2) * 2) / 3, metricY)
@@ -1131,18 +1128,22 @@ export class GameScene extends BaseScene {
       ))
     const atMax = this.maxMultiplier > 1 && this.colorChain.multiplier >= this.maxMultiplier
     const reacting = this.scoreResolution.kind !== 'normal'
+    const multiplierSize = 20
     this.multiplierText
-      .setFontSize(reacting ? (this.sprayHud ? 10 : 11) : this.sprayHud ? 30 : 20)
+      .setFontSize(reacting ? (this.sprayHud ? 10 : 11) : multiplierSize)
+      .setColor(ink(
+        atMax || this.scoreResolution.rainbow
+          ? visual.colors.primaryInk
+          : visual.colors.accent,
+      ))
       .setText(
         reacting
         ? this.scoreResolution.kind === 'rainbow-chain-breaker'
           ? `RAINBOW CHAIN BREAKER ×${this.scoreResolution.multiplier}`
           : `CHAIN BREAKER ×${this.scoreResolution.multiplier}`
-        : atMax
-          ? `MAX ×${this.colorChain.multiplier}`
-          : `×${this.colorChain.multiplier} / ×${this.maxMultiplier}`,
+        : `×${this.colorChain.multiplier}`,
       )
-    this.rainbowChain.setVisible(atMax || this.scoreResolution.rainbow)
+    this.renderChainRing(atMax || this.scoreResolution.rainbow)
 
     this.scoreTween?.remove()
     const from = this.displayScore
@@ -1262,21 +1263,67 @@ export class GameScene extends BaseScene {
     }
   }
 
-  private addRainbowRail(
+  private addChainRing(
     parent: Phaser.GameObjects.Container,
     y: number,
-    width: number,
+    radius: number,
   ): Phaser.GameObjects.Container {
-    const colors = [0xef476f, 0xff9f1c, 0xffd166, 0x06d6a0, 0x118ab2, 0x9b5de5]
-    const rail = this.add.container(0, y).setName('rainbow-chain').setVisible(false)
-    const segment = width / colors.length
-    rail.add(
-      colors.map((color, index) =>
-        this.add.rectangle(-width / 2 + segment * (index + 0.5), 0, segment + 1, 3, color),
-      ),
-    )
-    parent.add(rail)
-    return rail
+    const ring = this.add
+      .container(0, y)
+      .setName('chain-ring')
+      .setData({ radius })
+    parent.add(ring)
+    return ring
+  }
+
+  private renderChainRing(complete: boolean): void {
+    const mixes = stageMixes(this.stage)
+    const radius = this.chainRing.getData('radius') as number
+    const becameComplete = complete && !this.chainComplete
+    this.chainComplete = complete
+    this.chainRing.removeAll(true)
+    this.chainRing.setData({
+      radius,
+      colors: mixes.map(({ result }) => result),
+      complete,
+    })
+    if (mixes.length === 0) return
+
+    const step = (Math.PI * 2) / mixes.length
+    const gap = Math.min(0.18, step * 0.12)
+    const rimWidth = Math.max(4, radius * 0.16)
+    const fillWidth = radius * 0.46
+
+    for (const [index, { result }] of mixes.entries()) {
+      const color = themedDye(activeTheme(), result).value
+      const filled = this.colorChain.results.includes(result)
+      const start = -Math.PI / 2 + index * step + gap / 2
+      const end = -Math.PI / 2 + (index + 1) * step - gap / 2
+      const width = filled ? fillWidth : rimWidth
+      const arcRadius = radius - (width - rimWidth) / 2
+
+      const segment = this.add
+        .graphics()
+        .setName('chain-segment')
+        .setData({ color: result, filled })
+      segment.lineStyle(width, color, 1)
+      segment.beginPath()
+      segment.arc(0, 0, arcRadius, start, end)
+      segment.strokePath()
+      this.chainRing.add(segment)
+    }
+
+    if (becameComplete) {
+      this.tweens.killTweensOf(this.chainRing)
+      this.chainRing.setScale(1).setAngle(-6)
+      this.tweens.chain({
+        targets: this.chainRing,
+        tweens: [
+          { scale: 1.14, angle: 4, duration: 110, ease: 'Back.easeOut' },
+          { scale: 1, angle: 0, duration: 230, ease: 'Back.easeOut' },
+        ],
+      })
+    }
   }
 
   private renderScore(): void {

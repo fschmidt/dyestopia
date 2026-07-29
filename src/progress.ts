@@ -9,6 +9,9 @@ import { STAGES } from './stages'
 
 const STORAGE_KEY = 'dyestopia:progress'
 
+/** Temporary playtest mode: keep progression data, but expose every stage. */
+const ALL_STAGES_UNLOCKED = true
+
 let unlocked = load()
 
 function clamp(value: number): number {
@@ -40,7 +43,7 @@ function save(): void {
 
 /** How many stages are playable, from the front. Always at least 1. */
 export function unlockedCount(): number {
-  return unlocked
+  return ALL_STAGES_UNLOCKED ? STAGES.length : unlocked
 }
 
 /**
@@ -48,6 +51,7 @@ export function unlockedCount(): number {
  * the select screen plays its unlock reveal off this.
  */
 export function recordWin(index: number): boolean {
+  if (ALL_STAGES_UNLOCKED) return false
   const next = clamp(index + 2)
   if (next <= unlocked) return false
   unlocked = next

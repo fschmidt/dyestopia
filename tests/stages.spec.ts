@@ -113,7 +113,7 @@ test.describe('stage authoring', () => {
   })
 })
 
-test('the select screen opens only the frontier', async ({ page }) => {
+test('the select screen opens every stage', async ({ page }) => {
   await open(page)
   await page.evaluate(() => window.dyestopia!.goTo('StageSelect'))
   await waitForScene(page, 'StageSelect')
@@ -121,17 +121,17 @@ test('the select screen opens only the frontier', async ({ page }) => {
   const names = await page.evaluate(() =>
     window.dyestopia!.hitTargets('StageSelect').map((t) => t.name),
   )
-  expect(names).toContain('stage-0')
-  expect(names).not.toContain('stage-1')
+  expect(names.filter((name) => name.startsWith('stage-'))).toHaveLength(STAGES.length)
+  expect(names).toContain(`stage-${STAGES.length - 1}`)
 
-  const cell = await hitTarget(page, 'StageSelect', 'stage-0')
+  const cell = await hitTarget(page, 'StageSelect', `stage-${STAGES.length - 1}`)
   await clickWorld(page, 'StageSelect', cell.x, cell.y)
   await waitForScene(page, 'Game')
 
   const report = await board(page)
-  expect(report.stage).toBe(0)
-  expect(report.moves).toBe(STAGES[0].moves)
-  expect(report.threshold).toBe(STAGES[0].threshold)
+  expect(report.stage).toBe(STAGES.length - 1)
+  expect(report.moves).toBe(STAGES.at(-1)!.moves)
+  expect(report.threshold).toBe(STAGES.at(-1)!.threshold)
   expect(report.outcome).toBe('playing')
 })
 
@@ -149,23 +149,23 @@ async function playClearingSwap(page: Page): Promise<void> {
   )
 }
 
-test('winning banks the score, unlocks the next stage, and survives a reload', async ({
+test('all stages are unlocked by default and remain available after wins and reloads', async ({
   page,
 }) => {
   await open(page)
-  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(1)
+  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(STAGES.length)
 
   // One 3-clear pays 30 — any clearing swap crosses this line.
   await startStage(page, { stage: 0, override: { threshold: 30 } }, 4711)
   await playClearingSwap(page)
 
   await expect.poll(async () => (await board(page)).outcome, { timeout: 15000 }).toBe('won')
-  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(2)
+  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(STAGES.length)
   await expect
     .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
     .toContain('Stage clear!')
 
-  // The overlay's primary action carries on to the freshly unlocked stage.
+  // The overlay's primary action still carries on to the next stage.
   const next = await hitTarget(page, 'Game', 'next')
   await clickWorld(page, 'Game', next.x, next.y)
   await expect.poll(async () => (await board(page)).stage).toBe(1)
@@ -173,14 +173,14 @@ test('winning banks the score, unlocks the next stage, and survives a reload', a
   // Progress is storage, not scene state: a full reload still knows.
   await page.reload()
   await waitForScene(page, 'Menu')
-  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(2)
+  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(STAGES.length)
   await page.evaluate(() => window.dyestopia!.goTo('StageSelect'))
   await waitForScene(page, 'StageSelect')
   const names = await page.evaluate(() =>
     window.dyestopia!.hitTargets('StageSelect').map((t) => t.name),
   )
-  expect(names).toContain('stage-1')
-  expect(names).not.toContain('stage-2')
+  expect(names.filter((name) => name.startsWith('stage-'))).toHaveLength(STAGES.length)
+  expect(names).toContain(`stage-${STAGES.length - 1}`)
 })
 
 test('stage 10 offers endless play at its target and keeps the settled board', async ({ page }) => {
@@ -249,8 +249,8 @@ test('running out of moves loses kindly, and retrying resets the round', async (
     .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
     .toContain('Out of moves')
 
-  // A loss never unlocks anything.
-  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(1)
+  // A loss does not change the temporary all-unlocked state.
+  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(STAGES.length)
 
   // Retry deals a fresh round of the same stage, on its real rules — the
   // bridge override was a one-round bend, not a rewrite.

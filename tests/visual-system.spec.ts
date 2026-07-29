@@ -184,11 +184,109 @@ test('Spray Can game HUD separates the paper stage label from score and moves', 
   expect(objects.some((item) => item.name === 'stage-label')).toBe(true)
   expect(objects.some((item) => item.name === 'score-block')).toBe(true)
   expect(objects.some((item) => item.name === 'multiplier-block')).toBe(true)
-  expect(objects.some((item) => item.name === 'rainbow-chain')).toBe(true)
+  expect(objects.some((item) => item.name === 'chain-ring')).toBe(true)
   expect(objects.some((item) => item.name === 'target-block')).toBe(true)
   expect(objects.some((item) => item.name === 'moves-block')).toBe(true)
   expect(objects.filter((item) => item.name === 'tool-slot')).toHaveLength(0)
   expect(objects.some((item) => item.name === 'skin-atmosphere')).toBe(true)
+})
+
+test('chain indicator aligns with the metric values without a redundant label', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => {
+    window.dyestopia!.setSettings({ visualStyle: 'spray-can' })
+    window.dyestopia!.goTo('Game', { stage: 8 })
+  })
+  await waitForScene(page, 'Game')
+
+  const layout = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Game')!
+    const block = scene.children.getByName('multiplier-block') as Phaser.GameObjects.Container
+    const ring = block.getByName('chain-ring') as Phaser.GameObjects.Container
+    const target = scene.children.getByName('target-block') as Phaser.GameObjects.Container
+    const targetValue = target.list.find(
+      (child) => child.type === 'Text' && /^\d+$/.test((child as Phaser.GameObjects.Text).text),
+    ) as Phaser.GameObjects.Text
+    return {
+      labels: block.list
+        .filter((child) => child.type === 'Text')
+        .map((child) => (child as Phaser.GameObjects.Text).text),
+      radius: ring.getData('radius') as number,
+      centerY: block.y + ring.y,
+      targetCenterY: targetValue.getBounds().centerY,
+    }
+  })
+
+  expect(layout.labels).not.toContain('CHAIN')
+  expect(layout.radius).toBeLessThanOrEqual(16)
+  expect(Math.abs(layout.centerY - layout.targetCenterY)).toBeLessThanOrEqual(6)
+})
+
+test('chain ring contains exactly the result colours mixable in the current stage', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() => {
+    window.dyestopia!.setSettings({ visualStyle: 'spray-can' })
+    window.dyestopia!.goTo('Game', { stage: 1 })
+  })
+  await waitForScene(page, 'Game')
+
+  const ringColors = () =>
+    page.evaluate(() => {
+      const scene = window.dyestopia!.game.scene.getScene('Game')!
+      const block = scene.children.getByName(
+        'multiplier-block',
+      ) as Phaser.GameObjects.Container | null
+      const ring = block?.getByName('chain-ring') as Phaser.GameObjects.Container | null
+      return ring?.list
+        .filter((child) => child.name === 'chain-segment')
+        .map((child) => child.getData('color')) ?? null
+    })
+
+  expect(await ringColors()).toEqual(['orange'])
+
+  await page.evaluate(() => window.dyestopia!.goTo('Game', { stage: 8 }))
+  await waitForScene(page, 'Game')
+  expect(await ringColors()).toEqual(['orange', 'green', 'purple', 'magenta'])
+})
+
+test('a completed chain keeps the one-shot payoff without glow or an outer ring', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() => {
+    window.dyestopia!.setSettings({ visualStyle: 'spray-can' })
+    window.dyestopia!.goTo('Game', { stage: 1 })
+  })
+  await waitForScene(page, 'Game')
+
+  const payoff = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Game')! as Phaser.Scene & {
+      colorChain: { results: ['orange']; multiplier: number }
+      updateHud(): void
+    }
+    scene.colorChain = { results: ['orange'], multiplier: 2 }
+    scene.updateHud()
+    const block = scene.children.getByName('multiplier-block') as Phaser.GameObjects.Container
+    const ring = block.getByName('chain-ring') as Phaser.GameObjects.Container
+    const multiplier = block.list.find(
+      (child) => child.type === 'Text' && (child as Phaser.GameObjects.Text).text === '×2',
+    ) as Phaser.GameObjects.Text
+    return {
+      outline: ring.list.some((child) => child.name === 'chain-complete-outline'),
+      glow: ring.list.some((child) => child.name === 'chain-glow'),
+      animated: scene.tweens.getTweensOf(ring).length > 0,
+      multiplierColor: multiplier.style.color,
+    }
+  })
+
+  expect(payoff).toMatchObject({
+    outline: false,
+    glow: false,
+    animated: true,
+    multiplierColor: '#f4f0e6',
+  })
 })
 
 test('Spray Can stage placard toggles its objective panel', async ({ page }) => {

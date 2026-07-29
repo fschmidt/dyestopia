@@ -10,9 +10,7 @@ test('colour tiers follow mixing depth', () => {
   expect(colorTier('unknown')).toBe(0)
 })
 
-test('mixed tiles gain a progressively stronger emissive glow without surface marks', async ({
-  page,
-}) => {
+test('mixed tiles render without emissive glow layers', async ({ page }) => {
   await open(page)
   await page.evaluate(() => window.dyestopia!.goTo('Game', { stage: 9 }))
   await waitForScene(page, 'Game')
@@ -39,8 +37,8 @@ test('mixed tiles gain a progressively stronger emissive glow without surface ma
   const orange = effects.find(({ color }) => color === 'orange')!
   const amber = effects.find(({ color }) => color === 'amber')!
   expect(red).toMatchObject({ tier: 0, childCount: 2, halos: 0, cores: 0 })
-  expect(orange).toMatchObject({ tier: 1, childCount: 3, halos: 1, cores: 0 })
-  expect(amber).toMatchObject({ tier: 2, childCount: 5, halos: 2, cores: 1 })
+  expect(orange).toMatchObject({ tier: 1, childCount: 2, halos: 0, cores: 0 })
+  expect(amber).toMatchObject({ tier: 2, childCount: 2, halos: 0, cores: 0 })
 })
 
 test('every shape bakes its sheets at boot', async ({ page }) => {

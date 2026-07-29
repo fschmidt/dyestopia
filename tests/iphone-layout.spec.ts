@@ -19,6 +19,13 @@ test('iPhone 15 Pro Max stage header clears the metric row', async ({ page }) =>
 
   const layout = await page.evaluate(() => {
     const scene = window.dyestopia!.game.scene.getScene('Game')!
+    const multiplierBlock = scene.children.getByName(
+      'multiplier-block',
+    ) as Phaser.GameObjects.Container
+    const multiplierValue = multiplierBlock.list.find(
+      (child) =>
+        child.type === 'Text' && (child as Phaser.GameObjects.Text).text.startsWith('×'),
+    ) as Phaser.GameObjects.Text
     const bounds = (name: string): Bounds => {
       const value = (scene.children.getByName(name) as Phaser.GameObjects.Container).getBounds()
       return { left: value.left, right: value.right, top: value.top, bottom: value.bottom }
@@ -40,6 +47,10 @@ test('iPhone 15 Pro Max stage header clears the metric row', async ({ page }) =>
       pause: bounds('pause'),
       metricLabels: [textBounds('SCORE'), textBounds('TARGET'), textBounds('MOVES')],
       metricValues: [textBounds('0'), textBounds('5700'), textBounds('18')],
+      chainRadius: (
+        multiplierBlock.getByName('chain-ring') as Phaser.GameObjects.Container
+      ).getData('radius') as number,
+      multiplierFontSize: Number.parseFloat(String(multiplierValue.style.fontSize)),
     }
   })
 
@@ -48,6 +59,8 @@ test('iPhone 15 Pro Max stage header clears the metric row', async ({ page }) =>
   expect(layout.pause.bottom + 24).toBeLessThanOrEqual(metricTop)
   expect(layout.metricValues[0].right).toBeLessThan(layout.metricValues[1].left)
   expect(layout.metricValues[1].right).toBeLessThan(layout.metricValues[2].left)
+  expect(layout.chainRadius).toBeLessThanOrEqual(16)
+  expect(layout.multiplierFontSize).toBeLessThanOrEqual(20)
 })
 
 test('iPhone 15 Pro Max settings labels clear their controls', async ({ page }) => {
