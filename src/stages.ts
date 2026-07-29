@@ -13,15 +13,19 @@ import type { Stage } from './stage'
  * drifts next door. Loose result tiles beyond those come only from merge
  * survivors (a converted dragged tile the cleared line didn't include).
  *
- * Thresholds and budgets are tuning numbers, deliberately rough until the
- * playtest: a plain 3-clear pays 30, a merged one 45, cascades multiply.
+ * Thresholds are calibrated per board rather than forced to rise monotonically:
+ * a 300-seed chain-aware simulation estimates each shape's full-budget score,
+ * then the target takes roughly the larger of 90% of the no-luck ideal and 85%
+ * of the simulated 20th percentile (rounded to 50). A plain 3-clear pays 30,
+ * while mix chains and their swap cash-ins supply the multiplier inherited by
+ * every cascade.
  */
 export const STAGES: Stage[] = [
   {
     // Pure match-3: no mixable colours in play, so drops can only swap.
     name: 'First Splash',
     hint: 'Drag a tile onto a neighbour to line up 3 of a colour',
-    threshold: 100,
+    threshold: 600,
     moves: 8,
     active: ['red', 'yellow', 'blue'],
     seed: ['red', 'yellow', 'blue'],
@@ -38,7 +42,7 @@ export const STAGES: Stage[] = [
     // dye the tile beside a pair and the line completes.
     name: 'Mixing Lesson',
     hint: 'Drop red on a yellow beside two oranges — the mix completes the line',
-    threshold: 160,
+    threshold: 1300,
     moves: 8,
     active: ['red', 'yellow', 'blue', 'orange'],
     seed: ['red', 'yellow', 'blue'],
@@ -55,7 +59,7 @@ export const STAGES: Stage[] = [
     // A taller board gives falls room to chain.
     name: 'Chain Reaction',
     hint: 'Falling tiles keep clearing — every extra wave scores more',
-    threshold: 300,
+    threshold: 1800,
     moves: 10,
     active: ['red', 'yellow', 'blue', 'orange', 'green'],
     seed: ['red', 'yellow', 'blue'],
@@ -72,7 +76,7 @@ export const STAGES: Stage[] = [
   {
     name: 'Royal Purple',
     hint: 'Red and blue make purple',
-    threshold: 450,
+    threshold: 2900,
     moves: 12,
     active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple'],
     seed: ['red', 'yellow', 'blue'],
@@ -91,7 +95,7 @@ export const STAGES: Stage[] = [
     // The first shaped board: single-cell tips, and falls that funnel inward.
     name: 'The Diamond',
     hint: 'Sharp corners — watch where the falls funnel',
-    threshold: 550,
+    threshold: 1700,
     moves: 12,
     active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple'],
     seed: ['red', 'yellow', 'blue'],
@@ -111,7 +115,7 @@ export const STAGES: Stage[] = [
     // Two independent wells over a shared floor — matches cross underneath.
     name: 'Twin Wells',
     hint: 'Two wells share one floor',
-    threshold: 700,
+    threshold: 2000,
     moves: 14,
     active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple'],
     seed: ['red', 'yellow', 'blue'],
@@ -130,7 +134,7 @@ export const STAGES: Stage[] = [
     // blue for teal — a two-merge chain, with the preset teal as the payoff.
     name: 'Deep Teal',
     hint: 'Blue and green mix into teal',
-    threshold: 800,
+    threshold: 2500,
     moves: 14,
     active: ['red', 'yellow', 'blue', 'orange', 'green', 'teal'],
     seed: ['red', 'yellow', 'blue'],
@@ -148,7 +152,7 @@ export const STAGES: Stage[] = [
   {
     name: 'Amber Glow',
     hint: 'Yellow and orange mix into amber',
-    threshold: 950,
+    threshold: 3550,
     moves: 15,
     active: ['red', 'yellow', 'blue', 'orange', 'green', 'amber'],
     seed: ['red', 'yellow', 'blue'],
@@ -167,7 +171,7 @@ export const STAGES: Stage[] = [
   {
     name: 'The Hourglass',
     hint: 'Everything runs through the waist — red on purple makes magenta',
-    threshold: 1100,
+    threshold: 2500,
     moves: 16,
     active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple', 'magenta'],
     seed: ['red', 'yellow', 'blue'],
@@ -185,7 +189,7 @@ export const STAGES: Stage[] = [
     // The full 10×10 area, and the widest palette of the MVP.
     name: 'Full Spectrum',
     hint: 'Every colour is in play — paint the lot',
-    threshold: 1400,
+    threshold: 5700,
     moves: 18,
     active: ['red', 'yellow', 'blue', 'orange', 'green', 'purple', 'teal', 'amber'],
     seed: ['red', 'yellow', 'blue'],

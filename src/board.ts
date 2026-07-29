@@ -409,14 +409,49 @@ export interface ColorChain {
   multiplier: number
 }
 
-export function advanceColorChain(chain: ColorChain, result: ColorId): ColorChain {
+export function advanceColorChain(
+  chain: ColorChain,
+  result: ColorId,
+  maxMultiplier: number,
+): ColorChain {
   if (chain.results.includes(result)) return chain
+  if (chain.multiplier >= maxMultiplier) return chain
   const results = [...chain.results, result]
   return { results, multiplier: results.length + 1 }
 }
 
 export function breakColorChain(_chain: ColorChain): ColorChain {
   return { results: [], multiplier: 1 }
+}
+
+export interface ScoreResolution {
+  kind: 'normal' | 'chain' | 'ultimate'
+  multiplier: number
+  rainbow: boolean
+}
+
+export function scoreResolutionForMerge(
+  chain: ColorChain,
+  maxMultiplier: number,
+): ScoreResolution {
+  return {
+    kind: 'normal',
+    multiplier: chain.multiplier,
+    rainbow: maxMultiplier > 1 && chain.multiplier >= maxMultiplier,
+  }
+}
+
+export function scoreResolutionForSwap(
+  chain: ColorChain,
+  maxMultiplier: number,
+): ScoreResolution {
+  if (chain.multiplier <= 1) return { kind: 'normal', multiplier: 1, rainbow: false }
+  const ultimate = maxMultiplier > 1 && chain.multiplier >= maxMultiplier
+  return {
+    kind: ultimate ? 'ultimate' : 'chain',
+    multiplier: chain.multiplier * (ultimate ? 3 : 2),
+    rainbow: ultimate,
+  }
 }
 
 /**

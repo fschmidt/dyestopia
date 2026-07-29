@@ -39,7 +39,7 @@ test('iPhone 15 Pro Max stage header clears the metric row', async ({ page }) =>
       placard: bounds('stage-label'),
       pause: bounds('pause'),
       metricLabels: [textBounds('SCORE'), textBounds('TARGET'), textBounds('MOVES')],
-      metricValues: [textBounds('0'), textBounds('1400'), textBounds('18')],
+      metricValues: [textBounds('0'), textBounds('5700'), textBounds('18')],
     }
   })
 

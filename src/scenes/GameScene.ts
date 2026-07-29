@@ -14,12 +14,15 @@ import {
   refill,
   reshuffle,
   resolveMove,
+  scoreResolutionForMerge,
+  scoreResolutionForSwap,
   type Cells,
   type CellMove,
   type ColorChain,
   type Conversion,
   type Grid,
   type MixRule,
+  type ScoreResolution,
   type Spawn,
 } from '../board'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
@@ -29,7 +32,13 @@ import { recordWin } from '../progress'
 import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
 import { playSfx } from '../sfx'
-import { FIRST_STAGE, stageMix, stagePreset, type Stage } from '../stage'
+import {
+  FIRST_STAGE,
+  stageMaxMultiplier,
+  stageMix,
+  stagePreset,
+  type Stage,
+} from '../stage'
 import { STAGES } from '../stages'
 import { addText } from '../text'
 import { themedDye } from '../themes'
@@ -93,6 +102,9 @@ export interface BoardReport {
   rows: number
   score: number
   multiplier: number
+  maxMultiplier: number
+  effectiveMultiplier: number
+  reaction: ScoreResolution['kind']
   chainResults: ColorId[]
   /** Index into STAGES, or null on the dev board. */
   stage: number | null
@@ -137,6 +149,8 @@ export class GameScene extends BaseScene {
 
   private score = 0
   private colorChain: ColorChain = { results: [], multiplier: 1 }
+  private maxMultiplier = 1
+  private scoreResolution: ScoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
   private movesLeft = 0
   private outcome: 'playing' | 'won' | 'lost' = 'playing'
   /** The threshold moment fires once, however far the score climbs past it. */
@@ -147,6 +161,7 @@ export class GameScene extends BaseScene {
   private scoreTween?: Phaser.Tweens.Tween
   private scoreText!: Phaser.GameObjects.Text
   private multiplierText!: Phaser.GameObjects.Text
+  private rainbowChain!: Phaser.GameObjects.Container
   private movesText!: Phaser.GameObjects.Text
   private hintText!: Phaser.GameObjects.Text
   private targetFill!: Phaser.GameObjects.Rectangle
@@ -183,6 +198,8 @@ export class GameScene extends BaseScene {
 
     this.score = 0
     this.colorChain = { results: [], multiplier: 1 }
+    this.maxMultiplier = stageMaxMultiplier(this.stage)
+    this.scoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
     this.displayScore = 0
     this.movesLeft = this.stage.moves
     this.outcome = 'playing'
@@ -281,6 +298,9 @@ export class GameScene extends BaseScene {
       rows: this.grid.rows,
       score: this.score,
       multiplier: this.colorChain.multiplier,
+      maxMultiplier: this.maxMultiplier,
+      effectiveMultiplier: this.scoreResolution.multiplier,
+      reaction: this.scoreResolution.kind,
       chainResults: [...this.colorChain.results],
       stage: this.stageIndex ?? null,
       threshold: this.stage.threshold,
@@ -342,6 +362,7 @@ export class GameScene extends BaseScene {
       fontStyle: 'bold',
       color: ink(visual.colors.accent),
     }).setOrigin(0.5, 0)
+    this.rainbowChain = this.addRainbowRail(multiplierBlock, 26, 64)
     multiplierBlock.add(this.multiplierText)
 
     this.movesText = addText(this, GAME_WIDTH - area.marginX, area.top - 51, '', {
@@ -456,6 +477,7 @@ export class GameScene extends BaseScene {
       fontStyle: 'bold',
       color: ink(visual.colors.accent),
     }).setOrigin(0.5, 0)
+    this.rainbowChain = this.addRainbowRail(multiplierBlock, 34, 70)
     multiplierBlock.add([multiplierLabel, this.multiplierText])
 
     const targetBlock = this.add
@@ -746,7 +768,8 @@ export class GameScene extends BaseScene {
       // off into the destruction, so mix → burst reads as cause and effect.
       playSfx('merge')
       const previousMultiplier = this.colorChain.multiplier
-      this.colorChain = advanceColorChain(this.colorChain, move.result)
+      this.colorChain = advanceColorChain(this.colorChain, move.result, this.maxMultiplier)
+      this.scoreResolution = scoreResolutionForMerge(this.colorChain, this.maxMultiplier)
       this.animateMultiplier(previousMultiplier)
       this.cells[origin] = this.cells[cell] = move.result
       // The combo prototype: the fresh colour absorbs adjacent groups of its
@@ -761,13 +784,13 @@ export class GameScene extends BaseScene {
         new Promise<void>((done) => other.mix(dye, done)),
       ])
         .then(() => this.animateCombo(conversions))
-        .then(() => this.resolve())
+        .then(() => this.resolve(this.scoreResolution))
       return
     }
 
     const previousMultiplier = this.colorChain.multiplier
-    this.colorChain = breakColorChain(this.colorChain)
-    this.animateMultiplier(previousMultiplier)
+    this.scoreResolution = scoreResolutionForSwap(this.colorChain, this.maxMultiplier)
+    this.animateReaction(previousMultiplier)
     ;[this.cells[origin], this.cells[cell]] = [this.cells[cell], this.cells[origin]]
     this.tiles[origin] = other
     this.tiles[cell] = tile
@@ -775,7 +798,7 @@ export class GameScene extends BaseScene {
     void Promise.all([
       new Promise<void>((done) => tile.swapTo(target.x, target.y, cell, 'active', done)),
       new Promise<void>((done) => other.swapTo(home.x, home.y, origin, 'passive', done)),
-    ]).then(() => this.resolve())
+    ]).then(() => this.resolve(this.scoreResolution, true))
   }
 
   /**
@@ -786,18 +809,18 @@ export class GameScene extends BaseScene {
    * loses, and anything else revives a dead board if it must and hands input
    * back.
    */
-  private async resolve(): Promise<void> {
+  private async resolve(resolution: ScoreResolution, resetChainAfter = false): Promise<void> {
     this.resolving = true
     for (let wave = 1; ; wave++) {
       const matched = findMatches(this.grid, this.cells)
       if (matched.size === 0) break
 
-      const points = clearScore(matched.size, this.colorChain.multiplier)
+      const points = clearScore(matched.size, resolution.multiplier)
       this.score += points
       // Cascades still climb in pitch, but no longer grow the score multiplier.
       playSfx('match', wave)
-      this.floatScore(points, this.colorChain.multiplier, matched)
-      this.updateHud(this.colorChain.multiplier)
+      this.floatScore(points, resolution, matched)
+      this.updateHud(resolution.multiplier)
       if (!this.thresholdMet && this.score >= this.stage.threshold) {
         this.thresholdMet = true
         this.celebrateThreshold()
@@ -817,6 +840,13 @@ export class GameScene extends BaseScene {
       const falls = applyGravity(this.grid, this.cells)
       const spawns = refill(this.grid, this.cells, this.stage.seed, this.rng)
       await this.animateDescent(falls, spawns)
+    }
+
+    if (resetChainAfter) {
+      const previousMultiplier = this.colorChain.multiplier
+      this.colorChain = breakColorChain(this.colorChain)
+      this.scoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
+      this.animateMultiplier(previousMultiplier)
     }
 
     if (this.score >= this.stage.threshold) {
@@ -868,7 +898,20 @@ export class GameScene extends BaseScene {
             ? visual.colors.warning
             : visual.colors.primaryInk,
       ))
-    this.multiplierText.setText(`×${this.colorChain.multiplier}`)
+    const atMax = this.maxMultiplier > 1 && this.colorChain.multiplier >= this.maxMultiplier
+    const reacting = this.scoreResolution.kind !== 'normal'
+    this.multiplierText
+      .setFontSize(reacting ? (this.sprayHud ? 15 : 14) : this.sprayHud ? 30 : 20)
+      .setText(
+        reacting
+        ? this.scoreResolution.kind === 'ultimate'
+          ? `ULTIMATE ×${this.scoreResolution.multiplier}`
+          : `CHAIN ×${this.scoreResolution.multiplier}`
+        : atMax
+          ? `MAX ×${this.colorChain.multiplier}`
+          : `×${this.colorChain.multiplier} / ×${this.maxMultiplier}`,
+      )
+    this.rainbowChain.setVisible(atMax || this.scoreResolution.rainbow)
 
     this.scoreTween?.remove()
     const from = this.displayScore
@@ -927,6 +970,84 @@ export class GameScene extends BaseScene {
     })
   }
 
+  private animateReaction(previous: number): void {
+    this.updateHud()
+    const ultimate = this.scoreResolution.kind === 'ultimate'
+    this.multiplierText.setScale(1)
+    this.tweens.chain({
+      targets: this.multiplierText,
+      tweens: [
+        {
+          scale: ultimate ? 1.5 : previous > 1 ? 1.32 : 1.08,
+          duration: 150,
+          ease: 'Back.easeOut',
+        },
+        { scale: 1, duration: 260, ease: 'Back.easeOut' },
+      ],
+    })
+
+    if (previous <= 1) return
+    const bounds = this.multiplierText.getBounds()
+    const ribbonColors = ultimate
+      ? [0xef476f, 0xffd166, 0x06d6a0]
+      : [0xef476f, 0x118ab2]
+    for (const [index, color] of ribbonColors.entries()) {
+      const ribbon = this.add
+        .rectangle(
+          bounds.centerX + (index - (ribbonColors.length - 1) / 2) * 9,
+          bounds.bottom + 5,
+          5,
+          38,
+          color,
+          0.9,
+        )
+        .setName('chain-reaction-ribbon')
+        .setDepth(29)
+        .setOrigin(0.5, 0)
+        .setAngle((index - (ribbonColors.length - 1) / 2) * 12)
+      this.tweens.add({
+        targets: ribbon,
+        y: this.originY + this.tileSize,
+        scaleY: ultimate ? 2.1 : 1.5,
+        alpha: 0,
+        duration: ultimate ? 520 : 420,
+        delay: index * 45,
+        ease: 'Cubic.easeIn',
+        onComplete: () => ribbon.destroy(),
+      })
+    }
+
+    if (ultimate) {
+      const edge = this.add.graphics().setName('ultimate-chain-flash').setDepth(28)
+      edge.lineStyle(5, 0xffffff, 0.8)
+      edge.strokeRoundedRect(8, 8, GAME_WIDTH - 16, GAME_HEIGHT - 16, 16)
+      this.tweens.add({
+        targets: edge,
+        alpha: 0,
+        duration: 580,
+        ease: 'Quad.easeOut',
+        onComplete: () => edge.destroy(),
+      })
+    }
+  }
+
+  private addRainbowRail(
+    parent: Phaser.GameObjects.Container,
+    y: number,
+    width: number,
+  ): Phaser.GameObjects.Container {
+    const colors = [0xef476f, 0xff9f1c, 0xffd166, 0x06d6a0, 0x118ab2, 0x9b5de5]
+    const rail = this.add.container(0, y).setName('rainbow-chain').setVisible(false)
+    const segment = width / colors.length
+    rail.add(
+      colors.map((color, index) =>
+        this.add.rectangle(-width / 2 + segment * (index + 0.5), 0, segment + 1, 3, color),
+      ),
+    )
+    parent.add(rail)
+    return rail
+  }
+
   private renderScore(): void {
     this.scoreText.setText(
       this.sprayHud
@@ -938,8 +1059,13 @@ export class GameScene extends BaseScene {
   }
 
   /** Floating "+N" over the clear — bigger and hotter at higher multipliers. */
-  private floatScore(points: number, multiplier: number, matched: Set<number>): void {
+  private floatScore(
+    points: number,
+    resolution: ScoreResolution,
+    matched: Set<number>,
+  ): void {
     const visual = resolveVisualProfile()
+    const multiplier = resolution.multiplier
     let sx = 0
     let sy = 0
     for (const index of matched) {
@@ -950,23 +1076,47 @@ export class GameScene extends BaseScene {
     const x = sx / matched.size
     const y = sy / matched.size
 
-    const text = addText(this, x, y, `+${points} ×${multiplier}`, {
+    const label = `+${points} ×${multiplier}`
+    const scoreFloat = this.add.container(x, y).setDepth(30)
+    if (resolution.rainbow) {
+      const rainbow = [
+        { x: -3, color: 0xef476f },
+        { x: 0, color: 0x06d6a0 },
+        { x: 3, color: 0x118ab2 },
+      ]
+      scoreFloat.add(
+        rainbow.map(({ x: offset, color }) =>
+          addText(this, offset, 0, label, {
+            fontFamily: visual.type.family,
+            fontSize: `${Math.min(38, 18 + (multiplier - 1) * 6)}px`,
+            fontStyle: 'bold',
+            color: ink(color),
+          }).setOrigin(0.5),
+        ),
+      )
+    }
+    const text = addText(this, 0, 0, label, {
       fontFamily: visual.type.family,
       fontSize: `${Math.min(38, 18 + (multiplier - 1) * 6)}px`,
       fontStyle: 'bold',
-      color: ink(multiplier > 1 ? visual.colors.accent : visual.colors.primaryInk),
+      color: ink(
+        resolution.rainbow
+          ? visual.colors.primaryInk
+          : multiplier > 1
+            ? visual.colors.accent
+            : visual.colors.primaryInk,
+      ),
     })
       .setOrigin(0.5)
-      .setDepth(30)
-      .setAlpha(0)
+    scoreFloat.add(text).setAlpha(0)
 
     this.tweens.chain({
-      targets: text,
+      targets: scoreFloat,
       tweens: [
         { alpha: 1, y: y - 16, duration: 130, ease: 'Quad.easeOut' },
         { alpha: 0, y: y - 54, duration: 520, ease: 'Quad.easeIn' },
       ],
-      onComplete: () => text.destroy(),
+      onComplete: () => scoreFloat.destroy(true),
     })
   }
 

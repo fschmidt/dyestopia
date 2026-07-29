@@ -113,6 +113,58 @@ test('a merge dyes the pair in place, clears, and starts a ×2 colour chain', as
     .toBe(true)
 })
 
+test('a swap cashes in a live chain for one resolution and then resets it', async ({ page }) => {
+  const grid = parseMask(FIRST_STAGE.board)
+  let seed = -1
+  let pair: [number, number] | null = null
+  for (let s = 1; s < 5000 && !pair; s++) {
+    const cells = generateBoard(grid, FIRST_STAGE.seed, mulberry32(s), stageRules)
+    pair = moveOfKind(grid, cells, 'merge')
+    if (pair) seed = s
+  }
+  expect(pair).not.toBeNull()
+
+  await open(page)
+  let report = await startSeededGame(page, seed)
+  await dragWorld(
+    page,
+    'Game',
+    report.cells.find((cell) => cell.index === pair![0])!,
+    report.cells.find((cell) => cell.index === pair![1])!,
+  )
+  await expect.poll(async () => (await board(page)).multiplier).toBe(2)
+  await expect
+    .poll(async () => {
+      const now = await board(page)
+      const engine = toEngine(now)
+      return (
+        now.reaction === 'normal' &&
+        now.cells.every((cell) => cell.color !== null) &&
+        findMatches(engine.grid, engine.cells).size === 0
+      )
+    })
+    .toBe(true)
+
+  report = await board(page)
+  const engine = toEngine(report)
+  const swap = moveOfKind(engine.grid, engine.cells, 'swap')
+  expect(swap).not.toBeNull()
+  const scoreBefore = report.score
+  await dragWorld(
+    page,
+    'Game',
+    report.cells.find((cell) => cell.index === swap![0])!,
+    report.cells.find((cell) => cell.index === swap![1])!,
+  )
+
+  await expect
+    .poll(async () => {
+      const now = await board(page)
+      return now.multiplier === 1 && now.reaction === 'normal' && now.score >= scoreBefore + 120
+    })
+    .toBe(true)
+})
+
 test('the combo prototype ripples the merge into adjacent groups', async ({ page }) => {
   // Predict, offline, a seed whose (target-anchored) legal merge sets off at
   // least one conversion — then replay the entire resolve (conversions,

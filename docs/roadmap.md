@@ -326,59 +326,106 @@ colour-aware route more valuable than taking the first available swap.
 - A later merge whose result colour is already in the chain keeps the current
   multiplier: orange → orange remains ×2.
 - A later merge with a new result colour adds it and raises the multiplier by
-  one: orange → green becomes ×3. Continue the same rule for further distinct
-  colours rather than capping it specially at ×3.
-- A legal swap clears the chain and sets the multiplier to ×1 before its clear
-  is scored. A new merge after that swap starts a new chain at ×2.
-- Every clear produced while resolving a move uses the multiplier established
-  by that move. Gravity/refill cascades neither increment nor reset it.
+  one: orange → green becomes ×3, up to the stage's maximum.
+- Derive `maxMultiplier` from stage rules: start at ×1 and add one for each
+  active colour that the stage can produce by mixing two of its active colours.
+  Seed primaries do not count merely because they are active. For example, a
+  stage that can make orange and green caps at ×3; a no-mix stage caps at ×1.
+  Derive this value rather than authoring a second piece of stage data that can
+  drift from `active` and the global colour recipes.
+- Reaching the maximum puts the persistent chain into **rainbow state**. The
+  numeric multiplier still exists for calculation and accessibility, but its
+  indicator and score feedback change treatment to communicate completion.
+- A legal swap at ×1 is a normal ×1 clear and leaves the chain reset.
+- A legal swap with a chain of ×2 or higher cashes it in as a **colour chain
+  reaction**: every clear in that swap's complete resolution scores at twice
+  the current multiplier. A ×3 chain therefore resolves at an effective ×6.
+- If the persistent chain is at its stage maximum when swapped, it becomes an
+  **ultimate chain reaction** and every clear in that resolution scores at
+  three times the current multiplier instead. A stage capped at ×3 therefore
+  resolves its ultimate at an effective ×9.
+- The reaction uses a snapshot of the persistent multiplier and maximum state
+  taken when the legal swap begins. Gravity/refill cascades share that same
+  effective value and do not alter it.
+- Once the entire swap resolution has finished — all clears, falls, refills
+  and cascades, immediately before win/lose/reshuffle handoff — reset the
+  persistent chain to ×1. A reaction never carries into the next player move.
+- A legal merge never cashes in or resets the chain. Illegal drops and free
+  reshuffles do not change it.
 - Remove the existing merge-specific score bonus and cascade-wave multiplier
   so the displayed multiplier is the single, explainable multiplier applied
   to base clear points. Keep clear-size scoring intact.
 - Starting, retrying, winning or leaving a round resets the chain to ×1.
 
-Represent this as explicit gameplay state (current multiplier plus distinct
-result colours), with pure transitions for merge and swap. Scoring consumes a
-snapshot of that state; it must not infer chain progress from animation wave
-numbers. Expose the state through the existing debug board report so tests and
-future hints can inspect it without reading Phaser objects.
+Represent this as explicit gameplay state: persistent chain results/current
+multiplier, derived stage maximum, and an optional per-resolution reaction
+snapshot (`normal`, `chain`, or `ultimate`, plus effective multiplier).
+Scoring consumes the resolution snapshot; it must not infer chain progress
+from animation wave numbers or mutable UI state. Expose all three values
+through the existing debug board report so tests and future hints can inspect
+them without reading Phaser objects.
 
 #### Feedback and information hierarchy
 
 - Show the current multiplier persistently in the in-round info area, at ×1
   from the opening deal. It belongs beside score/target rather than on the
-  board and must work in every visual skin and supported layout.
+  board and must work in every visual skin and supported layout. Also expose
+  progress toward the cap, for example `×3 / ×4`, without making the maximum
+  compete with the current value.
 - When a merge starts or extends a chain, animate the multiplier into its new
   value. Repeating a known result gives a smaller hold/confirmation treatment;
-  a swap visibly settles it back to ×1.
+  a plain ×1 swap remains quiet.
+- At maximum, replace the normal single-colour accent with a restrained
+  animated rainbow treatment: a spectrum edge or moving gradient around the
+  multiplier badge, `MAX ×N` as readable text, and a slow pigment shimmer.
+  Keep the badge surface stable so it does not look like a new button.
+- On a colour chain reaction, let the badge expand or split from `×N` into
+  `×N ×2 → ×2N`, then send two colour ribbons toward the cleared line. On an
+  ultimate reaction, use three ribbons, a brief full-spectrum board-edge
+  pulse and `ULTIMATE ×3 → ×3N`. The effect should celebrate the cash-in while
+  keeping tile colours readable and touch targets unobscured.
 - Floating score labels show the points actually awarded and their multiplier.
   Their scale, weight, colour contrast and motion intensity step up with the
   current multiplier, with sensible visual caps so long chains remain readable.
+- Rainbow scoring uses a light/neutral text fill for legibility with a
+  spectrum outline, shadow or trailing pigment bands; do not fill the glyphs
+  with a fast gradient that makes the number hard to read. Reaction scores show
+  the effective multiplier (for example `+270  ×9`) and retain the rainbow
+  treatment for every cascade in that one resolution.
 - The persistent score counter echoes the same hierarchy briefly when points
   land. Do not use cascade depth to style score feedback; two clears at ×3
   should share the same prominence even if one is an automatic wave.
 - Give first-time players a concise hint that mixing different result colours
-  grows the multiplier and swapping breaks the chain.
+  grows toward rainbow, and swapping cashes in and breaks the chain.
 
 #### Verification
 
 - Unit-test chain transitions: initial ×1; first result ×2; repeated result
-  holds; a second distinct result reaches ×3; further distinct results keep
-  climbing; legal swap resets; illegal drop and cascades leave state unchanged.
+  holds; a second distinct result reaches ×3; further distinct results stop at
+  the derived stage maximum; illegal drops and reshuffles leave state unchanged.
+- Unit-test cap derivation for a no-mix stage, a secondary-colour stage and a
+  tertiary-colour stage. Invalid/incomplete recipes must not inflate the cap.
+- Unit-test swap snapshots: ×1 stays ×1; a non-max chain doubles; a max chain
+  triples; every cascade reads the same snapshot; the persistent chain resets
+  only after resolution completes.
 - Unit-test scoring independently: every wave of a resolution uses the same
   move-established multiplier, and neither the old merge bonus nor wave depth
   changes the calculation.
-- Scene-test the info-area value and its reset/start states through the debug
-  bridge. Cover both merge directions through the existing move resolver.
+- Scene-test current/max/effective values, rainbow entry, reaction cash-in and
+  post-resolution reset through the debug bridge. Cover both merge directions
+  through the existing move resolver.
 - Extend skin-independent layout tests so the multiplier stays visible without
   colliding with score, target, moves or safe areas.
-- Add visual checks at ×1, ×2 and ×3+ on both tile shapes and both visual skins,
-  including a multi-wave cascade, to review prominence without relying on
-  pixel-perfect snapshots.
+- Add visual checks at ×1, one below max, rainbow max, normal reaction and
+  ultimate reaction on both tile shapes and both visual skins, including a
+  multi-wave cascade, to review prominence without relying on pixel-perfect
+  snapshots.
 
 *Exit: a player can deliberately build and read a multi-colour mix chain; all
-clears pay the visible multiplier, swaps clearly break it, automatic cascades
-never grow it, and higher-value score feedback is unmistakably more prominent.*
+clears pay the visible multiplier, the stage-specific maximum reads as rainbow,
+swaps clearly cash in and reset the chain, ultimate reactions reward reaching
+the cap, automatic cascades never grow it, and higher-value score feedback is
+unmistakably more prominent.*
 
 ### M9 — Friends release (S)
 

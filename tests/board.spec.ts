@@ -14,6 +14,8 @@ import {
   refill,
   reshuffle,
   resolveMove,
+  scoreResolutionForMerge,
+  scoreResolutionForSwap,
   swapClears,
   type ColorChain,
   type Cells,
@@ -320,19 +322,61 @@ test.describe('scoring', () => {
 
   test('mixing distinct result colours grows a chain while repeats hold it', () => {
     const empty: ColorChain = { results: [], multiplier: 1 }
-    const orange = advanceColorChain(empty, 'orange')
+    const orange = advanceColorChain(empty, 'orange', 3)
     expect(orange).toEqual({ results: ['orange'], multiplier: 2 })
-    expect(advanceColorChain(orange, 'orange')).toEqual(orange)
-    expect(advanceColorChain(orange, 'green')).toEqual({
+    expect(advanceColorChain(orange, 'orange', 3)).toEqual(orange)
+    expect(advanceColorChain(orange, 'green', 3)).toEqual({
       results: ['orange', 'green'],
       multiplier: 3,
     })
+  })
+
+  test('a colour chain cannot grow beyond the stage maximum', () => {
+    const capped = advanceColorChain(
+      { results: ['orange', 'green'], multiplier: 3 },
+      'purple',
+      3,
+    )
+    expect(capped).toEqual({ results: ['orange', 'green'], multiplier: 3 })
   })
 
   test('swapping breaks the chain back to one', () => {
     expect(breakColorChain({ results: ['orange', 'green'], multiplier: 3 })).toEqual({
       results: [],
       multiplier: 1,
+    })
+  })
+
+  test('a swap doubles a live chain for one score resolution', () => {
+    expect(scoreResolutionForSwap({ results: ['orange'], multiplier: 2 }, 3)).toEqual({
+      kind: 'chain',
+      multiplier: 4,
+      rainbow: false,
+    })
+  })
+
+  test('a swap at the stage maximum creates a triple ultimate resolution', () => {
+    expect(
+      scoreResolutionForSwap({ results: ['orange', 'green'], multiplier: 3 }, 3),
+    ).toEqual({
+      kind: 'ultimate',
+      multiplier: 9,
+      rainbow: true,
+    })
+  })
+
+  test('merges score at the persistent multiplier and turn rainbow at maximum', () => {
+    expect(scoreResolutionForMerge({ results: ['orange'], multiplier: 2 }, 3)).toEqual({
+      kind: 'normal',
+      multiplier: 2,
+      rainbow: false,
+    })
+    expect(
+      scoreResolutionForMerge({ results: ['orange', 'green'], multiplier: 3 }, 3),
+    ).toEqual({
+      kind: 'normal',
+      multiplier: 3,
+      rainbow: true,
     })
   })
 })

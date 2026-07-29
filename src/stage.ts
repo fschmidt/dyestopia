@@ -1,5 +1,5 @@
 import type { Grid } from './board'
-import { mixResult, type ColorId } from './colors'
+import { mixComponents, mixResult, type ColorId } from './colors'
 
 /**
  * A stage: which colours are in play, the shape of the board they play on,
@@ -101,4 +101,15 @@ export const FIRST_STAGE: Stage = {
 export function stageMix(stage: Stage, a: string, b: string): ColorId | undefined {
   const result = mixResult(a, b)
   return result && stage.active.includes(result) ? result : undefined
+}
+
+/** ×1 plus every active mix result whose ingredients are active here too. */
+export function stageMaxMultiplier(stage: Stage): number {
+  return (
+    1 +
+    stage.active.filter((color) => {
+      const ingredients = mixComponents(color)
+      return ingredients?.every((ingredient) => stage.active.includes(ingredient)) ?? false
+    }).length
+  )
 }

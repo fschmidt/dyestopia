@@ -129,8 +129,8 @@ const SOUNDS: Record<SfxName, (ac: AudioContext, now: number, wave: number) => v
 
   /**
    * The clear: a downward plop, wet like the burst it accompanies. Each
-   * cascade wave starts the plop a step higher — the rising multiplier as a
-   * rising pitch — with a bright overtone joining from wave 2.
+   * cascade wave starts the plop a step higher for audible escalation, with a
+   * bright overtone joining from wave 2; wave depth does not affect scoring.
    */
   match: (ac, now, wave) => {
     const step = Math.pow(1.22, Math.min(wave, 6) - 1)

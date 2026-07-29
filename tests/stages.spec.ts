@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { findLegalMove, findMatches, generateBoard, parseMask } from '../src/board'
 import { mulberry32 } from '../src/rng'
-import { stagePreset } from '../src/stage'
+import { stageMaxMultiplier, stagePreset } from '../src/stage'
 import { STAGES } from '../src/stages'
 import {
   board,
@@ -75,6 +75,28 @@ test.describe('stage authoring', () => {
     for (const { color, index } of authored) {
       expect(cells[index]).toBe(color)
     }
+  })
+
+  test('the maximum multiplier follows the mix results each stage can produce', () => {
+    expect(stageMaxMultiplier(STAGES[0])).toBe(1)
+    expect(stageMaxMultiplier(STAGES[1])).toBe(2)
+    expect(stageMaxMultiplier(STAGES[2])).toBe(3)
+    expect(stageMaxMultiplier(STAGES[6])).toBe(4)
+  })
+
+  test('score targets reflect each board shape and chain-scoring capacity', () => {
+    expect(STAGES.map(({ threshold }) => threshold)).toEqual([
+      600,
+      1300,
+      1800,
+      2900,
+      1700,
+      2000,
+      2500,
+      3550,
+      2500,
+      5700,
+    ])
   })
 })
 
