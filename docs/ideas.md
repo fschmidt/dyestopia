@@ -27,6 +27,20 @@
 # Visuals
 - higher combos/scores in a single move lead to more prominent animations and visual effects
 - Chain indicator gets a dedicated look on a rainbow chain
+- Redesign the Chain and Rainbow chain break animations
 
 # Dev/Debug
 - toggle to show internal modifiers
+
+# Tutorial
+## Basics Tutorial
+First step: Color match 
+Second step: Color mix
+
+## Intermediate Tutorial
+First step: Chain indicator -> two subsequent mixes (2/3 of the indicator)
+Second step: Chain indicator -> Rainbow chain
+
+## Advanced Tutorial
+First step: Chain breaking
+Second step: Rainbow chain breaking
