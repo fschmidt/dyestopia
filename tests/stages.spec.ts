@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { findLegalMove, findMatches, generateBoard, parseMask } from '../src/board'
 import { mulberry32 } from '../src/rng'
-import { stageMaxMultiplier, stagePreset } from '../src/stage'
+import { stageMaxMultiplier, stageMixes, stagePreset } from '../src/stage'
 import { STAGES } from '../src/stages'
 import {
   board,
@@ -82,6 +82,19 @@ test.describe('stage authoring', () => {
     expect(stageMaxMultiplier(STAGES[1])).toBe(2)
     expect(stageMaxMultiplier(STAGES[2])).toBe(3)
     expect(stageMaxMultiplier(STAGES[6])).toBe(4)
+  })
+
+  test('the stage mix reference contains only recipes possible in that stage', () => {
+    expect(stageMixes(STAGES[0])).toEqual([])
+    expect(stageMixes(STAGES[1])).toEqual([
+      { result: 'orange', ingredients: ['red', 'yellow'] },
+    ])
+    expect(stageMixes(STAGES[8])).toEqual([
+      { result: 'orange', ingredients: ['red', 'yellow'] },
+      { result: 'green', ingredients: ['yellow', 'blue'] },
+      { result: 'purple', ingredients: ['red', 'blue'] },
+      { result: 'magenta', ingredients: ['red', 'purple'] },
+    ])
   })
 
   test('score targets reflect each board shape and chain-scoring capacity', () => {
@@ -168,6 +181,55 @@ test('winning banks the score, unlocks the next stage, and survives a reload', a
   )
   expect(names).toContain('stage-1')
   expect(names).not.toContain('stage-2')
+})
+
+test('stage 10 offers endless play at its target and keeps the settled board', async ({ page }) => {
+  await open(page)
+  await startStage(page, { stage: 9, override: { threshold: 30 } }, 4711)
+  await playClearingSwap(page)
+
+  await expect
+    .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
+    .toContain('KEEP PAINTING?')
+  expect(await hitTarget(page, 'Game', 'continue-endless')).toBeTruthy()
+  expect(await hitTarget(page, 'Game', 'finish-stage')).toBeTruthy()
+
+  const atTarget = await board(page)
+  expect(atTarget.outcome).toBe('playing')
+  expect(atTarget.endless).toBe(false)
+
+  const keepPainting = await hitTarget(page, 'Game', 'continue-endless')
+  await clickWorld(page, 'Game', keepPainting.x, keepPainting.y)
+
+  await expect.poll(async () => (await board(page)).endless).toBe(true)
+  const continued = await board(page)
+  expect(continued.outcome).toBe('playing')
+  expect(continued.score).toBeGreaterThanOrEqual(30)
+  await expect
+    .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
+    .toContain('∞')
+  expect(
+    await page.evaluate(() =>
+      Boolean(window.dyestopia!.game.scene.getScene('Game')!.children.getByName('endless-dialog')),
+    ),
+  ).toBe(false)
+})
+
+test('stage 10 can finish normally from the endless choice', async ({ page }) => {
+  await open(page)
+  await startStage(page, { stage: 9, override: { threshold: 30 } }, 4711)
+  await playClearingSwap(page)
+
+  await expect
+    .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
+    .toContain('KEEP PAINTING?')
+  const finish = await hitTarget(page, 'Game', 'finish-stage')
+  await clickWorld(page, 'Game', finish.x, finish.y)
+
+  await expect.poll(async () => (await board(page)).outcome, { timeout: 15000 }).toBe('won')
+  await expect
+    .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
+    .toContain('Stage clear!')
 })
 
 test('running out of moves loses kindly, and retrying resets the round', async ({ page }) => {

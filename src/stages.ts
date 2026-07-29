@@ -16,7 +16,7 @@ import type { Stage } from './stage'
  * Thresholds are calibrated per board rather than forced to rise monotonically:
  * a 300-seed chain-aware simulation estimates each shape's full-budget score,
  * then the target takes roughly the larger of 90% of the no-luck ideal and 85%
- * of the simulated 20th percentile (rounded to 50). A plain 3-clear pays 30,
+ * of the simulated 20th percentile (rounded to 50). A primary 3-clear pays 45,
  * while mix chains and their swap cash-ins supply the multiplier inherited by
  * every cascade.
  */
@@ -57,7 +57,7 @@ export const STAGES: Stage[] = [
   },
   {
     // A taller board gives falls room to chain.
-    name: 'Chain Reaction',
+    name: 'Cascade Lesson',
     hint: 'Falling tiles keep clearing — every extra wave scores more',
     threshold: 1800,
     moves: 10,

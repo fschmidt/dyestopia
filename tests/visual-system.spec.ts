@@ -243,6 +243,83 @@ test('Spray Can pause dialog resumes or routes to settings', async ({ page }) =>
   await waitForScene(page, 'Settings')
 })
 
+test('Pause Help shows each recipe with the original stage tiles and no colour labels', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => window.dyestopia!.goTo('Game', { stage: 8 }))
+  await waitForScene(page, 'Game')
+
+  const pause = await hitTarget(page, 'Game', 'pause')
+  await clickWorld(page, 'Game', pause.x, pause.y)
+  const help = await hitTarget(page, 'Game', 'pause-help')
+  await clickWorld(page, 'Game', help.x, help.y)
+
+  const reference = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Game')!
+    const panel = scene.children.getByName('mix-help')
+    const rows = panel?.getData('mixes') as
+      | { result: string; ingredients: string[] }[]
+      | undefined
+    const tiles = panel && 'list' in panel
+      ? (panel as Phaser.GameObjects.Container).list
+          .filter((child) => child.name === 'help-mix-tile')
+          .map((child) => ({
+            recipe: child.getData('recipe'),
+            role: child.getData('role'),
+            color: child.getData('color'),
+            childTypes: (child as Phaser.GameObjects.Container).list.map((part) => part.type),
+          }))
+      : []
+    return {
+      exists: Boolean(panel),
+      rows,
+      tiles,
+      texts: window.dyestopia!.texts('Game'),
+      hasBack: window.dyestopia!.hitTargets('Game').some((target) => target.name === 'help-back'),
+    }
+  })
+
+  expect(reference.exists).toBe(true)
+  expect(reference.rows).toEqual([
+    { result: 'orange', ingredients: ['red', 'yellow'] },
+    { result: 'green', ingredients: ['yellow', 'blue'] },
+    { result: 'purple', ingredients: ['red', 'blue'] },
+    { result: 'magenta', ingredients: ['red', 'purple'] },
+  ])
+  expect(reference.texts).toContain('MIX HELP')
+  expect(reference.texts).not.toContain('RED + YELLOW')
+  expect(reference.texts).not.toContain('ORANGE')
+  expect(reference.tiles).toHaveLength(12)
+  expect(reference.tiles.filter(({ recipe }) => recipe === 0).map(({ role, color }) => ({
+    role,
+    color,
+  }))).toEqual([
+    { role: 'ingredient', color: 'red' },
+    { role: 'ingredient', color: 'yellow' },
+    { role: 'result', color: 'orange' },
+  ])
+  for (const tile of reference.tiles) expect(tile.childTypes).toContain('Sprite')
+  expect(reference.hasBack).toBe(true)
+})
+
+test('mixed tiles use only their original artwork without ingredient indicators', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => window.dyestopia!.goTo('Game', { stage: 1 }))
+  await waitForScene(page, 'Game')
+
+  const signatures = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Game')!
+    return scene.children.list
+      .filter((child) => child.name === 'tile')
+      .flatMap((tile) => {
+        const signature = (tile as Phaser.GameObjects.Container).getByName('mix-signature')
+        if (!signature) return []
+        return [signature.getData('ingredients')]
+      })
+  })
+
+  expect(signatures).toEqual([])
+})
+
 test('settings content remains inside its surfaces after a live selection', async ({ page }) => {
   await open(page)
   await page.evaluate(() => window.dyestopia!.goTo('Settings'))

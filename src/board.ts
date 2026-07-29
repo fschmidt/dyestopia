@@ -1,4 +1,4 @@
-import { mixComponents, type ColorId } from './colors'
+import { colorValue, mixComponents, type ColorId } from './colors'
 import { rngPick, rngShuffle, type Rng } from './rng'
 
 /**
@@ -425,7 +425,7 @@ export function breakColorChain(_chain: ColorChain): ColorChain {
 }
 
 export interface ScoreResolution {
-  kind: 'normal' | 'chain' | 'ultimate'
+  kind: 'normal' | 'chain-breaker' | 'rainbow-chain-breaker'
   multiplier: number
   rainbow: boolean
 }
@@ -446,19 +446,19 @@ export function scoreResolutionForSwap(
   maxMultiplier: number,
 ): ScoreResolution {
   if (chain.multiplier <= 1) return { kind: 'normal', multiplier: 1, rainbow: false }
-  const ultimate = maxMultiplier > 1 && chain.multiplier >= maxMultiplier
+  const rainbowBreaker = maxMultiplier > 1 && chain.multiplier >= maxMultiplier
   return {
-    kind: ultimate ? 'ultimate' : 'chain',
-    multiplier: chain.multiplier * (ultimate ? 3 : 2),
-    rainbow: ultimate,
+    kind: rainbowBreaker ? 'rainbow-chain-breaker' : 'chain-breaker',
+    multiplier: chain.multiplier * (rainbowBreaker ? 3 : 2),
+    rainbow: rainbowBreaker,
   }
 }
 
 /**
- * Points for one clear. Clear size establishes the base value; the multiplier
- * is built by consecutive player mixes. Every automatic wave caused by that
- * move receives the same snapshot rather than growing merely for cascading.
+ * Points for one clear. Each tile contributes its resulting colour's value;
+ * the move's multiplier is applied after summing. Every automatic wave caused
+ * by that move receives the same snapshot rather than growing for cascading.
  */
-export function clearScore(count: number, multiplier: number): number {
-  return count * 10 * multiplier
+export function clearScore(colors: readonly ColorId[], multiplier: number): number {
+  return colors.reduce((sum, color) => sum + colorValue(color), 0) * multiplier
 }

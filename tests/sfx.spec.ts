@@ -55,6 +55,9 @@ test('a round speaks: pick and match on a clear, illegal on a refusal', async ({
 })
 
 test('win and lose each get a phrase', async ({ page }) => {
+  // This exercises two complete animated rounds; high-DPI Chromium can take
+  // longer than the suite's default while rendering both outcomes serially.
+  test.setTimeout(45_000)
   await open(page)
 
   // One 3-clear pays 30 — any clearing swap crosses this line.

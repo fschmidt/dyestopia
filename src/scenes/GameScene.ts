@@ -36,6 +36,7 @@ import {
   FIRST_STAGE,
   stageMaxMultiplier,
   stageMix,
+  stageMixes,
   stagePreset,
   type Stage,
 } from '../stage'
@@ -104,13 +105,15 @@ export interface BoardReport {
   multiplier: number
   maxMultiplier: number
   effectiveMultiplier: number
-  reaction: ScoreResolution['kind']
+  resolution: ScoreResolution['kind']
   chainResults: ColorId[]
   /** Index into STAGES, or null on the dev board. */
   stage: number | null
   threshold: number
   /** Moves still in the budget. */
   moves: number
+  /** Stage 10 has crossed its target and the player chose unlimited play. */
+  endless: boolean
   outcome: 'playing' | 'won' | 'lost'
   /** Masked cells only, with their world-space centres. */
   cells: { index: number; col: number; row: number; color: string | null; x: number; y: number }[]
@@ -152,6 +155,7 @@ export class GameScene extends BaseScene {
   private maxMultiplier = 1
   private scoreResolution: ScoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
   private movesLeft = 0
+  private endless = false
   private outcome: 'playing' | 'won' | 'lost' = 'playing'
   /** The threshold moment fires once, however far the score climbs past it. */
   private thresholdMet = false
@@ -202,6 +206,7 @@ export class GameScene extends BaseScene {
     this.scoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
     this.displayScore = 0
     this.movesLeft = this.stage.moves
+    this.endless = false
     this.outcome = 'playing'
     this.thresholdMet = false
     this.resolving = false
@@ -259,6 +264,7 @@ export class GameScene extends BaseScene {
 
     this.input.keyboard?.on('keydown-ESC', () => {
       if (this.outcome !== 'playing') return
+      if (this.pauseDialog?.name === 'endless-dialog') return
       if (this.paused) this.closePause()
       else this.openPause()
     })
@@ -300,11 +306,12 @@ export class GameScene extends BaseScene {
       multiplier: this.colorChain.multiplier,
       maxMultiplier: this.maxMultiplier,
       effectiveMultiplier: this.scoreResolution.multiplier,
-      reaction: this.scoreResolution.kind,
+      resolution: this.scoreResolution.kind,
       chainResults: [...this.colorChain.results],
       stage: this.stageIndex ?? null,
       threshold: this.stage.threshold,
       moves: this.movesLeft,
+      endless: this.endless,
       outcome: this.outcome,
       cells,
     }
@@ -579,7 +586,7 @@ export class GameScene extends BaseScene {
     this.paused = true
     const visual = resolveVisualProfile()
     const width = Math.min(GAME_WIDTH - 48, 520)
-    const height = 390
+    const height = 470
     const panel = this.add
       .container(GAME_WIDTH / 2, GAME_HEIGHT / 2)
       .setName('pause-dialog')
@@ -618,19 +625,128 @@ export class GameScene extends BaseScene {
     const buttonWidth = width - 56
     const actions = [
       { label: 'RESUME', name: 'resume', kind: 'primary' as const, action: () => this.closePause() },
+      { label: 'HELP', name: 'pause-help', kind: 'secondary' as const, action: () => this.openMixHelp() },
       { label: 'SETTINGS', name: 'pause-settings', kind: 'secondary' as const, action: () => this.fadeTo('Settings') },
       { label: 'MAIN MENU', name: 'pause-menu', kind: 'secondary' as const, action: () => this.fadeTo('Menu') },
     ]
     actions.forEach((action, index) => {
-      const button = addButton(this, 0, -56 + index * 92, buttonWidth, action.label, action.action, {
+      const button = addButton(this, 0, -105 + index * 82, buttonWidth, action.label, action.action, {
         kind: action.kind,
         name: action.name,
-        height: 70,
-        fontSize: '24px',
+        height: 62,
+        fontSize: '22px',
       })
       panel.add(button)
     })
     panel.setAlpha(0).setScale(0.96)
+    this.pauseDialog = panel
+    this.tweens.add({
+      targets: panel,
+      alpha: 1,
+      scale: 1,
+      duration: visual.motion.standard,
+      ease: 'Back.easeOut',
+    })
+  }
+
+  private openMixHelp(): void {
+    this.pauseDialog?.destroy(true)
+    const visual = resolveVisualProfile()
+    const theme = activeTheme()
+    const mixes = stageMixes(this.stage)
+    const width = Math.min(GAME_WIDTH - 32, 570)
+    const rowHeight = 68
+    const height = Math.min(GAME_HEIGHT - 28, 188 + Math.max(1, mixes.length) * rowHeight)
+    const panel = this.add
+      .container(GAME_WIDTH / 2, GAME_HEIGHT / 2)
+      .setName('mix-help')
+      .setData('mixes', mixes)
+      .setDepth(100)
+    const blocker = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x050706, 0.86)
+      .setInteractive()
+    const plate = this.add.graphics()
+    plate.fillStyle(visual.colors.surface, 1)
+    plate.lineStyle(2, visual.colors.accent, 0.72)
+    plate.fillRect(-width / 2, -height / 2, width, height)
+    plate.strokeRect(-width / 2, -height / 2, width, height)
+    plate.lineStyle(1, visual.colors.secondaryInk, 0.24)
+    plate.lineBetween(-width / 2, -height / 2 + 72, width / 2, -height / 2 + 72)
+    const title = addText(this, -width / 2 + 26, -height / 2 + 25, 'MIX HELP', {
+      fontFamily: visual.type.family,
+      fontSize: '28px',
+      fontStyle: 'bold',
+      letterSpacing: 2,
+      color: ink(visual.colors.primaryInk),
+    })
+    const subtitle = addText(this, width / 2 - 26, -height / 2 + 34, this.stage.name.toUpperCase(), {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 2,
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(1, 0)
+    panel.add([blocker, plate, title, subtitle])
+
+    if (mixes.length === 0) {
+      panel.add(
+        addText(this, 0, -10, 'NO MIXES IN THIS STAGE', {
+          fontFamily: visual.type.family,
+          fontSize: '17px',
+          fontStyle: 'bold',
+          letterSpacing: 2,
+          color: ink(visual.colors.secondaryInk),
+        }).setOrigin(0.5),
+      )
+    } else {
+      const startY = -height / 2 + 104
+      mixes.forEach(({ result, ingredients }, index) => {
+        const y = startY + index * rowHeight
+        const [left, right] = ingredients
+        const tileSize = Math.min(48, rowHeight * 0.72)
+        const colors = [left, right, result] as const
+        const positions = [-125, -55, 105]
+        const tiles = colors.map((color, tileIndex) => {
+          const tile = new Tile(
+            this,
+            positions[tileIndex],
+            y,
+            themedDye(theme, color),
+            this.shape,
+            index * 3 + tileIndex,
+            tileSize,
+          )
+            .setName('help-mix-tile')
+            .setData('recipe', index)
+            .setData('role', tileIndex === 2 ? 'result' : 'ingredient')
+            .setData('color', color)
+            .disableInteractive()
+          return tile
+        })
+        const plus = addText(this, -90, y, '+', {
+          fontFamily: visual.type.family,
+          fontSize: '24px',
+          fontStyle: 'bold',
+          color: ink(visual.colors.secondaryInk),
+        }).setOrigin(0.5)
+        const equals = addText(this, 25, y, '=', {
+          fontFamily: visual.type.family,
+          fontSize: '24px',
+          fontStyle: 'bold',
+          color: ink(visual.colors.secondaryInk),
+        }).setOrigin(0.5)
+        panel.add([...tiles, plus, equals])
+      })
+    }
+
+    const back = addButton(this, 0, height / 2 - 35, width - 52, '‹  BACK', () => {
+      panel.destroy(true)
+      this.pauseDialog = undefined
+      this.paused = false
+      this.openPause()
+    }, { kind: 'quiet', name: 'help-back', height: 50, fontSize: '18px' })
+    panel.add(back)
+    panel.setAlpha(0).setScale(0.97)
     this.pauseDialog = panel
     this.tweens.add({
       targets: panel,
@@ -646,6 +762,105 @@ export class GameScene extends BaseScene {
     this.pauseDialog.destroy(true)
     this.pauseDialog = undefined
     this.paused = false
+  }
+
+  /**
+   * Stage 10's finish line is a fork rather than a hard stop. The modal uses
+   * the pause panel's paper, rule and button language so the interruption
+   * feels like part of the same game shell.
+   */
+  private openEndlessChoice(): void {
+    this.paused = true
+    const visual = resolveVisualProfile()
+    const width = Math.min(GAME_WIDTH - 48, 520)
+    const height = 350
+    const panel = this.add
+      .container(GAME_WIDTH / 2, GAME_HEIGHT / 2)
+      .setName('endless-dialog')
+      .setDepth(100)
+    const blocker = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x050706, 0.82)
+      .setInteractive()
+    const plate = this.add.graphics()
+    plate.fillStyle(visual.colors.surface, 1)
+    plate.lineStyle(2, visual.colors.secondaryInk, 0.62)
+    plate.fillRect(-width / 2, -height / 2, width, height)
+    plate.strokeRect(-width / 2, -height / 2, width, height)
+    plate.lineStyle(1, visual.colors.secondaryInk, 0.24)
+    plate.lineBetween(-width / 2, -height / 2 + 78, width / 2, -height / 2 + 78)
+    const title = addText(this, -width / 2 + 28, -height / 2 + 30, 'KEEP PAINTING?', {
+      fontFamily: visual.type.family,
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
+    })
+    const stage = addText(this, width / 2 - 28, -height / 2 + 42, 'TARGET REACHED', {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 3,
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(1, 0)
+    const copy = addText(
+      this,
+      0,
+      -45,
+      'Continue this board with unlimited moves?',
+      {
+        fontFamily: visual.type.family,
+        fontSize: '18px',
+        color: ink(visual.colors.secondaryInk),
+        align: 'center',
+        wordWrap: { width: width - 72 },
+      },
+    ).setOrigin(0.5)
+
+    const continueButton = addButton(
+      this,
+      0,
+      35,
+      width - 56,
+      'CONTINUE ENDLESSLY',
+      () => void this.continueEndless(panel),
+      { kind: 'primary', name: 'continue-endless', height: 62, fontSize: '21px' },
+    )
+    const finishButton = addButton(
+      this,
+      0,
+      112,
+      width - 56,
+      'FINISH STAGE',
+      () => {
+        panel.destroy(true)
+        this.pauseDialog = undefined
+        this.paused = false
+        void this.win()
+      },
+      { kind: 'secondary', name: 'finish-stage', height: 58, fontSize: '20px' },
+    )
+    panel.add([blocker, plate, title, stage, copy, continueButton, finishButton])
+    panel.setAlpha(0).setScale(0.96)
+    this.pauseDialog = panel
+    this.tweens.add({
+      targets: panel,
+      alpha: 1,
+      scale: 1,
+      duration: visual.motion.standard,
+      ease: 'Back.easeOut',
+    })
+  }
+
+  private async continueEndless(panel: Phaser.GameObjects.Container): Promise<void> {
+    recordWin(STAGES.length - 1)
+    this.endless = true
+    panel.destroy(true)
+    this.pauseDialog = undefined
+    this.paused = false
+    this.updateHud()
+    if (!findLegalMove(this.grid, this.cells, this.mix)) {
+      await this.animateReshuffle()
+    }
+    this.resolving = false
   }
 
   /**
@@ -768,8 +983,10 @@ export class GameScene extends BaseScene {
       // off into the destruction, so mix → burst reads as cause and effect.
       playSfx('merge')
       const previousMultiplier = this.colorChain.multiplier
-      this.colorChain = advanceColorChain(this.colorChain, move.result, this.maxMultiplier)
+      // This merge clears at the chain it arrived with. Its result raises the
+      // persistent chain only for later moves.
       this.scoreResolution = scoreResolutionForMerge(this.colorChain, this.maxMultiplier)
+      this.colorChain = advanceColorChain(this.colorChain, move.result, this.maxMultiplier)
       this.animateMultiplier(previousMultiplier)
       this.cells[origin] = this.cells[cell] = move.result
       // The combo prototype: the fresh colour absorbs adjacent groups of its
@@ -790,7 +1007,7 @@ export class GameScene extends BaseScene {
 
     const previousMultiplier = this.colorChain.multiplier
     this.scoreResolution = scoreResolutionForSwap(this.colorChain, this.maxMultiplier)
-    this.animateReaction(previousMultiplier)
+    this.animateChainBreaker(previousMultiplier)
     ;[this.cells[origin], this.cells[cell]] = [this.cells[cell], this.cells[origin]]
     this.tiles[origin] = other
     this.tiles[cell] = tile
@@ -815,7 +1032,10 @@ export class GameScene extends BaseScene {
       const matched = findMatches(this.grid, this.cells)
       if (matched.size === 0) break
 
-      const points = clearScore(matched.size, resolution.multiplier)
+      // Mix participants have already taken the result colour, so their score
+      // value comes from that result rather than from their former ingredients.
+      const clearedColors = [...matched].map((index) => this.cells[index]!)
+      const points = clearScore(clearedColors, resolution.multiplier)
       this.score += points
       // Cascades still climb in pitch, but no longer grow the score multiplier.
       playSfx('match', wave)
@@ -849,7 +1069,11 @@ export class GameScene extends BaseScene {
       this.animateMultiplier(previousMultiplier)
     }
 
-    if (this.score >= this.stage.threshold) {
+    if (this.score >= this.stage.threshold && !this.endless) {
+      if (this.stageIndex === STAGES.length - 1) {
+        this.openEndlessChoice()
+        return
+      }
       await this.win()
       return
     }
@@ -858,7 +1082,7 @@ export class GameScene extends BaseScene {
       await this.animateReshuffle()
     }
 
-    if (this.movesLeft <= 0) {
+    if (!this.endless && this.movesLeft <= 0) {
       this.lose()
       return
     }
@@ -867,6 +1091,7 @@ export class GameScene extends BaseScene {
 
   /** A legal move leaves the budget; the last few leave it loudly. */
   private spendMove(): void {
+    if (this.endless) return
     this.movesLeft--
     this.hintText.setAlpha(0.42)
     this.updateHud()
@@ -890,9 +1115,15 @@ export class GameScene extends BaseScene {
   private updateHud(scoreMultiplier = 0): void {
     const visual = resolveVisualProfile()
     this.movesText
-      .setText(this.sprayHud ? `${this.movesLeft}` : `Moves: ${this.movesLeft}`)
+      .setText(
+        this.endless
+          ? this.sprayHud ? '∞' : 'Moves: ∞'
+          : this.sprayHud ? `${this.movesLeft}` : `Moves: ${this.movesLeft}`,
+      )
       .setColor(ink(
-        this.movesLeft <= 1
+        this.endless
+          ? visual.colors.primaryInk
+          : this.movesLeft <= 1
           ? visual.colors.critical
           : this.movesLeft <= LOW_MOVES
             ? visual.colors.warning
@@ -901,12 +1132,12 @@ export class GameScene extends BaseScene {
     const atMax = this.maxMultiplier > 1 && this.colorChain.multiplier >= this.maxMultiplier
     const reacting = this.scoreResolution.kind !== 'normal'
     this.multiplierText
-      .setFontSize(reacting ? (this.sprayHud ? 15 : 14) : this.sprayHud ? 30 : 20)
+      .setFontSize(reacting ? (this.sprayHud ? 10 : 11) : this.sprayHud ? 30 : 20)
       .setText(
         reacting
-        ? this.scoreResolution.kind === 'ultimate'
-          ? `ULTIMATE ×${this.scoreResolution.multiplier}`
-          : `CHAIN ×${this.scoreResolution.multiplier}`
+        ? this.scoreResolution.kind === 'rainbow-chain-breaker'
+          ? `RAINBOW CHAIN BREAKER ×${this.scoreResolution.multiplier}`
+          : `CHAIN BREAKER ×${this.scoreResolution.multiplier}`
         : atMax
           ? `MAX ×${this.colorChain.multiplier}`
           : `×${this.colorChain.multiplier} / ×${this.maxMultiplier}`,
@@ -970,15 +1201,15 @@ export class GameScene extends BaseScene {
     })
   }
 
-  private animateReaction(previous: number): void {
+  private animateChainBreaker(previous: number): void {
     this.updateHud()
-    const ultimate = this.scoreResolution.kind === 'ultimate'
+    const rainbowBreaker = this.scoreResolution.kind === 'rainbow-chain-breaker'
     this.multiplierText.setScale(1)
     this.tweens.chain({
       targets: this.multiplierText,
       tweens: [
         {
-          scale: ultimate ? 1.5 : previous > 1 ? 1.32 : 1.08,
+          scale: rainbowBreaker ? 1.5 : previous > 1 ? 1.32 : 1.08,
           duration: 150,
           ease: 'Back.easeOut',
         },
@@ -988,7 +1219,7 @@ export class GameScene extends BaseScene {
 
     if (previous <= 1) return
     const bounds = this.multiplierText.getBounds()
-    const ribbonColors = ultimate
+    const ribbonColors = rainbowBreaker
       ? [0xef476f, 0xffd166, 0x06d6a0]
       : [0xef476f, 0x118ab2]
     for (const [index, color] of ribbonColors.entries()) {
@@ -1001,24 +1232,24 @@ export class GameScene extends BaseScene {
           color,
           0.9,
         )
-        .setName('chain-reaction-ribbon')
+        .setName('chain-breaker-ribbon')
         .setDepth(29)
         .setOrigin(0.5, 0)
         .setAngle((index - (ribbonColors.length - 1) / 2) * 12)
       this.tweens.add({
         targets: ribbon,
         y: this.originY + this.tileSize,
-        scaleY: ultimate ? 2.1 : 1.5,
+        scaleY: rainbowBreaker ? 2.1 : 1.5,
         alpha: 0,
-        duration: ultimate ? 520 : 420,
+        duration: rainbowBreaker ? 520 : 420,
         delay: index * 45,
         ease: 'Cubic.easeIn',
         onComplete: () => ribbon.destroy(),
       })
     }
 
-    if (ultimate) {
-      const edge = this.add.graphics().setName('ultimate-chain-flash').setDepth(28)
+    if (rainbowBreaker) {
+      const edge = this.add.graphics().setName('rainbow-chain-breaker-flash').setDepth(28)
       edge.lineStyle(5, 0xffffff, 0.8)
       edge.strokeRoundedRect(8, 8, GAME_WIDTH - 16, GAME_HEIGHT - 16, 16)
       this.tweens.add({

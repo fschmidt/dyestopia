@@ -21,7 +21,7 @@ import {
   type Cells,
   type Grid,
 } from '../src/board'
-import { mixResult, type ColorId } from '../src/colors'
+import { colorValue, mixResult, type ColorId } from '../src/colors'
 import { mulberry32 } from '../src/rng'
 
 /**
@@ -313,11 +313,16 @@ test.describe('reshuffle', () => {
 })
 
 test.describe('scoring', () => {
-  test('applies the player-built multiplier to base clear points', () => {
-    expect(clearScore(3, 1)).toBe(30)
-    expect(clearScore(4, 1)).toBe(40)
-    expect(clearScore(3, 2)).toBe(60)
-    expect(clearScore(3, 3)).toBe(90)
+  test('values tiles by their resulting colour tier', () => {
+    expect(colorValue('red')).toBe(15)
+    expect(colorValue('orange')).toBe(20)
+    expect(colorValue('amber')).toBe(30)
+  })
+
+  test('sums cleared tile values before applying the multiplier', () => {
+    expect(clearScore(['red', 'yellow', 'blue'], 1)).toBe(45)
+    expect(clearScore(['orange', 'orange', 'orange', 'orange'], 2)).toBe(160)
+    expect(clearScore(['red', 'orange', 'amber'], 3)).toBe(195)
   })
 
   test('mixing distinct result colours grows a chain while repeats hold it', () => {
@@ -347,19 +352,19 @@ test.describe('scoring', () => {
     })
   })
 
-  test('a swap doubles a live chain for one score resolution', () => {
+  test('a swap doubles a live chain for one Chain Breaker', () => {
     expect(scoreResolutionForSwap({ results: ['orange'], multiplier: 2 }, 3)).toEqual({
-      kind: 'chain',
+      kind: 'chain-breaker',
       multiplier: 4,
       rainbow: false,
     })
   })
 
-  test('a swap at the stage maximum creates a triple ultimate resolution', () => {
+  test('a swap at the stage maximum creates a triple Rainbow Chain Breaker', () => {
     expect(
       scoreResolutionForSwap({ results: ['orange', 'green'], multiplier: 3 }, 3),
     ).toEqual({
-      kind: 'ultimate',
+      kind: 'rainbow-chain-breaker',
       multiplier: 9,
       rainbow: true,
     })

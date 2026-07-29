@@ -103,13 +103,22 @@ export function stageMix(stage: Stage, a: string, b: string): ColorId | undefine
   return result && stage.active.includes(result) ? result : undefined
 }
 
+export interface StageMix {
+  result: ColorId
+  ingredients: [ColorId, ColorId]
+}
+
+/** Every recipe whose result and both ingredients are available in this stage. */
+export function stageMixes(stage: Stage): StageMix[] {
+  return stage.active.flatMap((result) => {
+    const ingredients = mixComponents(result)
+    return ingredients?.every((ingredient) => stage.active.includes(ingredient))
+      ? [{ result, ingredients }]
+      : []
+  })
+}
+
 /** ×1 plus every active mix result whose ingredients are active here too. */
 export function stageMaxMultiplier(stage: Stage): number {
-  return (
-    1 +
-    stage.active.filter((color) => {
-      const ingredients = mixComponents(color)
-      return ingredients?.every((ingredient) => stage.active.includes(ingredient)) ?? false
-    }).length
-  )
+  return 1 + stageMixes(stage).length
 }

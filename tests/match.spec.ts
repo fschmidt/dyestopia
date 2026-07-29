@@ -97,15 +97,16 @@ test('a merge dyes the pair in place, clears, and starts a ×2 colour chain', as
   const to = report.cells.find((c) => c.index === pair![1])!
   await dragWorld(page, 'Game', from, to)
 
-  // The merge pulse hands off into the clear; the first result colour starts
-  // a ×2 chain and every cascade wave inherits that same multiplier.
+  // The merge pulse hands off into the clear at the old ×1; only after that
+  // score snapshot is taken does the first result colour raise the chain to ×2.
   await expect
     .poll(async () => {
       const now = await board(page)
       const engine = toEngine(now)
       return (
         now.multiplier === 2 &&
-        now.score >= clearScore(3, 2) &&
+        now.effectiveMultiplier === 1 &&
+        now.score >= clearScore(['red', 'red', 'red'], 1) &&
         now.cells.every((c) => c.color !== null) &&
         findMatches(engine.grid, engine.cells).size === 0
       )
@@ -138,7 +139,7 @@ test('a swap cashes in a live chain for one resolution and then resets it', asyn
       const now = await board(page)
       const engine = toEngine(now)
       return (
-        now.reaction === 'normal' &&
+        now.resolution === 'normal' &&
         now.cells.every((cell) => cell.color !== null) &&
         findMatches(engine.grid, engine.cells).size === 0
       )
@@ -160,7 +161,7 @@ test('a swap cashes in a live chain for one resolution and then resets it', asyn
   await expect
     .poll(async () => {
       const now = await board(page)
-      return now.multiplier === 1 && now.reaction === 'normal' && now.score >= scoreBefore + 120
+      return now.multiplier === 1 && now.resolution === 'normal' && now.score >= scoreBefore + 120
     })
     .toBe(true)
 })
