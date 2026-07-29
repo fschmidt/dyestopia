@@ -9,6 +9,7 @@
 - color bomb (dyes all colors around a color to that one)
 - color erasor
 - combo mixing becomes a tool/tile
+- defy gravity (instead of falling down, the next time empty tiles are created, tiles pull same color tiles into their vincinty to create a reaction if possible)
 
 
 # Accessibility
@@ -25,6 +26,7 @@
 
 # Visuals
 - higher combos/scores in a single move lead to more prominent animations and visual effects
+- Chain indicator gets a dedicated look on a rainbow chain
 
 # Dev/Debug
 - toggle to show internal modifiers
