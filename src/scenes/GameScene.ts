@@ -28,7 +28,7 @@ import {
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import type { ColorId } from '../colors'
 import { flags } from '../flags'
-import { recordWin } from '../progress'
+import { recordTutorialClear, recordWin } from '../progress'
 import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
 import { playSfx } from '../sfx'
@@ -41,6 +41,7 @@ import {
   type Stage,
 } from '../stage'
 import { STAGES } from '../stages'
+import { TUTORIALS, type TutorialGoal, type TutorialVisual } from '../tutorials'
 import { addText } from '../text'
 import { themedDye } from '../themes'
 import { TILE_SIZE } from '../tiles/bake'
@@ -90,6 +91,8 @@ const LOW_MOVES = 3
 export interface GameStartData {
   /** Index into STAGES; absent = FIRST_STAGE, reachable only via the bridge. */
   stage?: number
+  /** Index into TUTORIALS; runs its authored board through the normal game loop. */
+  tutorial?: number
   /**
    * Test/console overrides for the win condition — how automation forces a
    * loss (or instant win) without playing twenty honest moves.
@@ -109,6 +112,7 @@ export interface BoardReport {
   chainResults: ColorId[]
   /** Index into STAGES, or null on the dev board. */
   stage: number | null
+  tutorial: number | null
   threshold: number
   /** Moves still in the budget. */
   moves: number
@@ -117,6 +121,12 @@ export interface BoardReport {
   outcome: 'playing' | 'won' | 'lost'
   /** Masked cells only, with their world-space centres. */
   cells: { index: number; col: number; row: number; color: string | null; x: number; y: number }[]
+}
+
+interface TutorialMoveDemo {
+  from: number
+  to: number
+  kind: 'swap' | 'merge'
 }
 
 /**
@@ -143,6 +153,7 @@ export interface BoardReport {
 export class GameScene extends BaseScene {
   private stage: Stage = FIRST_STAGE
   private stageIndex?: number
+  private tutorialIndex?: number
   private readonly mix: MixRule = (a, b) => stageMix(this.stage, a, b)
 
   private grid!: Grid
@@ -176,6 +187,11 @@ export class GameScene extends BaseScene {
   private objectivePanel?: Phaser.GameObjects.Container
   private pauseDialog?: Phaser.GameObjects.Container
   private paused = false
+  private tutorialDemoTimer?: Phaser.Time.TimerEvent
+  private tutorialDemoGeneration = 0
+  private tutorialDemoDragged?: Tile
+  private tutorialDemoGhosts: Tile[] = []
+  private tutorialDemoOriginals: Tile[] = []
 
   /** A move is being resolved — no new moves until the board settles. */
   private resolving = false
@@ -198,7 +214,13 @@ export class GameScene extends BaseScene {
 
   create(data: GameStartData = {}): void {
     this.stageIndex = data.stage
-    const authored = data.stage !== undefined ? STAGES[data.stage] : FIRST_STAGE
+    this.tutorialIndex = data.tutorial
+    const authored =
+      data.tutorial !== undefined
+        ? TUTORIALS[data.tutorial]?.stage ?? TUTORIALS[0].stage
+        : data.stage !== undefined
+          ? STAGES[data.stage]
+          : FIRST_STAGE
     this.stage = data.override ? { ...authored, ...data.override } : authored
 
     this.score = 0
@@ -215,9 +237,19 @@ export class GameScene extends BaseScene {
     this.paused = false
     this.objectivePanel = undefined
     this.pauseDialog = undefined
+    this.tutorialDemoTimer = undefined
+    this.tutorialDemoGeneration = 0
+    this.tutorialDemoDragged = undefined
+    this.tutorialDemoGhosts = []
+    this.tutorialDemoOriginals = []
     this.dragged = undefined
     this.shape = activeShape()
-    this.rng = mulberry32(takeSeed() ?? Math.floor(Math.random() * 0xffffffff))
+    const plantedSeed = takeSeed()
+    const seed =
+      this.tutorialIndex !== undefined
+        ? 0x7a110000 + this.tutorialIndex
+        : plantedSeed ?? Math.floor(Math.random() * 0xffffffff)
+    this.rng = mulberry32(seed)
 
     this.grid = parseMask(this.stage.board)
     this.layoutBoard()
@@ -228,6 +260,7 @@ export class GameScene extends BaseScene {
       this.mix,
       stagePreset(this.stage.board, this.grid),
     )
+    this.prepareTutorialChain()
     this.tiles = new Array(this.cells.length).fill(undefined)
     for (let index = 0; index < this.cells.length; index++) {
       const color = this.cells[index]
@@ -238,6 +271,7 @@ export class GameScene extends BaseScene {
     }
 
     this.buildHud()
+    if (this.tutorialIndex !== undefined) this.buildTutorialPresentation()
 
     this.input.dragDistanceThreshold = DRAG_THRESHOLD
     this.input.on(
@@ -272,8 +306,32 @@ export class GameScene extends BaseScene {
     })
   }
 
+  /**
+   * Rainbow lessons teach the final step, so their prepared board arrives at
+   * 2/3. Fill every recipe except the distinct Mix that is actually legal on
+   * this deterministic opening board; performing the demonstrated move then
+   * completes the ring without depending on random refills.
+   */
+  private prepareTutorialChain(): void {
+    if (this.tutorialIndex === undefined) return
+    const goal = TUTORIALS[this.tutorialIndex].goal
+    if (goal !== 'rainbow-chain' && goal !== 'rainbow-chain-breaker') return
+
+    for (let from = 0; from < this.cells.length; from++) {
+      for (let to = 0; to < this.cells.length; to++) {
+        const move = resolveMove(this.grid, this.cells, this.mix, from, to)
+        if (move.kind !== 'merge') continue
+        const results = stageMixes(this.stage)
+          .map(({ result }) => result)
+          .filter((result) => result !== move.result)
+        this.colorChain = { results, multiplier: results.length + 1 }
+        return
+      }
+    }
+  }
+
   update(_time: number, delta: number): void {
-    this.dragged?.follow(delta)
+    ;(this.dragged ?? this.tutorialDemoDragged)?.follow(delta)
   }
 
   /**
@@ -283,7 +341,11 @@ export class GameScene extends BaseScene {
    * rotation is the accepted price; retries are free by design.
    */
   relayout(): void {
-    this.scene.restart({ stage: this.stageIndex } satisfies GameStartData)
+    this.scene.restart(
+      this.tutorialIndex !== undefined
+        ? { tutorial: this.tutorialIndex }
+        : { stage: this.stageIndex },
+    )
   }
 
   /** The board and stage state as data, for tests and console archaeology. */
@@ -311,6 +373,7 @@ export class GameScene extends BaseScene {
       resolution: this.scoreResolution.kind,
       chainResults: [...this.colorChain.results],
       stage: this.stageIndex ?? null,
+      tutorial: this.tutorialIndex ?? null,
       threshold: this.stage.threshold,
       moves: this.movesLeft,
       endless: this.endless,
@@ -328,7 +391,9 @@ export class GameScene extends BaseScene {
     const area = boardArea()
     const visual = resolveVisualProfile()
     const label =
-      this.stageIndex !== undefined
+      this.tutorialIndex !== undefined
+        ? `Tutorial ${this.tutorialIndex + 1} — ${TUTORIALS[this.tutorialIndex].name}`
+        : this.stageIndex !== undefined
         ? `Stage ${this.stageIndex + 1} — ${this.stage.name}`
         : this.stage.name
     this.sprayHud = visual.treatment === 'spray-can'
@@ -360,7 +425,7 @@ export class GameScene extends BaseScene {
       fontSize: '20px',
       fontStyle: 'bold',
       color: ink(visual.colors.primaryInk),
-    })
+    }).setName('score')
 
     const multiplierBlock = this.add
       .container(GAME_WIDTH / 2, area.top - 66)
@@ -379,7 +444,7 @@ export class GameScene extends BaseScene {
       fontSize: '20px',
       fontStyle: 'bold',
       color: ink(visual.colors.primaryInk),
-    }).setOrigin(1, 0)
+    }).setOrigin(1, 0).setName('moves')
 
     // The threshold bar: filling it is winning. The label rides its right end.
     this.barX = area.marginX
@@ -402,6 +467,290 @@ export class GameScene extends BaseScene {
     }).setOrigin(0.5)
 
     this.updateHud()
+  }
+
+  private buildTutorialPresentation(): void {
+    const tutorial = TUTORIALS[this.tutorialIndex!]
+    const visual = resolveVisualProfile()
+    const area = boardArea()
+    ;(this.movesText.parentContainer ?? this.movesText).setVisible(false)
+    ;(this.scoreText.parentContainer ?? this.scoreText).setVisible(tutorial.showScore)
+    this.chainRing.parentContainer?.setVisible(tutorial.showChain)
+    ;(this.children.getByName('target-block') as Phaser.GameObjects.Container | null)?.setVisible(false)
+    ;(this.children.getByName('progress-meter') as Phaser.GameObjects.Rectangle | null)?.setVisible(false)
+    this.targetFill.setVisible(false)
+    this.hintText.setVisible(false)
+
+    addText(this, GAME_WIDTH / 2, area.top - 96, tutorial.name.toUpperCase(), {
+      fontFamily: visual.type.family,
+      fontSize: '17px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
+      align: 'center',
+    })
+      .setOrigin(0.5)
+      .setDepth(32)
+      .setName('tutorial-concept')
+
+    const instruction = addText(
+      this,
+      GAME_WIDTH / 2,
+      area.top - 20,
+      tutorial.instruction,
+      {
+        fontFamily: visual.type.family,
+        fontSize: '17px',
+        fontStyle: 'bold',
+        color: ink(visual.colors.primaryInk),
+        align: 'center',
+        wordWrap: { width: GAME_WIDTH - 150 },
+      },
+    )
+      .setOrigin(0.5, 1)
+      .setDepth(32)
+      .setName('tutorial-instruction')
+      .setInteractive({ useHandCursor: true })
+    instruction.on('pointerup', () => this.showTutorialMove())
+    this.openTutorialExplanation()
+  }
+
+  private openTutorialExplanation(pageIndex = 0): void {
+    const tutorial = TUTORIALS[this.tutorialIndex!]
+    const page = tutorial.explanation[pageIndex]
+    const visual = resolveVisualProfile()
+    const width = Math.min(GAME_WIDTH - 32, 520)
+    const height = Math.min(GAME_HEIGHT - 40, 560)
+    this.paused = true
+
+    const panel = this.add
+      .container(GAME_WIDTH / 2, GAME_HEIGHT / 2)
+      .setName('tutorial-explanation-dialog')
+      .setDepth(100)
+    const blocker = this.add
+      .rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x050706, 0.82)
+      .setInteractive()
+    const plate = addSurface(this, 0, 0, width, height, 'tutorial-explanation-panel', true)
+    const kicker = addText(this, -width / 2 + 26, -height / 2 + 24, `TUTORIAL ${String(this.tutorialIndex! + 1).padStart(2, '0')}`, {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 3,
+      color: ink(visual.colors.secondaryInk),
+    })
+    const title = addText(this, -width / 2 + 26, -height / 2 + 50, tutorial.name.toUpperCase(), {
+      fontFamily: visual.type.family,
+      fontSize: '28px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
+    })
+    const screenshot = this.buildTutorialScreenshot(page.visual, width - 52, 220)
+      .setPosition(0, -50)
+      .setName('tutorial-explanation-screenshot')
+    const copy = addText(this, 0, 91, page.text, {
+      fontFamily: visual.type.family,
+      fontSize: '17px',
+      color: ink(visual.colors.primaryInk),
+      align: 'center',
+      wordWrap: { width: width - 70 },
+    }).setOrigin(0.5).setName('tutorial-introduction')
+    const chain = this.add.container(-width / 2 + 50, 91)
+      .setName('tutorial-introduction-chain')
+      .setData({ radius: 19 })
+      .setVisible(tutorial.showChain)
+    if (tutorial.showChain) this.paintChainRing(chain, [])
+
+    const lastPage = pageIndex === tutorial.explanation.length - 1
+    const button = addButton(this, 0, height / 2 - 48, width - 52, lastPage ? 'CONTINUE' : 'NEXT', () => {
+      panel.destroy(true)
+      this.pauseDialog = undefined
+      if (!lastPage) {
+        this.openTutorialExplanation(pageIndex + 1)
+        return
+      }
+      this.paused = false
+      this.showTutorialMove()
+    }, {
+      kind: 'primary',
+      name: 'tutorial-explanation-continue',
+      height: 58,
+      fontSize: '20px',
+    })
+    panel.add([blocker, plate, kicker, title, screenshot, copy, chain, button])
+    this.pauseDialog = panel
+    panel.setAlpha(0).setScale(0.96)
+    this.tweens.add({
+      targets: panel,
+      alpha: 1,
+      scale: 1,
+      duration: visual.motion.standard,
+      ease: 'Back.easeOut',
+    })
+  }
+
+  private buildTutorialScreenshot(kind: TutorialVisual, width: number, height: number): Phaser.GameObjects.Container {
+    const visual = resolveVisualProfile()
+    const frame = this.add.container()
+    const background = this.add.graphics()
+    background.fillStyle(0x111513, 0.94)
+    background.fillRect(-width / 2, -height / 2, width, height)
+    background.lineStyle(2, visual.colors.secondaryInk, 0.55)
+    background.strokeRect(-width / 2, -height / 2, width, height)
+    frame.add(background)
+
+    const colours: ColorId[] =
+      kind === 'match' ? ['red', 'red', 'red']
+        : kind === 'mix' ? ['red', 'yellow', 'orange']
+          : ['orange', 'green', 'purple']
+    const filled = kind === 'chain' || kind === 'chain-breaker' ? 2 : colours.length
+    const dotRadius = Math.min(25, width / 12)
+    colours.forEach((colour, index) => {
+      const x = (index - 1) * (dotRadius * 2.8)
+      const dot = this.add.circle(x, 12, dotRadius, themedDye(activeTheme(), colour).value)
+      dot.setAlpha(index < filled ? 1 : 0.22)
+      frame.add(dot)
+    })
+    const caption = addText(this, 0, -height / 2 + 24, kind.includes('breaker') ? 'CHAIN → SWAP' : 'IN PLAY', {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 2,
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(0.5)
+    frame.add(caption)
+    return frame
+  }
+
+  private showTutorialMove(): void {
+    this.cancelTutorialDemo()
+    const wanted = this.tutorialWantsSwap() ? 'swap' : 'merge'
+    for (let from = 0; from < this.cells.length; from++) {
+      if (!this.cells[from]) continue
+      for (let to = 0; to < this.cells.length; to++) {
+        if (!this.cells[to] || !isAdjacent(this.grid, from, to)) continue
+        if (resolveMove(this.grid, this.cells, this.mix, from, to).kind !== wanted) continue
+        this.scheduleTutorialMoveDemo({ from, to, kind: wanted })
+        return
+      }
+    }
+  }
+
+  /**
+   * Repeatedly demonstrate the exact move the current lesson expects. Both
+   * variants borrow the real interaction motion: swaps use the paired travel,
+   * while mixes use the lifted, deforming pointer chase. Neither touches the
+   * board model, so every demonstration returns to the authored starting state.
+   */
+  private scheduleTutorialMoveDemo(move: TutorialMoveDemo, delay = 450): void {
+    const generation = this.tutorialDemoGeneration
+    this.tutorialDemoTimer = this.time.delayedCall(delay, () => {
+      void this.playTutorialMoveDemo(move, generation)
+    })
+  }
+
+  private async playTutorialMoveDemo(
+    move: TutorialMoveDemo,
+    generation: number,
+  ): Promise<void> {
+    const { from, to, kind } = move
+    const tile = this.tiles[from]
+    const other = this.tiles[to]
+    if (
+      generation !== this.tutorialDemoGeneration
+      || this.resolving
+      || this.outcome !== 'playing'
+      || !tile
+      || !other
+      || tile.busy
+      || other.busy
+    ) return
+
+    const a = this.cellCenter(from)
+    const b = this.cellCenter(to)
+    const demoTile = new Tile(
+      this,
+      a.x,
+      a.y,
+      tile.dye,
+      this.shape,
+      from,
+      this.tileSize,
+    ).disableInteractive().setData('tutorialDemo', 'from').setDepth(30)
+    const demoOther = new Tile(
+      this,
+      b.x,
+      b.y,
+      other.dye,
+      this.shape,
+      to,
+      this.tileSize,
+    ).disableInteractive().setData('tutorialDemo', 'to').setDepth(29)
+    this.tutorialDemoGhosts = [demoTile, demoOther]
+    this.tutorialDemoOriginals = [tile, other]
+    tile.setAlpha(0.22)
+    other.setAlpha(0.22)
+
+    if (kind === 'swap') {
+      await Promise.all([
+        new Promise<void>((done) => demoTile.swapTo(b.x, b.y, to, 'active', done)),
+        new Promise<void>((done) => demoOther.swapTo(a.x, a.y, from, 'passive', done)),
+      ])
+      await new Promise<void>((done) => this.time.delayedCall(180, done))
+      await Promise.all([
+        new Promise<void>((done) => demoTile.swapTo(a.x, a.y, from, 'active', done)),
+        new Promise<void>((done) => demoOther.swapTo(b.x, b.y, to, 'passive', done)),
+      ])
+    } else {
+      demoTile.pickUp()
+      this.tutorialDemoDragged = demoTile
+      demoTile.setDragTarget(b.x, b.y)
+      await new Promise<void>((done) => this.time.delayedCall(420, done))
+      if (generation !== this.tutorialDemoGeneration) return
+      this.tutorialDemoDragged = undefined
+      demoOther.squish()
+      await new Promise<void>((done) => demoTile.drop(a.x, a.y, from, done))
+    }
+
+    if (generation === this.tutorialDemoGeneration) {
+      this.clearTutorialDemoVisuals()
+      this.scheduleTutorialMoveDemo(move, 1_200)
+    }
+  }
+
+  private clearTutorialDemoVisuals(): void {
+    for (const tile of this.tutorialDemoOriginals) tile.setAlpha(1)
+    for (const ghost of this.tutorialDemoGhosts) ghost.destroy(true)
+    this.tutorialDemoOriginals = []
+    this.tutorialDemoGhosts = []
+    this.tutorialDemoDragged = undefined
+  }
+
+  private cancelTutorialDemo(): void {
+    this.tutorialDemoGeneration++
+    this.tutorialDemoTimer?.remove(false)
+    this.tutorialDemoTimer = undefined
+    this.clearTutorialDemoVisuals()
+  }
+
+  private tutorialWantsSwap(): boolean {
+    if (this.tutorialIndex === undefined) return false
+    const goal = TUTORIALS[this.tutorialIndex].goal
+    if (goal === 'swap') return true
+    if (goal === 'chain-breaker') return this.colorChain.results.length >= 2
+    if (goal === 'rainbow-chain-breaker') return this.colorChain.multiplier >= this.maxMultiplier
+    return false
+  }
+
+  private tutorialMoveAllowed(kind: 'swap' | 'merge'): boolean {
+    return this.tutorialIndex === undefined || kind === (this.tutorialWantsSwap() ? 'swap' : 'merge')
+  }
+
+  private tutorialGoalMet(goal: TutorialGoal, movedBySwap: boolean, resolution: ScoreResolution): boolean {
+    if (goal === 'swap') return movedBySwap
+    if (goal === 'mix') return !movedBySwap
+    if (goal === 'chain') return this.colorChain.multiplier >= 3
+    if (goal === 'rainbow-chain') return this.colorChain.multiplier >= this.maxMultiplier
+    if (goal === 'chain-breaker') return resolution.kind === 'chain-breaker'
+    return resolution.kind === 'rainbow-chain-breaker'
   }
 
   private buildSprayHud(area: ReturnType<typeof boardArea>): void {
@@ -428,19 +777,36 @@ export class GameScene extends BaseScene {
       new Phaser.Math.Vector2(-paperWidth / 2, paperHeight / 2 - 1),
     ], true)
     const stageNumber = this.stageIndex !== undefined ? this.stageIndex + 1 : 0
-    const paperKicker = addText(this, -paperWidth / 2 + 18, -18, `STAGE ${String(stageNumber).padStart(2, '0')}`, {
-      fontFamily: visual.type.family,
-      fontSize: '11px',
-      fontStyle: 'bold',
-      letterSpacing: 3,
-      color: ink(0x74736e),
-    })
-    const paperText = addText(this, -paperWidth / 2 + 18, -2, this.stage.name.toUpperCase(), {
+    const paperKicker = addText(
+      this,
+      -paperWidth / 2 + 18,
+      -18,
+      this.tutorialIndex !== undefined
+        ? `TUTORIAL ${String(this.tutorialIndex + 1).padStart(2, '0')}`
+        : `STAGE ${String(stageNumber).padStart(2, '0')}`,
+      {
+        fontFamily: visual.type.family,
+        fontSize: '11px',
+        fontStyle: 'bold',
+        letterSpacing: 3,
+        color: ink(0x74736e),
+      },
+    )
+    const paperText = addText(
+      this,
+      -paperWidth / 2 + 18,
+      -2,
+      (this.tutorialIndex !== undefined
+        ? TUTORIALS[this.tutorialIndex].name
+        : this.stage.name
+      ).toUpperCase(),
+      {
       fontFamily: visual.type.family,
       fontSize: GAME_WIDTH < 500 ? '22px' : '25px',
       fontStyle: 'bold',
       color: ink(0x171815),
-    })
+      },
+    )
     paper.add([paperPlate, paperKicker, paperText]).setAngle(-1)
     paper.setInteractive({ useHandCursor: true }).on('pointerup', () => this.toggleObjective())
 
@@ -468,7 +834,7 @@ export class GameScene extends BaseScene {
       fontSize: '30px',
       fontStyle: 'bold',
       color: ink(visual.colors.accent),
-    })
+    }).setName('score')
     scoreBlock.add([scoreLabel, this.scoreText])
 
     const multiplierX = area.marginX + (GAME_WIDTH - area.marginX * 2) / 3
@@ -517,7 +883,7 @@ export class GameScene extends BaseScene {
       fontSize: '30px',
       fontStyle: 'bold',
       color: ink(visual.colors.primaryInk),
-    }).setOrigin(1, 0)
+    }).setOrigin(1, 0).setName('moves')
     movesBlock.add([movesLabel, this.movesText])
 
     this.barX = area.marginX
@@ -924,7 +1290,9 @@ export class GameScene extends BaseScene {
   }
 
   private onDragStart(obj: Phaser.GameObjects.GameObject): void {
-    if (!(obj instanceof Tile) || obj.busy || this.resolving || this.paused) return
+    if (!(obj instanceof Tile) || this.resolving || this.paused) return
+    if (this.tutorialIndex !== undefined) this.cancelTutorialDemo()
+    if (obj.busy) return
     const origin = this.tiles.indexOf(obj)
     if (origin === -1) return
     this.dragged = obj
@@ -968,6 +1336,14 @@ export class GameScene extends BaseScene {
       playSfx('illegal')
       tile.refuse(home.x, home.y, origin)
       other.reject()
+      return
+    }
+
+    if (!this.tutorialMoveAllowed(move.kind)) {
+      playSfx('illegal')
+      tile.refuse(home.x, home.y, origin)
+      other.reject()
+      this.time.delayedCall(420, () => this.scene.restart({ tutorial: this.tutorialIndex }))
       return
     }
 
@@ -1059,11 +1435,20 @@ export class GameScene extends BaseScene {
       await this.animateDescent(falls, spawns)
     }
 
+    const tutorialComplete =
+      this.tutorialIndex !== undefined &&
+      this.tutorialGoalMet(TUTORIALS[this.tutorialIndex].goal, resetChainAfter, resolution)
+
     if (resetChainAfter) {
       const previousMultiplier = this.colorChain.multiplier
       this.colorChain = breakColorChain(this.colorChain)
       this.scoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
       this.animateMultiplier(previousMultiplier)
+    }
+
+    if (tutorialComplete) {
+      this.completeTutorial()
+      return
     }
 
     if (this.score >= this.stage.threshold && !this.endless) {
@@ -1084,6 +1469,41 @@ export class GameScene extends BaseScene {
       return
     }
     this.resolving = false
+    if (this.tutorialIndex !== undefined) this.showTutorialMove()
+  }
+
+  private completeTutorial(): void {
+    this.cancelTutorialDemo()
+    const index = this.tutorialIndex!
+    const tutorial = TUTORIALS[index]
+    const final = index === TUTORIALS.length - 1
+    this.outcome = 'won'
+    recordTutorialClear(index)
+    playSfx('win')
+    this.buildOverlay(
+      final ? 'Tutorials cleared!' : `${tutorial.term} cleared!`,
+      [final ? 'You successfully cleared all tutorials.' : tutorial.success],
+      final
+        ? [{
+            label: 'Back to stages',
+            name: 'back-to-stages',
+            primary: true,
+            action: () => this.fadeTo('StageSelect'),
+          }]
+        : [
+            {
+              label: 'Next tutorial',
+              name: 'next-tutorial',
+              primary: true,
+              action: () => this.fadeTo('Game', { tutorial: index + 1 }),
+            },
+            {
+              label: 'Back to stages',
+              name: 'back-to-stages',
+              action: () => this.fadeTo('StageSelect'),
+            },
+          ],
+    )
   }
 
   /** A legal move leaves the budget; the last few leave it loudly. */
@@ -1277,12 +1697,32 @@ export class GameScene extends BaseScene {
   }
 
   private renderChainRing(complete: boolean): void {
-    const mixes = stageMixes(this.stage)
-    const radius = this.chainRing.getData('radius') as number
     const becameComplete = complete && !this.chainComplete
     this.chainComplete = complete
-    this.chainRing.removeAll(true)
-    this.chainRing.setData({
+    this.paintChainRing(this.chainRing, this.colorChain.results, complete)
+
+    if (becameComplete) {
+      this.tweens.killTweensOf(this.chainRing)
+      this.chainRing.setScale(1).setAngle(-6)
+      this.tweens.chain({
+        targets: this.chainRing,
+        tweens: [
+          { scale: 1.14, angle: 4, duration: 110, ease: 'Back.easeOut' },
+          { scale: 1, angle: 0, duration: 230, ease: 'Back.easeOut' },
+        ],
+      })
+    }
+  }
+
+  private paintChainRing(
+    ring: Phaser.GameObjects.Container,
+    filledResults: readonly ColorId[],
+    complete = false,
+  ): void {
+    const mixes = stageMixes(this.stage)
+    const radius = ring.getData('radius') as number
+    ring.removeAll(true)
+    ring.setData({
       radius,
       colors: mixes.map(({ result }) => result),
       complete,
@@ -1296,7 +1736,7 @@ export class GameScene extends BaseScene {
 
     for (const [index, { result }] of mixes.entries()) {
       const color = themedDye(activeTheme(), result).value
-      const filled = this.colorChain.results.includes(result)
+      const filled = filledResults.includes(result)
       const start = -Math.PI / 2 + index * step + gap / 2
       const end = -Math.PI / 2 + (index + 1) * step - gap / 2
       const width = filled ? fillWidth : rimWidth
@@ -1310,19 +1750,7 @@ export class GameScene extends BaseScene {
       segment.beginPath()
       segment.arc(0, 0, arcRadius, start, end)
       segment.strokePath()
-      this.chainRing.add(segment)
-    }
-
-    if (becameComplete) {
-      this.tweens.killTweensOf(this.chainRing)
-      this.chainRing.setScale(1).setAngle(-6)
-      this.tweens.chain({
-        targets: this.chainRing,
-        tweens: [
-          { scale: 1.14, angle: 4, duration: 110, ease: 'Back.easeOut' },
-          { scale: 1, angle: 0, duration: 230, ease: 'Back.easeOut' },
-        ],
-      })
+      ring.add(segment)
     }
   }
 
@@ -1536,8 +1964,34 @@ export class GameScene extends BaseScene {
   ): Phaser.GameObjects.Text[] {
     const visual = resolveVisualProfile()
     const width = Math.min(GAME_WIDTH - 48, 440)
-    const height = 150 + lines.length * 30
-    const panel = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT * 0.42).setDepth(50)
+    const panel = this.add
+      .container(GAME_WIDTH / 2, GAME_HEIGHT * 0.42)
+      .setDepth(50)
+      .setName('round-overlay-panel')
+
+    const titleText = addText(this, 0, 0, title, {
+      fontFamily: visual.type.family,
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.primaryInk),
+      align: 'center',
+      wordWrap: { width: width - 40 },
+    }).setOrigin(0.5).setName('round-overlay-content-title')
+
+    const lineTexts = lines.map((line, i) =>
+      addText(this, 0, 0, line, {
+        fontFamily: visual.type.family,
+        fontSize: '17px',
+        color: ink(visual.colors.secondaryInk),
+        align: 'center',
+        wordWrap: { width: width - 48 },
+      }).setOrigin(0.5).setName(`round-overlay-content-line-${i}`),
+    )
+    const bodyHeight = lineTexts.reduce((sum, text) => sum + text.height, 0)
+      + Math.max(0, lineTexts.length - 1) * 8
+    const buttonHeight = 52
+    const height = 24 + titleText.height + 14 + bodyHeight + 20 + buttonHeight + 16
+    panel.setData('surfaceSize', { width, height })
 
     const box = this.add.graphics().setName('round-overlay')
     box.fillStyle(visual.colors.surfaceStrong, visual.alpha.surfaceStrong)
@@ -1566,25 +2020,16 @@ export class GameScene extends BaseScene {
     }
     panel.add(box)
 
-    const titleText = addText(this, 0, -height / 2 + 40, title, {
-      fontFamily: visual.type.family,
-      fontSize: '32px',
-      fontStyle: 'bold',
-      color: ink(visual.colors.primaryInk),
-    }).setOrigin(0.5)
-    panel.add(titleText)
+    let cursor = -height / 2 + 24
+    titleText.setY(cursor + titleText.height / 2)
+    cursor += titleText.height + 14
+    for (const text of lineTexts) {
+      text.setY(cursor + text.height / 2)
+      cursor += text.height + 8
+    }
+    panel.add([titleText, ...lineTexts])
 
-    const lineTexts = lines.map((line, i) => {
-      const text = addText(this, 0, -height / 2 + 84 + i * 30, line, {
-        fontFamily: visual.type.family,
-        fontSize: '19px',
-        color: ink(visual.colors.secondaryInk),
-      }).setOrigin(0.5)
-      panel.add(text)
-      return text
-    })
-
-    const y = height / 2 - 36
+    const y = height / 2 - 16 - buttonHeight / 2
     const slot = width / buttons.length
     buttons.forEach((button, i) => {
       const control = addButton(this, 0, 0, slot - 16, button.label, button.action, {

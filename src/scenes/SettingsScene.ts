@@ -43,7 +43,7 @@ export class SettingsScene extends BaseScene {
       color: ink(visual.colors.primaryInk),
     }).setOrigin(0.5)
 
-    addSurface(this, GAME_WIDTH / 2, rowStart + rowGap * 1.5, width, rowGap * 4.1, 'settings-panel')
+    addSurface(this, GAME_WIDTH / 2, rowStart + rowGap * 2, width, rowGap * 5.1, 'settings-panel')
     this.addLabel(left + 18, rowStart - 42, 'TILE SHAPE')
     addSegmentedControl(
       this,
@@ -102,7 +102,18 @@ export class SettingsScene extends BaseScene {
       },
     )
 
-    this.previewY = Math.min(GAME_HEIGHT - 124, rowStart + rowGap * 4 + 54)
+    const unlockY = rowStart + rowGap * 4
+    this.addLabel(left + 18, unlockY - 46, 'UNLOCK ALL STAGES')
+    addSwitch(
+      this,
+      left + 82,
+      unlockY,
+      () => getSettings().unlockAllStages,
+      (unlockAllStages) => updateSettings({ unlockAllStages }),
+      'unlock-all-switch',
+    )
+
+    this.previewY = Math.min(GAME_HEIGHT - 124, rowStart + rowGap * 5 + 54)
     addSurface(this, GAME_WIDTH / 2, this.previewY, width, 118, 'preview-shelf', true)
     this.buildPreview()
 

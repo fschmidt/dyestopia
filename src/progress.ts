@@ -1,66 +1,94 @@
 import { STAGES } from './stages'
-
-/**
- * Stage progress, persisted across visits — the "close the tab and come back"
- * half of the meta. One number is the whole model: how many stages are
- * playable. Stage 1 always is; winning stage n unlocks stage n+1; replaying
- * anything already open is free.
- */
+import { TUTORIALS } from './tutorials'
 
 const STORAGE_KEY = 'dyestopia:progress'
 
-/** Temporary playtest mode: keep progression data, but expose every stage. */
-const ALL_STAGES_UNLOCKED = true
-
-let unlocked = load()
-
-function clamp(value: number): number {
-  if (!Number.isInteger(value)) return 1
-  return Math.max(1, Math.min(value, STAGES.length))
+export interface ProgressState {
+  clearedStages: number[]
+  clearedTutorials: number[]
 }
 
-function load(): number {
+let state = load()
+
+function validIndices(value: unknown, length: number): number[] {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value)]
+    .filter((index): index is number => Number.isInteger(index) && index >= 0 && index < length)
+    .sort((a, b) => a - b)
+}
+
+function load(): ProgressState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return 1
-    // Clamped so a stale value from a build with more stages — or a
-    // hand-edited one — degrades to something the select screen can render.
-    return clamp((JSON.parse(raw) as { unlocked?: number }).unlocked ?? 1)
+    if (!raw) return { clearedStages: [], clearedTutorials: [] }
+    const parsed = JSON.parse(raw) as Partial<ProgressState> & { unlocked?: number }
+    // Migrate the old frontier-only format by treating stages behind it as cleared.
+    const migrated = Number.isInteger(parsed.unlocked)
+      ? Array.from({ length: Math.max(0, Math.min(STAGES.length, parsed.unlocked! - 1)) }, (_, i) => i)
+      : []
+    return {
+      clearedStages: validIndices(parsed.clearedStages ?? migrated, STAGES.length),
+      clearedTutorials: validIndices(parsed.clearedTutorials, TUTORIALS.length),
+    }
   } catch {
-    // Private browsing, disabled storage, or corrupt JSON. Not worth failing
-    // the boot over.
-    return 1
+    return { clearedStages: [], clearedTutorials: [] }
   }
 }
 
 function save(): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ unlocked }))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch {
-    // Progress still holds for this session; it just won't survive a reload.
+    // Session progress remains usable when storage is unavailable.
   }
 }
 
-/** How many stages are playable, from the front. Always at least 1. */
+export function progressState(): ProgressState {
+  return {
+    clearedStages: [...state.clearedStages],
+    clearedTutorials: [...state.clearedTutorials],
+  }
+}
+
+export function isStageCleared(index: number): boolean {
+  return state.clearedStages.includes(index)
+}
+
+export function isTutorialCleared(index: number): boolean {
+  return state.clearedTutorials.includes(index)
+}
+
+export function naturalStageUnlocked(index: number): boolean {
+  return index === 0 || state.clearedStages.includes(index - 1) || isStageCleared(index)
+}
+
+export function naturalTutorialUnlocked(index: number): boolean {
+  return index === 0 || state.clearedTutorials.includes(index - 1) || isTutorialCleared(index)
+}
+
 export function unlockedCount(): number {
-  return ALL_STAGES_UNLOCKED ? STAGES.length : unlocked
+  let count = 0
+  while (count < STAGES.length && naturalStageUnlocked(count)) count++
+  return count
 }
 
-/**
- * Record a win on stage `index` (0-based). True when it opened a new stage —
- * the select screen plays its unlock reveal off this.
- */
 export function recordWin(index: number): boolean {
-  if (ALL_STAGES_UNLOCKED) return false
-  const next = clamp(index + 2)
-  if (next <= unlocked) return false
-  unlocked = next
+  if (isStageCleared(index)) return false
+  state.clearedStages.push(index)
+  state.clearedStages.sort((a, b) => a - b)
   save()
-  return true
+  return index + 1 < STAGES.length
 }
 
-/** Back to only stage 1 — for tests and console archaeology. */
+export function recordTutorialClear(index: number): boolean {
+  if (isTutorialCleared(index)) return false
+  state.clearedTutorials.push(index)
+  state.clearedTutorials.sort((a, b) => a - b)
+  save()
+  return index + 1 < TUTORIALS.length
+}
+
 export function resetProgress(): void {
-  unlocked = 1
+  state = { clearedStages: [], clearedTutorials: [] }
   save()
 }

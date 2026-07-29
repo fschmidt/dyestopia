@@ -1,9 +1,17 @@
 import Phaser from 'phaser'
 
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
-import { unlockedCount } from '../progress'
+import {
+  isStageCleared,
+  isTutorialCleared,
+  naturalStageUnlocked,
+  naturalTutorialUnlocked,
+  unlockedCount,
+} from '../progress'
+import { getSettings } from '../settings'
 import { STAGES } from '../stages'
 import { addText } from '../text'
+import { TUTORIALS } from '../tutorials'
 import { addButton, addSurface } from '../ui/components'
 import { ink, resolveVisualProfile } from '../ui/visual-system'
 import { BaseScene } from './BaseScene'
@@ -47,7 +55,7 @@ export class StageSelectScene extends BaseScene {
         new Phaser.Math.Vector2(width / 2 - 3, 28),
         new Phaser.Math.Vector2(-width / 2, 26),
       ], true)
-      const text = addText(this, 0, 0, 'STAGE LEDGER', {
+      const text = addText(this, 0, 0, 'SELECT A STAGE', {
         fontFamily: visual.type.family,
         fontSize: '34px',
         fontStyle: 'bold',
@@ -56,7 +64,7 @@ export class StageSelectScene extends BaseScene {
       }).setOrigin(0.5)
       title.add([plate, text])
     } else {
-      addText(this, GAME_WIDTH / 2, titleY, 'STAGE LEDGER', {
+      addText(this, GAME_WIDTH / 2, titleY, 'SELECT A STAGE', {
         fontFamily: visual.type.family,
         fontSize: '38px',
         fontStyle: 'bold',
@@ -65,6 +73,7 @@ export class StageSelectScene extends BaseScene {
       }).setOrigin(0.5)
     }
 
+    this.buildTutorials()
     const unlocked = unlockedCount()
     const rows = Math.ceil(STAGES.length / COLS)
     const panelHeight = this.cellPitch() * rows + 112
@@ -76,7 +85,7 @@ export class StageSelectScene extends BaseScene {
       panelHeight,
       'stage-ledger',
     )
-    this.buildGrid(unlocked)
+    this.buildGrid()
 
     const frontier = Math.min(unlocked, STAGES.length) - 1
     const frontierY =
@@ -136,11 +145,50 @@ export class StageSelectScene extends BaseScene {
   }
 
   private gridTop(): number {
-    return Math.min(220, Math.round(GAME_HEIGHT * 0.26))
+    return Math.min(330, Math.round(GAME_HEIGHT * 0.44))
   }
 
-  private buildGrid(unlocked: number): void {
+  private buildTutorials(): void {
     const visual = resolveVisualProfile()
+    const unlockAll = getSettings().unlockAllStages
+    const width = Math.min(620, GAME_WIDTH - 28)
+    const top = Math.min(122, GAME_HEIGHT * 0.16)
+    addText(this, (GAME_WIDTH - width) / 2 + 12, top, 'TUTORIAL', {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.label,
+      fontStyle: 'bold',
+      letterSpacing: 2,
+      color: ink(visual.colors.secondaryInk),
+    })
+    addSurface(this, GAME_WIDTH / 2, top + 62, width, 98, 'tutorial-ledger')
+    const pitch = Math.min((width - 34) / TUTORIALS.length, 92)
+    const startX = GAME_WIDTH / 2 - (pitch * (TUTORIALS.length - 1)) / 2
+    TUTORIALS.forEach((tutorial, index) => {
+      const x = startX + index * pitch
+      const y = top + 62
+      const open = unlockAll || naturalTutorialUnlocked(index)
+      const cell = this.add
+        .rectangle(x, y, pitch * 0.72, 62, open ? visual.colors.accent : visual.colors.secondaryInk, open ? 0.18 : 0.06)
+        .setStrokeStyle(2, open ? visual.colors.accent : visual.colors.secondaryInk, open ? 0.8 : 0.2)
+        .setName(`tutorial-cell-${index}`)
+      addText(this, x, y - 5, `${index + 1}`, {
+        fontFamily: visual.type.family,
+        fontSize: '22px',
+        fontStyle: 'bold',
+        color: ink(open ? visual.colors.primaryInk : visual.colors.secondaryInk),
+      }).setOrigin(0.5)
+      if (isTutorialCleared(index)) this.addClearedStamp(x, y + 20, pitch * 0.62)
+      if (open) {
+        cell.setInteractive({ useHandCursor: true }).setName(`tutorial-${index}`)
+        cell.on('pointerup', () => this.fadeTo('Game', { tutorial: index }))
+      }
+      cell.setData('label', tutorial.name)
+    })
+  }
+
+  private buildGrid(): void {
+    const visual = resolveVisualProfile()
+    const unlockAll = getSettings().unlockAllStages
     const pitch = this.cellPitch()
     const size = pitch * 0.84
     const originX = (GAME_WIDTH - COLS * pitch) / 2 + pitch / 2
@@ -149,9 +197,10 @@ export class StageSelectScene extends BaseScene {
       const x = originX + (i % COLS) * pitch
       const y = this.gridTop() + Math.floor(i / COLS) * pitch + pitch / 2
       // The freshly unlocked cell starts asleep and wakes in the reveal.
-      const open = i < unlocked && i !== this.reveal
-      const played = i < unlocked - 1
-      const current = i === unlocked - 1
+      const naturallyOpen = naturalStageUnlocked(i)
+      const open = (unlockAll || naturallyOpen) && i !== this.reveal
+      const played = isStageCleared(i)
+      const current = naturallyOpen && !played
 
       const cell = this.add
         .rectangle(x, y, size, size, open ? visual.colors.accent : visual.colors.secondaryInk, open ? 0.2 : 0.08)
@@ -187,7 +236,7 @@ export class StageSelectScene extends BaseScene {
 
       // A quiet tick under stages already beaten.
       if (played) {
-        this.add.rectangle(x, y + size * 0.32, size * 0.3, 3, visual.colors.accent, 0.9)
+        this.addClearedStamp(x, y + size * 0.3, size * 0.72)
       }
 
       if (open || i === this.reveal) {
@@ -204,6 +253,19 @@ export class StageSelectScene extends BaseScene {
         }
       }
     })
+  }
+
+  private addClearedStamp(x: number, y: number, width: number): void {
+    const visual = resolveVisualProfile()
+    const stamp = addText(this, x, y, 'CLEARED', {
+      fontFamily: visual.type.family,
+      fontSize: '10px',
+      fontStyle: 'bold',
+      letterSpacing: 1,
+      color: ink(visual.colors.accent),
+    }).setOrigin(0.5).setAngle(visual.treatment === 'spray-can' ? -4 : 0)
+    stamp.setName('cleared-stamp')
+    this.add.rectangle(x, y, width, 16).setStrokeStyle(1, visual.colors.accent, 0.72).setAngle(stamp.angle)
   }
 
   /**

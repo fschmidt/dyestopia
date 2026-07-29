@@ -1,7 +1,7 @@
 import type Phaser from 'phaser'
 
 import { flags } from './flags'
-import { resetProgress, unlockedCount } from './progress'
+import { progressState, resetProgress, unlockedCount, type ProgressState } from './progress'
 import { plantSeed } from './rng'
 import type { BoardReport } from './scenes/GameScene'
 import { sfxLog } from './sfx'
@@ -81,6 +81,7 @@ export interface DyestopiaDebug {
   sfxLog(): string[]
   /** How many stages are unlocked, and the lever to wind that back. */
   progress(): number
+  progressState(): ProgressState
   resetProgress(): void
   /**
    * Toggle the combo-mixing prototype (roadmap M3): after a legal mix, the
@@ -185,6 +186,7 @@ export function exposeDebugApi(game: Phaser.Game): void {
     seedRng: (seed) => plantSeed(seed),
 
     progress: () => unlockedCount(),
+    progressState: () => progressState(),
 
     sfxLog: () => sfxLog(),
 

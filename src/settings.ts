@@ -24,6 +24,7 @@ export interface Settings {
   background: string
   visualStyle: string
   sound: boolean
+  unlockAllStages: boolean
 }
 
 const STORAGE_KEY = 'dyestopia:settings'
@@ -34,6 +35,7 @@ const defaults: Settings = {
   background: DEFAULT_BACKGROUND,
   visualStyle: DEFAULT_VISUAL_PROFILE,
   sound: true,
+  unlockAllStages: false,
 }
 
 let current: Settings = load()
@@ -53,6 +55,7 @@ function load(): Settings {
       // Anything but an explicit false means sound on — same spirit as the
       // registry fallbacks above: a mangled value never mutes the game.
       sound: parsed.sound !== false,
+      unlockAllStages: parsed.unlockAllStages === true,
     }
   } catch {
     // Private browsing, disabled storage, or corrupt JSON. Not worth failing

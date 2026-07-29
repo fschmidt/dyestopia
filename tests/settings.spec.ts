@@ -110,6 +110,7 @@ test('the settings screen changes the board', async ({ page }) => {
     background: 'fluid-ink',
     visualStyle: 'spray-can',
     sound: true,
+    unlockAllStages: false,
   })
 
   await page.evaluate(() => window.dyestopia!.goTo('Game'))
@@ -138,6 +139,7 @@ test('settings survive a reload', async ({ page }) => {
     background: 'fluid-ink',
     visualStyle: 'spray-can',
     sound: true,
+    unlockAllStages: false,
   })
 })
 

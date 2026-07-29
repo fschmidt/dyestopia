@@ -115,7 +115,10 @@ test.describe('stage authoring', () => {
 
 test('the select screen opens every stage', async ({ page }) => {
   await open(page)
-  await page.evaluate(() => window.dyestopia!.goTo('StageSelect'))
+  await page.evaluate(() => {
+    window.dyestopia!.setSettings({ unlockAllStages: true })
+    window.dyestopia!.goTo('StageSelect')
+  })
   await waitForScene(page, 'StageSelect')
 
   const names = await page.evaluate(() =>
@@ -149,18 +152,23 @@ async function playClearingSwap(page: Page): Promise<void> {
   )
 }
 
-test('all stages are unlocked by default and remain available after wins and reloads', async ({
+test('wins clear stages and unlock the next stage across reloads', async ({
   page,
 }) => {
   await open(page)
-  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(STAGES.length)
+  await page.evaluate(() => {
+    window.dyestopia!.resetProgress()
+    window.dyestopia!.setSettings({ unlockAllStages: false })
+  })
+  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(1)
 
   // One 3-clear pays 30 — any clearing swap crosses this line.
   await startStage(page, { stage: 0, override: { threshold: 30 } }, 4711)
   await playClearingSwap(page)
 
   await expect.poll(async () => (await board(page)).outcome, { timeout: 15000 }).toBe('won')
-  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(STAGES.length)
+  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(2)
+  expect(await page.evaluate(() => window.dyestopia!.progressState().clearedStages)).toEqual([0])
   await expect
     .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
     .toContain('Stage clear!')
@@ -173,14 +181,13 @@ test('all stages are unlocked by default and remain available after wins and rel
   // Progress is storage, not scene state: a full reload still knows.
   await page.reload()
   await waitForScene(page, 'Menu')
-  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(STAGES.length)
+  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(2)
   await page.evaluate(() => window.dyestopia!.goTo('StageSelect'))
   await waitForScene(page, 'StageSelect')
   const names = await page.evaluate(() =>
     window.dyestopia!.hitTargets('StageSelect').map((t) => t.name),
   )
-  expect(names.filter((name) => name.startsWith('stage-'))).toHaveLength(STAGES.length)
-  expect(names).toContain(`stage-${STAGES.length - 1}`)
+  expect(names.filter((name) => name.startsWith('stage-'))).toEqual(['stage-0', 'stage-1'])
 })
 
 test('stage 10 offers endless play at its target and keeps the settled board', async ({ page }) => {
@@ -249,8 +256,8 @@ test('running out of moves loses kindly, and retrying resets the round', async (
     .poll(() => page.evaluate(() => window.dyestopia!.texts('Game')))
     .toContain('Out of moves')
 
-  // A loss does not change the temporary all-unlocked state.
-  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(STAGES.length)
+  // A loss does not change natural progression.
+  expect(await page.evaluate(() => window.dyestopia!.progress())).toBe(1)
 
   // Retry deals a fresh round of the same stage, on its real rules — the
   // bridge override was a one-round bend, not a rewrite.
