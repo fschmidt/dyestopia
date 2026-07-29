@@ -1,6 +1,47 @@
 import { expect, test } from '@playwright/test'
 
-import { open, startGame } from './helpers'
+import { colorTier } from '../src/colors'
+import { open, startGame, waitForScene } from './helpers'
+
+test('colour tiers follow mixing depth', () => {
+  expect(colorTier('red')).toBe(0)
+  expect(colorTier('orange')).toBe(1)
+  expect(colorTier('amber')).toBe(2)
+  expect(colorTier('unknown')).toBe(0)
+})
+
+test('mixed tiles gain a progressively stronger emissive glow without surface marks', async ({
+  page,
+}) => {
+  await open(page)
+  await page.evaluate(() => window.dyestopia!.goTo('Game', { stage: 9 }))
+  await waitForScene(page, 'Game')
+
+  const effects = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Game')!
+    return scene.children.list
+      .filter((child) => child.name === 'tile')
+      .map((child) => {
+        const tile = child as Phaser.GameObjects.Container & {
+          dye: { name: string }
+        }
+        return {
+          color: tile.dye.name,
+          tier: tile.getData('colorTier'),
+          childCount: tile.list.length,
+          halos: tile.list.filter((part) => part.name === 'tier-glow').length,
+          cores: tile.list.filter((part) => part.name === 'tier-core').length,
+        }
+      })
+  })
+
+  const red = effects.find(({ color }) => color === 'red')!
+  const orange = effects.find(({ color }) => color === 'orange')!
+  const amber = effects.find(({ color }) => color === 'amber')!
+  expect(red).toMatchObject({ tier: 0, childCount: 2, halos: 0, cores: 0 })
+  expect(orange).toMatchObject({ tier: 1, childCount: 3, halos: 1, cores: 0 })
+  expect(amber).toMatchObject({ tier: 2, childCount: 5, halos: 2, cores: 1 })
+})
 
 test('every shape bakes its sheets at boot', async ({ page }) => {
   await open(page)

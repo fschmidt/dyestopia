@@ -1,5 +1,6 @@
 import Phaser from 'phaser'
 
+import { colorTier } from '../colors'
 import type { Dye } from '../palette'
 import { TILE_SIZE, cellSize, textureKeys } from './bake'
 import type { Shape } from './shapes'
@@ -45,8 +46,10 @@ export class Tile extends Phaser.GameObjects.Container {
   private readonly shape: Shape
   /** Logical tile size on this board — hit area, and the drag flow's yardstick. */
   private readonly size: number
+  private readonly displayCell: number
   private readonly base: Phaser.GameObjects.Sprite
   private readonly gloss: Phaser.GameObjects.Sprite
+  private tierEffects: Phaser.GameObjects.Sprite[] = []
 
   private _dye: Dye
   /** Kept so tweens can return to it — jitter means it isn't always zero. */
@@ -91,15 +94,21 @@ export class Tile extends Phaser.GameObjects.Container {
     // Boards size their tiles to the space a stage's mask leaves them, so the
     // baked artwork (drawn at TILE_SIZE) scales to match — pad and all.
     const cell = cellSize(shape) * (size / TILE_SIZE)
+    this.displayCell = cell
 
     this.base = scene.add
       .sprite(0, 0, keys.base)
+      .setName('tile-base')
       .setDisplaySize(cell, cell)
       .setTint(dye.value)
 
-    this.gloss = scene.add.sprite(0, 0, keys.gloss).setDisplaySize(cell, cell)
+    this.gloss = scene.add
+      .sprite(0, 0, keys.gloss)
+      .setName('tile-gloss')
+      .setDisplaySize(cell, cell)
 
     this.add([this.base, this.gloss])
+    this.applyTierGlow()
 
     this.restAngle = this.jitterAngle(index)
     this.setAngle(this.restAngle)
@@ -112,6 +121,7 @@ export class Tile extends Phaser.GameObjects.Container {
       Phaser.Animations.Events.ANIMATION_UPDATE,
       (_anim: Phaser.Animations.Animation, frame: Phaser.Animations.AnimationFrame) => {
         this.gloss.setFrame(frame.textureFrame)
+        for (const effect of this.tierEffects) effect.setFrame(frame.textureFrame)
       },
     )
 
@@ -137,6 +147,44 @@ export class Tile extends Phaser.GameObjects.Container {
   /** Mid-move — scenes should not tap or re-drag a tile that is. */
   get busy(): boolean {
     return this.moving
+  }
+
+  /**
+   * Mixed colours carry progressively more light, following their animated
+   * silhouette. The effect lives in the base sprite's padded texture, leaving
+   * the tile face free of badges, patterns, or other matching noise.
+   */
+  private applyTierGlow(): void {
+    const tier = colorTier(this._dye.name)
+    this.setData('colorTier', tier)
+    for (const effect of this.tierEffects) effect.destroy()
+    this.tierEffects = []
+    if (tier === 0) return
+
+    const makeLayer = (
+      name: 'tier-glow' | 'tier-core',
+      scale: number,
+      alpha: number,
+    ): Phaser.GameObjects.Sprite =>
+      this.scene.add
+        .sprite(0, 0, this.base.texture.key, this.base.frame.name)
+        .setName(name)
+        .setDisplaySize(this.displayCell * scale, this.displayCell * scale)
+        .setTint(this._dye.value)
+        .setAlpha(alpha)
+        .setBlendMode(Phaser.BlendModes.ADD)
+
+    const innerHalo = makeLayer('tier-glow', tier === 1 ? 1.07 : 1.1, tier === 1 ? 0.2 : 0.25)
+    this.addAt(innerHalo, 0)
+    this.tierEffects.push(innerHalo)
+
+    if (tier === 2) {
+      const outerHalo = makeLayer('tier-glow', 1.18, 0.1)
+      const core = makeLayer('tier-core', 1, 0.07)
+      this.addAt(outerHalo, 0)
+      this.addAt(core, this.getIndex(this.gloss))
+      this.tierEffects.push(outerHalo, core)
+    }
   }
 
   /** The jitter belongs to the cell, so a tile that moves cells re-reads it. */
@@ -291,7 +339,9 @@ export class Tile extends Phaser.GameObjects.Container {
     }
 
     this.rotation = this.flowAngle
-    this.base.rotation = this.gloss.rotation = -this.flowAngle
+    for (const sprite of [this.base, this.gloss, ...this.tierEffects]) {
+      sprite.rotation = -this.flowAngle
+    }
     const s = this.flowAmount
     this.setScale(m.lift * (1 + m.stretch * s), m.lift * (1 - m.stretch * 0.55 * s))
   }
@@ -305,7 +355,7 @@ export class Tile extends Phaser.GameObjects.Container {
     if (this.base.rotation === 0 && this.gloss.rotation === 0) return
     const even = (this.scaleX + this.scaleY) / 2
     this.rotation = Phaser.Math.DegToRad(this.restAngle)
-    this.base.rotation = this.gloss.rotation = 0
+    for (const sprite of [this.base, this.gloss, ...this.tierEffects]) sprite.rotation = 0
     this.setScale(even)
     this.flowAmount = this.flowVel = this.flowAngle = 0
   }
@@ -485,6 +535,7 @@ export class Tile extends Phaser.GameObjects.Container {
   mix(result: Dye, onDone?: () => void): void {
     const from = this._dye.value
     this._dye = result
+    this.applyTierGlow()
     this.killMotion()
     this.moving = true
     this.mixPulse(from, onDone)
@@ -498,6 +549,7 @@ export class Tile extends Phaser.GameObjects.Container {
   mergeReturn(x: number, y: number, restIndex: number, result: Dye, onDone?: () => void): void {
     const from = this._dye.value
     this._dye = result
+    this.applyTierGlow()
     this.beginMove(DEPTH_ACTIVE)
     this.restAngle = this.jitterAngle(restIndex)
     this.unwindFlow()
@@ -521,6 +573,7 @@ export class Tile extends Phaser.GameObjects.Container {
     const m = this.shape.motion
     const from = this._dye.value
     this._dye = result
+    this.applyTierGlow()
     this.killMotion()
     this.moving = true
 
@@ -633,6 +686,7 @@ export class Tile extends Phaser.GameObjects.Container {
     if (!anim) return
     this.base.anims.setCurrentFrame(anim.frames[frame])
     this.gloss.setFrame(anim.frames[frame].textureFrame)
+    for (const effect of this.tierEffects) effect.setFrame(anim.frames[frame].textureFrame)
   }
 
   private tintTo(from: number, to: number, duration: number, onComplete?: () => void): void {

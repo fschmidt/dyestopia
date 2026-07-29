@@ -27,6 +27,14 @@ export interface ColorDef {
   mix?: [ColorId, ColorId]
 }
 
+export type ColorTier = 0 | 1 | 2
+
+const COLOR_VALUE_BY_TIER: Record<ColorTier, number> = {
+  0: 15,
+  1: 20,
+  2: 30,
+}
+
 /**
  * The RYB pigment wheel: three base primaries, the secondaries they mix into,
  * and the tertiaries those mix into. Stages pick a subset; the deeper rings
@@ -57,4 +65,20 @@ export function mixResult(a: string, b: string): ColorId | undefined {
 /** The two colours that mix into `id` — undefined for the base colours. */
 export function mixComponents(id: ColorId): [ColorId, ColorId] | undefined {
   return COLORS.find((colour) => colour.id === id)?.mix
+}
+
+/**
+ * Mixing depth: primaries are matte tier 0, their direct mixes are tier 1,
+ * and mixes involving a secondary are tier 2.
+ */
+export function colorTier(id: string): ColorTier {
+  const ingredients = COLORS.find((color) => color.id === id)?.mix
+  if (!ingredients) return 0
+  const depth = 1 + Math.max(...ingredients.map(colorTier))
+  return Math.min(2, depth) as ColorTier
+}
+
+/** Score value of one tile, based on its colour's mixing tier. */
+export function colorValue(id: ColorId): number {
+  return COLOR_VALUE_BY_TIER[colorTier(id)]
 }
