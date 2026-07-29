@@ -72,7 +72,7 @@ test('a clearing swap clears, scores, and the board refills', async ({ page }) =
     .toBe(true)
 })
 
-test('a merge dyes the pair in place, clears, and pays the merge bonus', async ({ page }) => {
+test('a merge dyes the pair in place, clears, and starts a ×2 colour chain', async ({ page }) => {
   // Find, offline, a seed whose deal holds a legal merge. The scene deals
   // with the same pure generator from the same seed, so the search predicts
   // the live board exactly.
@@ -97,14 +97,15 @@ test('a merge dyes the pair in place, clears, and pays the merge bonus', async (
   const to = report.cells.find((c) => c.index === pair![1])!
   await dragWorld(page, 'Game', from, to)
 
-  // The merge pulse hands off into the clear; a merged first wave of 3+ pays
-  // at least clearScore(3, 1, merged) — more than any swap could at 3 tiles.
+  // The merge pulse hands off into the clear; the first result colour starts
+  // a ×2 chain and every cascade wave inherits that same multiplier.
   await expect
     .poll(async () => {
       const now = await board(page)
       const engine = toEngine(now)
       return (
-        now.score >= clearScore(3, 1, true) &&
+        now.multiplier === 2 &&
+        now.score >= clearScore(3, 2) &&
         now.cells.every((c) => c.color !== null) &&
         findMatches(engine.grid, engine.cells).size === 0
       )

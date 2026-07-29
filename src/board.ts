@@ -403,13 +403,27 @@ export function reshuffle(
   return fallback ?? attempt
 }
 
+/** The uninterrupted set of result colours mixed since the last legal swap. */
+export interface ColorChain {
+  results: ColorId[]
+  multiplier: number
+}
+
+export function advanceColorChain(chain: ColorChain, result: ColorId): ColorChain {
+  if (chain.results.includes(result)) return chain
+  const results = [...chain.results, result]
+  return { results, multiplier: results.length + 1 }
+}
+
+export function breakColorChain(_chain: ColorChain): ColorChain {
+  return { results: [], multiplier: 1 }
+}
+
 /**
- * Points for one clear. Tuning constants, not design: count is what the rules
- * reward, the wave multiplier is the cascade dopamine, and a merge-triggered
- * clear pays half again more than a swapped one — the twist should be worth
- * choosing. The caller flags only the clear the merge itself caused; cascade
- * waves after it score as cascades.
+ * Points for one clear. Clear size establishes the base value; the multiplier
+ * is built by consecutive player mixes. Every automatic wave caused by that
+ * move receives the same snapshot rather than growing merely for cascading.
  */
-export function clearScore(count: number, wave: number, merged = false): number {
-  return count * (merged ? 15 : 10) * wave
+export function clearScore(count: number, multiplier: number): number {
+  return count * 10 * multiplier
 }

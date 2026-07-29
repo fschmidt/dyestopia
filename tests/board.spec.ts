@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 
 import {
   applyGravity,
+  advanceColorChain,
+  breakColorChain,
   clearScore,
   comboConversions,
   findLegalMove,
@@ -13,6 +15,7 @@ import {
   reshuffle,
   resolveMove,
   swapClears,
+  type ColorChain,
   type Cells,
   type Grid,
 } from '../src/board'
@@ -308,14 +311,28 @@ test.describe('reshuffle', () => {
 })
 
 test.describe('scoring', () => {
-  test('scales with tiles cleared and cascade wave', () => {
+  test('applies the player-built multiplier to base clear points', () => {
     expect(clearScore(3, 1)).toBe(30)
     expect(clearScore(4, 1)).toBe(40)
     expect(clearScore(3, 2)).toBe(60)
+    expect(clearScore(3, 3)).toBe(90)
   })
 
-  test('merge-triggered clears pay half again more', () => {
-    expect(clearScore(3, 1, true)).toBe(45)
-    expect(clearScore(4, 1, true)).toBe(60)
+  test('mixing distinct result colours grows a chain while repeats hold it', () => {
+    const empty: ColorChain = { results: [], multiplier: 1 }
+    const orange = advanceColorChain(empty, 'orange')
+    expect(orange).toEqual({ results: ['orange'], multiplier: 2 })
+    expect(advanceColorChain(orange, 'orange')).toEqual(orange)
+    expect(advanceColorChain(orange, 'green')).toEqual({
+      results: ['orange', 'green'],
+      multiplier: 3,
+    })
+  })
+
+  test('swapping breaks the chain back to one', () => {
+    expect(breakColorChain({ results: ['orange', 'green'], multiplier: 3 })).toEqual({
+      results: [],
+      multiplier: 1,
+    })
   })
 })

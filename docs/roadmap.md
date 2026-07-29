@@ -27,8 +27,10 @@ no tools, no accounts.
   keeps player-made colours precious.
 - **Move legality.** A move — swap *or* merge — is only allowed if it results
   in the destruction of at least 3 matching tiles. Illegal drops return home.
-- **Cascades auto-resolve, cost nothing, and score**, with a rising multiplier
-  per wave. This is the genre's dopamine engine; it stays.
+- **Cascades auto-resolve, cost nothing, and score.** They inherit the current
+  player-built colour multiplier but do not increase it automatically. The
+  cascade remains the payoff; choosing and extending a mix chain is what
+  strengthens that payoff.
 - **Refill drops seed colours only.** Mixed colours never fall from the sky —
   every secondary/tertiary on the board was made by a player, which is what
   makes them precious.
@@ -36,8 +38,12 @@ no tools, no accounts.
 ### Scoring (decided)
 
 - Points per destruction, based on **how many tiles cleared in one go**.
-- **Merge-triggered clears score more than swap-triggered clears.**
-- Cascade waves multiply.
+- **Mixing builds the score multiplier; swapping resets it.** The first mixed
+  result colour in a chain sets ×2. Repeating a result colour already used in
+  that chain holds the multiplier. Mixing a new result colour raises it by one
+  (×3 for the second distinct result, and so on).
+- Every clear caused by the move, including automatic cascade waves, uses the
+  current colour multiplier. Cascades do not raise it themselves.
 - Exact numbers are tuning work, not design work — pick simple constants and
   adjust in playtesting.
 
@@ -115,7 +121,8 @@ The heart, replacing the repaint-in-place demo in
   first, but nothing may assume cols×rows. Gravity and refill follow the mask.
 - Match detection (3+ in a row/column), clear with scoring by count.
 - Gravity + refill from stage seed colours.
-- Cascade resolution loop with wave multiplier.
+- Cascade resolution loop (initially shipped with a wave multiplier; M8
+  replaces that scoring rule while preserving the loop).
 - Move legality: dry-run the move, reject (return home) if no clear results.
 - Legal-move detection + auto-reshuffle on dead boards.
 - Deterministic RNG seeding hook so Playwright tests can assert board states
@@ -141,7 +148,8 @@ The heart, replacing the repaint-in-place demo in
   demo), then the match check runs.
 - The **merge-before-swap resolution order** (see part 1) as the single entry
   point for every drop.
-- Merge-clear score bonus; stage-active gating via existing `stageMix`.
+- Merge-clear score bonus (superseded by M8's chain multiplier);
+  stage-active gating via existing `stageMix`.
 - **Animation:** sequencing, not a new primitive — the existing merge
   pulse/tint-flash must hand off into the destruction so mix → burst reads as
   cause and effect.
@@ -164,7 +172,8 @@ The heart, replacing the repaint-in-place demo in
   tertiary colours; per-stage hint line.
 - **Animations** (HUD/meta layer — shape-agnostic, all new):
   - **Score feedback** — floating "+N" from cleared tiles, counter tick-up,
-    an escalation cue per cascade wave so the multiplier is *felt*.
+    and an escalation cue (retargeted in M8 from cascade depth to the
+    player-built multiplier).
   - **Threshold & budget** — a moment when the threshold is crossed; a
     warning read on the last few moves.
   - **Win / lose** — board-wide celebration burst + score tally; a
@@ -300,7 +309,78 @@ restyle of the same composition.
 changes coherently, gameplay and layout remain invariant, and both skins pass
 the same behavioural/layout suite.*
 
-### M8 — Friends release (S)
+### M8 — Player-built colour chains (M)
+
+Replace the automatic cascade-wave multiplier with a multiplier the player
+earns through consecutive mixing decisions. This makes the longer,
+colour-aware route more valuable than taking the first available swap.
+
+#### Rules and scoring model
+
+- A **chain** is the uninterrupted run of legal player merges since the most
+  recent legal swap or the start of the round. Illegal drops do not change it.
+- The chain records the distinct **result colours** made by those merges, not
+  the ingredient colours and not the colours cleared afterward.
+- The first merge in a chain adds its result colour and sets the multiplier to
+  ×2.
+- A later merge whose result colour is already in the chain keeps the current
+  multiplier: orange → orange remains ×2.
+- A later merge with a new result colour adds it and raises the multiplier by
+  one: orange → green becomes ×3. Continue the same rule for further distinct
+  colours rather than capping it specially at ×3.
+- A legal swap clears the chain and sets the multiplier to ×1 before its clear
+  is scored. A new merge after that swap starts a new chain at ×2.
+- Every clear produced while resolving a move uses the multiplier established
+  by that move. Gravity/refill cascades neither increment nor reset it.
+- Remove the existing merge-specific score bonus and cascade-wave multiplier
+  so the displayed multiplier is the single, explainable multiplier applied
+  to base clear points. Keep clear-size scoring intact.
+- Starting, retrying, winning or leaving a round resets the chain to ×1.
+
+Represent this as explicit gameplay state (current multiplier plus distinct
+result colours), with pure transitions for merge and swap. Scoring consumes a
+snapshot of that state; it must not infer chain progress from animation wave
+numbers. Expose the state through the existing debug board report so tests and
+future hints can inspect it without reading Phaser objects.
+
+#### Feedback and information hierarchy
+
+- Show the current multiplier persistently in the in-round info area, at ×1
+  from the opening deal. It belongs beside score/target rather than on the
+  board and must work in every visual skin and supported layout.
+- When a merge starts or extends a chain, animate the multiplier into its new
+  value. Repeating a known result gives a smaller hold/confirmation treatment;
+  a swap visibly settles it back to ×1.
+- Floating score labels show the points actually awarded and their multiplier.
+  Their scale, weight, colour contrast and motion intensity step up with the
+  current multiplier, with sensible visual caps so long chains remain readable.
+- The persistent score counter echoes the same hierarchy briefly when points
+  land. Do not use cascade depth to style score feedback; two clears at ×3
+  should share the same prominence even if one is an automatic wave.
+- Give first-time players a concise hint that mixing different result colours
+  grows the multiplier and swapping breaks the chain.
+
+#### Verification
+
+- Unit-test chain transitions: initial ×1; first result ×2; repeated result
+  holds; a second distinct result reaches ×3; further distinct results keep
+  climbing; legal swap resets; illegal drop and cascades leave state unchanged.
+- Unit-test scoring independently: every wave of a resolution uses the same
+  move-established multiplier, and neither the old merge bonus nor wave depth
+  changes the calculation.
+- Scene-test the info-area value and its reset/start states through the debug
+  bridge. Cover both merge directions through the existing move resolver.
+- Extend skin-independent layout tests so the multiplier stays visible without
+  colliding with score, target, moves or safe areas.
+- Add visual checks at ×1, ×2 and ×3+ on both tile shapes and both visual skins,
+  including a multi-wave cascade, to review prominence without relying on
+  pixel-perfect snapshots.
+
+*Exit: a player can deliberately build and read a multi-colour mix chain; all
+clears pay the visible multiplier, swaps clearly break it, automatic cascades
+never grow it, and higher-value score feedback is unmistakably more prominent.*
+
+### M9 — Friends release (S)
 
 - Playtest + bug pass, tune thresholds/scoring.
 - A lightweight way to receive feedback (even just a mailto link on the menu).

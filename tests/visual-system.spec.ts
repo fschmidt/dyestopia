@@ -183,6 +183,7 @@ test('Spray Can game HUD separates the paper stage label from score and moves', 
 
   expect(objects.some((item) => item.name === 'stage-label')).toBe(true)
   expect(objects.some((item) => item.name === 'score-block')).toBe(true)
+  expect(objects.some((item) => item.name === 'multiplier-block')).toBe(true)
   expect(objects.some((item) => item.name === 'target-block')).toBe(true)
   expect(objects.some((item) => item.name === 'moves-block')).toBe(true)
   expect(objects.filter((item) => item.name === 'tool-slot')).toHaveLength(0)

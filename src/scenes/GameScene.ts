@@ -2,6 +2,8 @@ import Phaser from 'phaser'
 
 import {
   applyGravity,
+  advanceColorChain,
+  breakColorChain,
   clearScore,
   comboConversions,
   findLegalMove,
@@ -14,6 +16,7 @@ import {
   resolveMove,
   type Cells,
   type CellMove,
+  type ColorChain,
   type Conversion,
   type Grid,
   type MixRule,
@@ -89,6 +92,8 @@ export interface BoardReport {
   cols: number
   rows: number
   score: number
+  multiplier: number
+  chainResults: ColorId[]
   /** Index into STAGES, or null on the dev board. */
   stage: number | null
   threshold: number
@@ -102,8 +107,9 @@ export interface BoardReport {
 /**
  * The match-3 round. Tiles clear when 3+ of a colour line up; gravity pulls
  * the board down, seed colours refill from above, cascades resolve on their
- * own and score with a rising wave multiplier. Every drop goes through the
- * merge-before-swap order in `resolveMove`: if the pair mixes and the dyed
+ * own and score with the current player-built colour multiplier. Every drop
+ * goes through the merge-before-swap order in `resolveMove`: if the pair
+ * mixes and the dyed
  * *target* would complete a line (mixing is directional — the dye pours from
  * the dragged tile onto the target), both tiles take the result colour where
  * they stand; otherwise the swap gets its chance; neither clearing means the
@@ -130,6 +136,7 @@ export class GameScene extends BaseScene {
   private rng!: Rng
 
   private score = 0
+  private colorChain: ColorChain = { results: [], multiplier: 1 }
   private movesLeft = 0
   private outcome: 'playing' | 'won' | 'lost' = 'playing'
   /** The threshold moment fires once, however far the score climbs past it. */
@@ -139,6 +146,7 @@ export class GameScene extends BaseScene {
   private displayScore = 0
   private scoreTween?: Phaser.Tweens.Tween
   private scoreText!: Phaser.GameObjects.Text
+  private multiplierText!: Phaser.GameObjects.Text
   private movesText!: Phaser.GameObjects.Text
   private hintText!: Phaser.GameObjects.Text
   private targetFill!: Phaser.GameObjects.Rectangle
@@ -174,6 +182,7 @@ export class GameScene extends BaseScene {
     this.stage = data.override ? { ...authored, ...data.override } : authored
 
     this.score = 0
+    this.colorChain = { results: [], multiplier: 1 }
     this.displayScore = 0
     this.movesLeft = this.stage.moves
     this.outcome = 'playing'
@@ -271,6 +280,8 @@ export class GameScene extends BaseScene {
       cols: this.grid.cols,
       rows: this.grid.rows,
       score: this.score,
+      multiplier: this.colorChain.multiplier,
+      chainResults: [...this.colorChain.results],
       stage: this.stageIndex ?? null,
       threshold: this.stage.threshold,
       moves: this.movesLeft,
@@ -321,6 +332,17 @@ export class GameScene extends BaseScene {
       fontStyle: 'bold',
       color: ink(visual.colors.primaryInk),
     })
+
+    const multiplierBlock = this.add
+      .container(GAME_WIDTH / 2, area.top - 66)
+      .setName('multiplier-block')
+    this.multiplierText = addText(this, 0, 0, '×1', {
+      fontFamily: visual.type.family,
+      fontSize: '20px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.accent),
+    }).setOrigin(0.5, 0)
+    multiplierBlock.add(this.multiplierText)
 
     this.movesText = addText(this, GAME_WIDTH - area.marginX, area.top - 51, '', {
       fontFamily: visual.type.family,
@@ -419,8 +441,25 @@ export class GameScene extends BaseScene {
     })
     scoreBlock.add([scoreLabel, this.scoreText])
 
+    const multiplierX = area.marginX + (GAME_WIDTH - area.marginX * 2) / 3
+    const multiplierBlock = this.add.container(multiplierX, metricY).setName('multiplier-block')
+    const multiplierLabel = addText(this, 0, -14, 'CHAIN', {
+      fontFamily: visual.type.family,
+      fontSize: '11px',
+      fontStyle: 'bold',
+      letterSpacing: 3,
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(0.5, 0)
+    this.multiplierText = addText(this, 0, -2, '×1', {
+      fontFamily: visual.type.family,
+      fontSize: '30px',
+      fontStyle: 'bold',
+      color: ink(visual.colors.accent),
+    }).setOrigin(0.5, 0)
+    multiplierBlock.add([multiplierLabel, this.multiplierText])
+
     const targetBlock = this.add
-      .container(GAME_WIDTH / 2, metricY)
+      .container(area.marginX + ((GAME_WIDTH - area.marginX * 2) * 2) / 3, metricY)
       .setName('target-block')
     const targetLabel = addText(this, 0, -14, 'TARGET', {
       fontFamily: visual.type.family,
@@ -706,6 +745,9 @@ export class GameScene extends BaseScene {
       // the dragged one glides home while the pair pulses. The pulse hands
       // off into the destruction, so mix → burst reads as cause and effect.
       playSfx('merge')
+      const previousMultiplier = this.colorChain.multiplier
+      this.colorChain = advanceColorChain(this.colorChain, move.result)
+      this.animateMultiplier(previousMultiplier)
       this.cells[origin] = this.cells[cell] = move.result
       // The combo prototype: the fresh colour absorbs adjacent groups of its
       // own ingredients. Model-wise it happens now, in full; the animation
@@ -719,10 +761,13 @@ export class GameScene extends BaseScene {
         new Promise<void>((done) => other.mix(dye, done)),
       ])
         .then(() => this.animateCombo(conversions))
-        .then(() => this.resolve(true))
+        .then(() => this.resolve())
       return
     }
 
+    const previousMultiplier = this.colorChain.multiplier
+    this.colorChain = breakColorChain(this.colorChain)
+    this.animateMultiplier(previousMultiplier)
     ;[this.cells[origin], this.cells[cell]] = [this.cells[cell], this.cells[origin]]
     this.tiles[origin] = other
     this.tiles[cell] = tile
@@ -735,25 +780,24 @@ export class GameScene extends BaseScene {
 
   /**
    * Settle the board after a move: clear, fall, refill, repeat while new
-   * lines keep forming — the cascade loop. Waves cost no move and multiply
-   * the score. Ends by settling the stage's fate: threshold reached wins,
-   * an exhausted budget loses, and anything else revives a dead board if it
-   * must and hands input back.
+   * lines keep forming — the cascade loop. Waves cost no move and inherit the
+   * multiplier established by the player's move without increasing it. Ends
+   * by settling the stage's fate: threshold reached wins, an exhausted budget
+   * loses, and anything else revives a dead board if it must and hands input
+   * back.
    */
-  private async resolve(merged = false): Promise<void> {
+  private async resolve(): Promise<void> {
     this.resolving = true
     for (let wave = 1; ; wave++) {
       const matched = findMatches(this.grid, this.cells)
       if (matched.size === 0) break
 
-      // The merge bonus applies to the clear the merge itself caused; the
-      // cascade waves after it score as cascades, whoever started them.
-      const points = clearScore(matched.size, wave, merged && wave === 1)
+      const points = clearScore(matched.size, this.colorChain.multiplier)
       this.score += points
-      // The wave pitches the plop up — the cascade multiplier, audible.
+      // Cascades still climb in pitch, but no longer grow the score multiplier.
       playSfx('match', wave)
-      this.floatScore(points, wave, matched)
-      this.updateHud(wave)
+      this.floatScore(points, this.colorChain.multiplier, matched)
+      this.updateHud(this.colorChain.multiplier)
       if (!this.thresholdMet && this.score >= this.stage.threshold) {
         this.thresholdMet = true
         this.celebrateThreshold()
@@ -810,11 +854,10 @@ export class GameScene extends BaseScene {
 
   /**
    * Catch the HUD up to the model. The score ticks rather than jumps — the
-   * counter chases `score`, and the threshold bar rides along. Cascade waves
-   * give the score text a pulse that grows with the wave, so the multiplier
-   * is felt in the counter, not just printed by the floats.
+   * counter chases `score`, and the threshold bar rides along. Higher
+   * player-built multipliers give the score text a stronger pulse.
    */
-  private updateHud(wave = 0): void {
+  private updateHud(scoreMultiplier = 0): void {
     const visual = resolveVisualProfile()
     this.movesText
       .setText(this.sprayHud ? `${this.movesLeft}` : `Moves: ${this.movesLeft}`)
@@ -825,6 +868,7 @@ export class GameScene extends BaseScene {
             ? visual.colors.warning
             : visual.colors.primaryInk,
       ))
+    this.multiplierText.setText(`×${this.colorChain.multiplier}`)
 
     this.scoreTween?.remove()
     const from = this.displayScore
@@ -848,16 +892,39 @@ export class GameScene extends BaseScene {
       })
     }
 
-    if (wave > 1) {
+    if (scoreMultiplier > 1) {
       this.scoreText.setScale(1)
       this.tweens.chain({
         targets: this.scoreText,
         tweens: [
-          { scale: Math.min(1.35, 1.08 + wave * 0.06), duration: 110, ease: 'Quad.easeOut' },
+          {
+            scale: Math.min(1.48, 1.08 + scoreMultiplier * 0.08),
+            duration: 110,
+            ease: 'Quad.easeOut',
+          },
           { scale: 1, duration: 240, ease: 'Back.easeOut' },
         ],
       })
     }
+  }
+
+  private animateMultiplier(previous: number): void {
+    this.updateHud()
+    const next = this.colorChain.multiplier
+    this.multiplierText.setScale(1)
+    this.multiplierText.setAlpha(1)
+    this.tweens.chain({
+      targets: this.multiplierText,
+      tweens: [
+        {
+          scale: next > previous ? Math.min(1.5, 1.15 + next * 0.08) : next < previous ? 0.82 : 1.12,
+          alpha: next < previous ? 0.55 : 1,
+          duration: 110,
+          ease: 'Quad.easeOut',
+        },
+        { scale: 1, alpha: 1, duration: 230, ease: 'Back.easeOut' },
+      ],
+    })
   }
 
   private renderScore(): void {
@@ -870,8 +937,8 @@ export class GameScene extends BaseScene {
     this.targetFill.width = this.barWidth * share
   }
 
-  /** Floating "+N" over the clear — bigger, hotter, and suffixed per wave. */
-  private floatScore(points: number, wave: number, matched: Set<number>): void {
+  /** Floating "+N" over the clear — bigger and hotter at higher multipliers. */
+  private floatScore(points: number, multiplier: number, matched: Set<number>): void {
     const visual = resolveVisualProfile()
     let sx = 0
     let sy = 0
@@ -883,11 +950,11 @@ export class GameScene extends BaseScene {
     const x = sx / matched.size
     const y = sy / matched.size
 
-    const text = addText(this, x, y, wave > 1 ? `+${points} ×${wave}` : `+${points}`, {
+    const text = addText(this, x, y, `+${points} ×${multiplier}`, {
       fontFamily: visual.type.family,
-      fontSize: `${Math.min(34, 18 + (wave - 1) * 5)}px`,
+      fontSize: `${Math.min(38, 18 + (multiplier - 1) * 6)}px`,
       fontStyle: 'bold',
-      color: ink(wave > 1 ? visual.colors.accent : visual.colors.primaryInk),
+      color: ink(multiplier > 1 ? visual.colors.accent : visual.colors.primaryInk),
     })
       .setOrigin(0.5)
       .setDepth(30)
