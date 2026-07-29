@@ -9,6 +9,9 @@
 - palette swap
 - free move tile (can be merged/swapped with any other tile)
 - multicolor tile
+- color bomb (dyes all colors around a color to that one)
+- color erasor
+
 
 # Accessibility
 - greyscale / colorblind mode (what's actually possible and what's not)
