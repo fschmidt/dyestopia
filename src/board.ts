@@ -187,7 +187,7 @@ export function mergeClears(grid: Grid, cells: Cells, target: number, result: Co
 export type Move = { kind: 'merge'; result: ColorId } | { kind: 'swap' } | { kind: 'illegal' }
 
 /**
- * The single entry point for a drop onto a neighbour: merge before swap.
+ * The single entry point for a drop: merge before swap.
  * `from` is the dragged tile, `to` the one it lands on — and since mix
  * legality anchors on the target (see `mergeClears`), the same pair can
  * resolve differently in the two directions: the dye pours from the dragged
@@ -202,11 +202,27 @@ export type Move = { kind: 'merge'; result: ColorId } | { kind: 'swap' } | { kin
  *
  * A same-colour drop falls out illegal by construction: identical colours
  * mix into nothing, and `swapClears` knows swapping them changes nothing.
+ *
+ * Ordinary play requires adjacency. A one-use tool may set `allowDistant`;
+ * that removes only the geometry constraint, leaving every other legality
+ * rule—including the requirement to make an immediate match—unchanged.
  */
-export function resolveMove(grid: Grid, cells: Cells, mix: MixRule, from: number, to: number): Move {
+export function resolveMove(
+  grid: Grid,
+  cells: Cells,
+  mix: MixRule,
+  from: number,
+  to: number,
+  options: { allowDistant?: boolean } = {},
+): Move {
   const dragged = cells[from]
   const target = cells[to]
-  if (dragged === null || target === null || !isAdjacent(grid, from, to)) return { kind: 'illegal' }
+  if (
+    dragged === null ||
+    target === null ||
+    from === to ||
+    (!options.allowDistant && !isAdjacent(grid, from, to))
+  ) return { kind: 'illegal' }
   const result = mix(dragged, target)
   if (result && mergeClears(grid, cells, to, result)) return { kind: 'merge', result }
   if (swapClears(grid, cells, from, to)) return { kind: 'swap' }

@@ -39,8 +39,10 @@ import {
   stageMixes,
   stagePreset,
   type Stage,
+  type ToolId,
 } from '../stage'
 import { STAGES } from '../stages'
+import { TOOL_STAGES } from '../tool-stages'
 import { TUTORIALS, type TutorialGoal, type TutorialVisual } from '../tutorials'
 import { addText } from '../text'
 import { themedDye } from '../themes'
@@ -63,7 +65,7 @@ const DRAG_THRESHOLD = 8
  * reach back for GAME_WIDTH/HEIGHT, so at module-evaluation time those are
  * still in their temporal dead zone (same trap as `bakeDpr` in bake.ts).
  */
-function boardArea(): { top: number; bottom: number; marginX: number } {
+function boardArea(reserveTools = false): { top: number; bottom: number; marginX: number } {
   const sprayCan = resolveVisualProfile().treatment === 'spray-can'
   // The margins shrink with the world: on a portrait phone the board is the
   // screen's one job, so it runs nearly edge to edge.
@@ -71,9 +73,9 @@ function boardArea(): { top: number; bottom: number; marginX: number } {
     top: sprayCan
       ? Math.min(272, Math.round(GAME_HEIGHT * 0.28))
       : Math.min(110, Math.round(GAME_HEIGHT * 0.14)),
-    bottom: GAME_HEIGHT - (sprayCan
+    bottom: Math.min(GAME_HEIGHT - (sprayCan
       ? Math.min(160, Math.round(GAME_HEIGHT * 0.16))
-      : Math.min(56, Math.round(GAME_HEIGHT * 0.08))),
+      : Math.min(56, Math.round(GAME_HEIGHT * 0.08))), reserveTools ? GAME_HEIGHT - 130 : GAME_HEIGHT),
     marginX: Math.min(40, Math.round(GAME_WIDTH * 0.03)),
   }
 }
@@ -91,6 +93,8 @@ const LOW_MOVES = 3
 export interface GameStartData {
   /** Index into STAGES; absent = FIRST_STAGE, reachable only via the bridge. */
   stage?: number
+  /** Index into TOOL_STAGES; these continue numbering at stage 11. */
+  toolStage?: number
   /** Index into TUTORIALS; runs its authored board through the normal game loop. */
   tutorial?: number
   /**
@@ -112,7 +116,10 @@ export interface BoardReport {
   chainResults: ColorId[]
   /** Index into STAGES, or null on the dev board. */
   stage: number | null
+  toolStage: number | null
   tutorial: number | null
+  tools: Record<ToolId, number>
+  activeTool: ToolId | null
   threshold: number
   /** Moves still in the budget. */
   moves: number
@@ -153,6 +160,7 @@ interface TutorialMoveDemo {
 export class GameScene extends BaseScene {
   private stage: Stage = FIRST_STAGE
   private stageIndex?: number
+  private toolStageIndex?: number
   private tutorialIndex?: number
   private readonly mix: MixRule = (a, b) => stageMix(this.stage, a, b)
 
@@ -187,6 +195,9 @@ export class GameScene extends BaseScene {
   private objectivePanel?: Phaser.GameObjects.Container
   private pauseDialog?: Phaser.GameObjects.Container
   private paused = false
+  private tools: Record<ToolId, number> = { freeMove: 0 }
+  private activeTool: ToolId | null = null
+  private toolTray?: Phaser.GameObjects.Container
   private tutorialDemoTimer?: Phaser.Time.TimerEvent
   private tutorialDemoGeneration = 0
   private tutorialDemoDragged?: Tile
@@ -214,10 +225,13 @@ export class GameScene extends BaseScene {
 
   create(data: GameStartData = {}): void {
     this.stageIndex = data.stage
+    this.toolStageIndex = data.toolStage
     this.tutorialIndex = data.tutorial
     const authored =
       data.tutorial !== undefined
         ? TUTORIALS[data.tutorial]?.stage ?? TUTORIALS[0].stage
+        : data.toolStage !== undefined
+          ? TOOL_STAGES[data.toolStage] ?? TOOL_STAGES[0]
         : data.stage !== undefined
           ? STAGES[data.stage]
           : FIRST_STAGE
@@ -235,6 +249,9 @@ export class GameScene extends BaseScene {
     this.chainComplete = false
     this.resolving = false
     this.paused = false
+    this.tools = { freeMove: this.stage.tools?.freeMove ?? 0 }
+    this.activeTool = null
+    this.toolTray = undefined
     this.objectivePanel = undefined
     this.pauseDialog = undefined
     this.tutorialDemoTimer = undefined
@@ -271,6 +288,7 @@ export class GameScene extends BaseScene {
     }
 
     this.buildHud()
+    if (this.stage.tools) this.buildToolTray()
     if (this.tutorialIndex !== undefined) this.buildTutorialPresentation()
 
     this.input.dragDistanceThreshold = DRAG_THRESHOLD
@@ -341,11 +359,13 @@ export class GameScene extends BaseScene {
    * rotation is the accepted price; retries are free by design.
    */
   relayout(): void {
-    this.scene.restart(
-      this.tutorialIndex !== undefined
-        ? { tutorial: this.tutorialIndex }
-        : { stage: this.stageIndex },
-    )
+    this.scene.restart(this.currentStartData())
+  }
+
+  private currentStartData(): GameStartData {
+    if (this.tutorialIndex !== undefined) return { tutorial: this.tutorialIndex }
+    if (this.toolStageIndex !== undefined) return { toolStage: this.toolStageIndex }
+    return { stage: this.stageIndex }
   }
 
   /** The board and stage state as data, for tests and console archaeology. */
@@ -373,7 +393,10 @@ export class GameScene extends BaseScene {
       resolution: this.scoreResolution.kind,
       chainResults: [...this.colorChain.results],
       stage: this.stageIndex ?? null,
+      toolStage: this.toolStageIndex ?? null,
       tutorial: this.tutorialIndex ?? null,
+      tools: { ...this.tools },
+      activeTool: this.activeTool,
       threshold: this.stage.threshold,
       moves: this.movesLeft,
       endless: this.endless,
@@ -388,11 +411,13 @@ export class GameScene extends BaseScene {
    * bottom where the old generic instruction sat.
    */
   private buildHud(): void {
-    const area = boardArea()
+    const area = boardArea(Boolean(this.stage.tools))
     const visual = resolveVisualProfile()
     const label =
       this.tutorialIndex !== undefined
         ? `Tutorial ${this.tutorialIndex + 1} — ${TUTORIALS[this.tutorialIndex].name}`
+        : this.toolStageIndex !== undefined
+          ? `Stage ${STAGES.length + this.toolStageIndex + 1} — ${this.stage.name}`
         : this.stageIndex !== undefined
         ? `Stage ${this.stageIndex + 1} — ${this.stage.name}`
         : this.stage.name
@@ -416,7 +441,7 @@ export class GameScene extends BaseScene {
       28,
       88,
       '‹ Stages',
-      () => this.fadeTo('StageSelect'),
+      () => this.fadeTo('StageSelect', this.toolStageIndex !== undefined ? { page: 'tools' } : {}),
       { kind: 'quiet', name: 'back', height: 34, fontSize: '14px' },
     )
 
@@ -467,6 +492,68 @@ export class GameScene extends BaseScene {
     }).setOrigin(0.5)
 
     this.updateHud()
+  }
+
+  /** Bottom tool tray. Free Move follows the supplied stacked-card reference. */
+  private buildToolTray(): void {
+    const visual = resolveVisualProfile()
+    const size = Math.min(82, Math.max(66, GAME_HEIGHT * 0.1))
+    const tray = this.add
+      .container(GAME_WIDTH / 2, GAME_HEIGHT - size / 2 - 10)
+      .setName('tool-tray')
+      .setDepth(18)
+    const button = this.add
+      .container(0, 0)
+      .setName('tool-freeMove')
+      .setSize(size, size)
+      .setInteractive({ useHandCursor: true })
+    const activeFrame = this.add.graphics().setName('tool-active-frame')
+    const art = this.add
+      .image(0, 0, 'tool-freeMove')
+      .setDisplaySize(size * 1.08, size * 1.08)
+      .setName('tool-art')
+    const count = addText(this, size * 0.37, -size * 0.39, `${this.tools.freeMove}`, {
+      fontFamily: visual.type.family,
+      fontSize: `${Math.round(size * 0.25)}px`,
+      fontStyle: 'bold',
+      color: ink(0x17150d),
+    }).setOrigin(0.5).setName('tool-count')
+    button.add([activeFrame, art, count])
+    tray.add(button)
+    this.toolTray = tray
+
+    const paint = (): void => {
+      const active = this.activeTool === 'freeMove'
+      const available = this.tools.freeMove > 0
+      activeFrame.clear()
+      if (active) {
+        activeFrame.lineStyle(5, visual.colors.focus, 1)
+        activeFrame.strokePoints([
+          new Phaser.Math.Vector2(-size * 0.43, -size * 0.41),
+          new Phaser.Math.Vector2(size * 0.36, -size * 0.39),
+          new Phaser.Math.Vector2(size * 0.35, size * 0.4),
+          new Phaser.Math.Vector2(-size * 0.44, size * 0.37),
+        ], true)
+      }
+      count.setText(`${this.tools.freeMove}`)
+      button.setAlpha(available ? 1 : 0.6)
+      button.setScale(active ? 1.06 : 1)
+      button.setData('active', active)
+      button.setData('remaining', this.tools.freeMove)
+    }
+    button.on('pointerup', () => {
+      if (this.resolving || this.paused || this.tools.freeMove <= 0) return
+      this.activeTool = this.activeTool === 'freeMove' ? null : 'freeMove'
+      paint()
+    })
+    button.setData('repaint', paint)
+    paint()
+  }
+
+  private repaintTools(): void {
+    const button = this.toolTray?.getByName('tool-freeMove') as Phaser.GameObjects.Container | null
+    const repaint = button?.getData('repaint') as (() => void) | undefined
+    repaint?.()
   }
 
   private buildTutorialPresentation(): void {
@@ -776,7 +863,12 @@ export class GameScene extends BaseScene {
       new Phaser.Math.Vector2(paperWidth / 2 - 2, paperHeight / 2),
       new Phaser.Math.Vector2(-paperWidth / 2, paperHeight / 2 - 1),
     ], true)
-    const stageNumber = this.stageIndex !== undefined ? this.stageIndex + 1 : 0
+    const stageNumber =
+      this.toolStageIndex !== undefined
+        ? STAGES.length + this.toolStageIndex + 1
+        : this.stageIndex !== undefined
+          ? this.stageIndex + 1
+          : 0
     const paperKicker = addText(
       this,
       -paperWidth / 2 + 18,
@@ -1232,7 +1324,7 @@ export class GameScene extends BaseScene {
    * ballooning to fill the space.
    */
   private layoutBoard(): void {
-    const area = boardArea()
+    const area = boardArea(Boolean(this.stage.tools))
     const areaWidth = GAME_WIDTH - area.marginX * 2
     const areaHeight = area.bottom - area.top
     this.pitch = Math.min(
@@ -1316,7 +1408,7 @@ export class GameScene extends BaseScene {
     if (
       cell < 0 ||
       cell === origin ||
-      !isAdjacent(this.grid, origin, cell) ||
+      (this.activeTool !== 'freeMove' && !isAdjacent(this.grid, origin, cell)) ||
       this.resolving ||
       !this.tiles[cell] ||
       this.tiles[cell].busy
@@ -1328,7 +1420,14 @@ export class GameScene extends BaseScene {
     }
 
     const other = this.tiles[cell]
-    const move = resolveMove(this.grid, this.cells, this.mix, origin, cell)
+    const move = resolveMove(
+      this.grid,
+      this.cells,
+      this.mix,
+      origin,
+      cell,
+      { allowDistant: this.activeTool === 'freeMove' },
+    )
 
     if (move.kind === 'illegal') {
       // A real attempt the rules refuse: both tiles say no, so the legality
@@ -1348,6 +1447,11 @@ export class GameScene extends BaseScene {
     }
 
     this.resolving = true
+    if (this.activeTool === 'freeMove') {
+      this.tools.freeMove--
+      this.activeTool = null
+      this.repaintTools()
+    }
     this.spendMove()
 
     if (move.kind === 'merge') {
@@ -1888,26 +1992,43 @@ export class GameScene extends BaseScene {
     }
     await Promise.all(bursts)
 
-    const next = this.stageIndex !== undefined ? this.stageIndex + 1 : undefined
-    const hasNext = next !== undefined && next < STAGES.length
+    const next =
+      this.toolStageIndex !== undefined
+        ? this.toolStageIndex + 1
+        : this.stageIndex !== undefined
+          ? this.stageIndex + 1
+          : undefined
+    const hasNext =
+      next !== undefined &&
+      (this.toolStageIndex !== undefined ? next < TOOL_STAGES.length : next < STAGES.length)
     const [tally] = this.buildOverlay('Stage clear!', ['Score: 0'], [
       hasNext
         ? {
             label: 'Next stage',
             name: 'next',
             primary: true,
-            action: () => this.fadeTo('Game', { stage: next }),
+            action: () => this.fadeTo(
+              'Game',
+              this.toolStageIndex !== undefined ? { toolStage: next } : { stage: next },
+            ),
           }
         : {
             label: 'Replay',
             name: 'retry',
             primary: true,
-            action: () => this.fadeTo('Game', { stage: this.stageIndex }),
+            action: () => this.fadeTo('Game', this.currentStartData()),
           },
       {
         label: 'Stages',
         name: 'stages',
-        action: () => this.fadeTo('StageSelect', opened ? { reveal: next } : {}),
+        action: () => this.fadeTo(
+          'StageSelect',
+          this.toolStageIndex !== undefined
+            ? { page: 'tools' }
+            : opened
+              ? { reveal: next }
+              : {},
+        ),
       },
     ])
 
@@ -1945,9 +2066,16 @@ export class GameScene extends BaseScene {
           label: 'Retry',
           name: 'retry',
           primary: true,
-          action: () => this.fadeTo('Game', { stage: this.stageIndex }),
+          action: () => this.fadeTo('Game', this.currentStartData()),
         },
-        { label: 'Stages', name: 'stages', action: () => this.fadeTo('StageSelect') },
+        {
+          label: 'Stages',
+          name: 'stages',
+          action: () => this.fadeTo(
+            'StageSelect',
+            this.toolStageIndex !== undefined ? { page: 'tools' } : {},
+          ),
+        },
       ],
     )
   }

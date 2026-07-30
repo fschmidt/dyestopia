@@ -11,6 +11,9 @@
 - combo mixing becomes a tool/tile
 - defy gravity (instead of falling down, the next time empty tiles are created, tiles pull same color tiles into their vincinty to create a reaction if possible)
 
+## Passives
+- "Doing a rainbow chain awards a 'free move'"
+
 
 # Accessibility
 - greyscale / colorblind mode (what's actually possible and what's not)
@@ -44,3 +47,7 @@ Second step: Chain indicator -> Rainbow chain
 ## Advanced Tutorial
 First step: Chain breaking
 Second step: Rainbow chain breaking
+
+
+# Roguelike mode
+- Enemies can interact with your board. Interactions are telegraphed and can be countered

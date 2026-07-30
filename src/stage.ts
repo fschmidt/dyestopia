@@ -1,6 +1,9 @@
 import type { Grid } from './board'
 import { mixComponents, mixResult, type ColorId } from './colors'
 
+export type ToolId = 'freeMove'
+export type ToolInventory = Partial<Record<ToolId, number>>
+
 /**
  * A stage: which colours are in play, the shape of the board they play on,
  * and what winning it takes. The board is seeded (and refilled) from `seed`,
@@ -22,6 +25,8 @@ export interface Stage {
   active: ColorId[]
   seed: ColorId[]
   board: string[]
+  /** Per-run tool uses. Omitted tools do not appear in the tray. */
+  tools?: ToolInventory
 }
 
 /**
