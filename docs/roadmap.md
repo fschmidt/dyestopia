@@ -52,6 +52,12 @@ explanation.*
 *Exit: the free move tile is understandable, playable, and testable in its own
 tutorial stage, with a reusable pattern for adding later tools.*
 
+### M3 — Stages as external files (descriptors)
+
+1. Rework prerequisites:
+- every stage has an objective shown in the pause menu and on an "Introductio screen"
+- TBD
+
 ### Later — Finish switchable art direction
 
 - Add **Splash Colors** as a restyle of the existing shared layout and

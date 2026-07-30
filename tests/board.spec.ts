@@ -231,6 +231,32 @@ test.describe('merge resolution', () => {
     expect(findLegalMove(row, cells)).toBeNull()
     expect(findLegalMove(row, cells, mixResult)).toEqual([3, 2])
   })
+
+  test('free move permits a legal interaction between non-adjacent tiles', () => {
+    const row = parseMask(['#####'])
+    const swapCells = cellsOf(row, ['rrybr'])
+
+    expect(resolveMove(row, swapCells, mixResult, 2, 4)).toEqual({ kind: 'illegal' })
+    expect(resolveMove(row, swapCells, mixResult, 2, 4, { allowDistant: true })).toEqual({
+      kind: 'swap',
+    })
+
+    const mergeCells = cellsOf(row, ['ooryy'])
+    expect(resolveMove(row, mergeCells, mixResult, 4, 2)).toEqual({ kind: 'illegal' })
+    expect(resolveMove(row, mergeCells, mixResult, 4, 2, { allowDistant: true })).toEqual({
+      kind: 'merge',
+      result: 'orange',
+    })
+  })
+
+  test('free move still refuses distant interactions that make no match', () => {
+    const row = parseMask(['#####'])
+    const cells = cellsOf(row, ['rybgo'])
+
+    expect(resolveMove(row, cells, mixResult, 0, 4, { allowDistant: true })).toEqual({
+      kind: 'illegal',
+    })
+  })
 })
 
 test.describe('combo conversions (M3 prototype)', () => {

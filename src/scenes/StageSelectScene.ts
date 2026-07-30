@@ -11,6 +11,7 @@ import {
 import { getSettings } from '../settings'
 import { STAGES } from '../stages'
 import { addText } from '../text'
+import { TOOL_STAGES } from '../tool-stages'
 import { TUTORIALS } from '../tutorials'
 import { addButton, addSurface } from '../ui/components'
 import { ink, resolveVisualProfile } from '../ui/visual-system'
@@ -36,7 +37,7 @@ export class StageSelectScene extends BaseScene {
     super('StageSelect')
   }
 
-  create(data: { reveal?: number } = {}): void {
+  create(data: { reveal?: number; page?: 'tools' } = {}): void {
     this.reveal = data.reveal
     const visual = resolveVisualProfile()
 
@@ -71,6 +72,11 @@ export class StageSelectScene extends BaseScene {
         letterSpacing: 3,
         color: ink(visual.colors.primaryInk),
       }).setOrigin(0.5)
+    }
+
+    if (data.page === 'tools') {
+      this.buildToolStages()
+      return
     }
 
     this.buildTutorials()
@@ -125,17 +131,81 @@ export class StageSelectScene extends BaseScene {
 
     addButton(
       this,
-      GAME_WIDTH / 2,
+      GAME_WIDTH / 3,
       GAME_HEIGHT - 36,
-      Math.min(220, GAME_WIDTH - 48),
+      Math.min(220, GAME_WIDTH / 2 - 30),
       '‹  Menu',
       () => this.fadeTo('Menu'),
       { kind: 'quiet', name: 'button-back' },
+    )
+    addButton(
+      this,
+      (GAME_WIDTH * 2) / 3,
+      GAME_HEIGHT - 36,
+      Math.min(220, GAME_WIDTH / 2 - 30),
+      'Tools  ›',
+      () => this.scene.restart({ page: 'tools' }),
+      { kind: 'primary', name: 'tool-stages' },
     )
 
     this.input.keyboard?.once('keydown-ESC', () => this.fadeTo('Menu'))
     this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('Game', { stage: frontier }))
     this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('Game', { stage: frontier }))
+  }
+
+  private buildToolStages(): void {
+    const visual = resolveVisualProfile()
+    const width = Math.min(620, GAME_WIDTH - 28)
+    const top = Math.min(150, GAME_HEIGHT * 0.2)
+    addText(this, (GAME_WIDTH - width) / 2 + 12, top, 'TOOLS', {
+      fontFamily: visual.type.family,
+      fontSize: visual.type.label,
+      fontStyle: 'bold',
+      letterSpacing: 3,
+      color: ink(visual.colors.secondaryInk),
+    })
+    addSurface(this, GAME_WIDTH / 2, top + 116, width, 180, 'tool-stage-ledger')
+
+    const size = Math.min(116, width * 0.24)
+    TOOL_STAGES.forEach((stage, index) => {
+      const x = (GAME_WIDTH - width) / 2 + 28 + size / 2 + index * (size + 20)
+      const y = top + 96
+      const cell = this.add
+        .rectangle(x, y, size, size, visual.colors.accent, 0.88)
+        .setStrokeStyle(3, visual.colors.primaryInk, 0.7)
+        .setName(`tool-stage-${index}`)
+        .setInteractive({ useHandCursor: true })
+      addText(this, x, y - 9, `${STAGES.length + index + 1}`, {
+        fontFamily: visual.type.family,
+        fontSize: `${Math.round(size * 0.4)}px`,
+        fontStyle: 'bold',
+        color: ink(visual.colors.accentInk),
+      }).setOrigin(0.5)
+      addText(this, x, y + size * 0.3, stage.name.toUpperCase(), {
+        fontFamily: visual.type.family,
+        fontSize: '11px',
+        fontStyle: 'bold',
+        color: ink(visual.colors.accentInk),
+      }).setOrigin(0.5)
+      cell.on('pointerup', () => this.fadeTo('Game', { toolStage: index }))
+    })
+
+    addText(this, GAME_WIDTH / 2, top + 236, 'Tool stages are focused testing grounds for each tool.', {
+      fontFamily: visual.type.family,
+      fontSize: '16px',
+      color: ink(visual.colors.secondaryInk),
+    }).setOrigin(0.5)
+
+    addButton(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 36,
+      Math.min(260, GAME_WIDTH - 48),
+      '‹  Core stages',
+      () => this.scene.restart(),
+      { kind: 'quiet', name: 'button-back' },
+    )
+    this.input.keyboard?.once('keydown-ESC', () => this.scene.restart())
   }
 
   /** Cell pitch (cell + gap), sized to the width and capped for desktops. */

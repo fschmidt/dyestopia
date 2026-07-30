@@ -5,9 +5,8 @@ import { ink, resolveVisualProfile } from '../ui/visual-system'
 import { BaseScene } from './BaseScene'
 
 /**
- * Loads whatever the game needs before anything is shown, then hands off to the
- * menu. Right now there are no assets — the loading bar is here so adding them
- * later doesn't mean restructuring the boot flow.
+ * Loads visual assets before handing off to the menu. Tile sheets remain
+ * procedurally baked in `create`; authored artwork such as tools loads here.
  */
 export class BootScene extends BaseScene {
   constructor() {
@@ -37,6 +36,7 @@ export class BootScene extends BaseScene {
     for (const background of BACKGROUNDS) {
       this.load.image(backgroundTexture(background.id), background.asset)
     }
+    this.load.svg('tool-freeMove', '/tools/free-move-paper-cream.svg')
   }
 
   create(): void {
