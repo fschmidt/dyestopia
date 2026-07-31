@@ -2,16 +2,25 @@ import Phaser from 'phaser'
 
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import {
+  catalogStageUnlocked,
+  isCatalogStageCleared,
   isStageCleared,
   isTutorialCleared,
   naturalStageUnlocked,
   naturalTutorialUnlocked,
+  sectionClearedCount,
   unlockedCount,
 } from '../progress'
 import { getSettings } from '../settings'
+import {
+  STAGE_SECTIONS,
+  stageSection,
+  stageStartData,
+  type StageCatalogEntry,
+  type StageSectionId,
+} from '../stage-catalog'
 import { STAGES } from '../stages'
 import { addText } from '../text'
-import { TOOL_STAGES } from '../tool-stages'
 import { TUTORIALS } from '../tutorials'
 import { addButton, addSurface } from '../ui/components'
 import { ink, resolveVisualProfile } from '../ui/visual-system'
@@ -37,8 +46,20 @@ export class StageSelectScene extends BaseScene {
     super('StageSelect')
   }
 
-  create(data: { reveal?: number; page?: 'tools' } = {}): void {
+  create(data: {
+    reveal?: number
+    page?: 'modes' | StageSectionId
+    selected?: number
+  } = {}): void {
     this.reveal = data.reveal
+    if (data.page === 'modes') {
+      this.buildModeSelect()
+      return
+    }
+    if (data.page === 'core' || data.page === 'tutorial' || data.page === 'tools') {
+      this.buildRedesignedStages(data.page, data.selected)
+      return
+    }
     const visual = resolveVisualProfile()
 
     const titleY = Math.min(74, GAME_HEIGHT * 0.09)
@@ -72,11 +93,6 @@ export class StageSelectScene extends BaseScene {
         letterSpacing: 3,
         color: ink(visual.colors.primaryInk),
       }).setOrigin(0.5)
-    }
-
-    if (data.page === 'tools') {
-      this.buildToolStages()
-      return
     }
 
     this.buildTutorials()
@@ -131,21 +147,12 @@ export class StageSelectScene extends BaseScene {
 
     addButton(
       this,
-      GAME_WIDTH / 3,
+      GAME_WIDTH / 2,
       GAME_HEIGHT - 36,
-      Math.min(220, GAME_WIDTH / 2 - 30),
+      Math.min(220, GAME_WIDTH - 48),
       '‹  Menu',
       () => this.fadeTo('Menu'),
       { kind: 'quiet', name: 'button-back' },
-    )
-    addButton(
-      this,
-      (GAME_WIDTH * 2) / 3,
-      GAME_HEIGHT - 36,
-      Math.min(220, GAME_WIDTH / 2 - 30),
-      'Tools  ›',
-      () => this.scene.restart({ page: 'tools' }),
-      { kind: 'primary', name: 'tool-stages' },
     )
 
     this.input.keyboard?.once('keydown-ESC', () => this.fadeTo('Menu'))
@@ -153,59 +160,235 @@ export class StageSelectScene extends BaseScene {
     this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('Game', { stage: frontier }))
   }
 
-  private buildToolStages(): void {
-    const visual = resolveVisualProfile()
-    const width = Math.min(620, GAME_WIDTH - 28)
-    const top = Math.min(150, GAME_HEIGHT * 0.2)
-    addText(this, (GAME_WIDTH - width) / 2 + 12, top, 'TOOLS', {
-      fontFamily: visual.type.family,
-      fontSize: visual.type.label,
-      fontStyle: 'bold',
-      letterSpacing: 3,
-      color: ink(visual.colors.secondaryInk),
+  private designText(
+    x: number,
+    y: number,
+    value: string,
+    size: number,
+    color: number,
+    weight: 'normal' | 'bold' = 'bold',
+  ): Phaser.GameObjects.Text {
+    return addText(this, x, y, value, {
+      fontFamily: 'Archivo, sans-serif',
+      fontSize: `${size}px`,
+      fontStyle: weight,
+      color: ink(color),
     })
-    addSurface(this, GAME_WIDTH / 2, top + 116, width, 180, 'tool-stage-ledger')
+  }
 
-    const size = Math.min(116, width * 0.24)
-    TOOL_STAGES.forEach((stage, index) => {
-      const x = (GAME_WIDTH - width) / 2 + 28 + size / 2 + index * (size + 20)
-      const y = top + 96
-      const cell = this.add
-        .rectangle(x, y, size, size, visual.colors.accent, 0.88)
-        .setStrokeStyle(3, visual.colors.primaryInk, 0.7)
-        .setName(`tool-stage-${index}`)
-        .setInteractive({ useHandCursor: true })
-      addText(this, x, y - 9, `${STAGES.length + index + 1}`, {
-        fontFamily: visual.type.family,
-        fontSize: `${Math.round(size * 0.4)}px`,
-        fontStyle: 'bold',
-        color: ink(visual.colors.accentInk),
-      }).setOrigin(0.5)
-      addText(this, x, y + size * 0.3, stage.name.toUpperCase(), {
-        fontFamily: visual.type.family,
-        fontSize: '11px',
-        fontStyle: 'bold',
-        color: ink(visual.colors.accentInk),
-      }).setOrigin(0.5)
-      cell.on('pointerup', () => this.fadeTo('Game', { toolStage: index }))
+  private buildPaperTitle(label: string): void {
+    const width = Math.min(330, Math.max(230, label.length * 23 + 72))
+    const y = 62
+    this.add.rectangle(GAME_WIDTH / 2, y + 3, width, 58, 0x000000, 0.4)
+    this.add.rectangle(GAME_WIDTH / 2, y, width, 58, 0xece8dd)
+    this.designText(GAME_WIDTH / 2, y, label, 26, 0x1c1712)
+      .setOrigin(0.5)
+      .setLetterSpacing(6)
+  }
+
+  private buildModeSelect(): void {
+    this.buildPaperTitle('STAGES')
+    const width = Math.min(520, GAME_WIDTH - 48)
+    const top = Math.max(154, GAME_HEIGHT * 0.22)
+    const unlockAll = getSettings().unlockAllStages
+    STAGE_SECTIONS.forEach((section, index) => {
+      const sectionOpen = unlockAll ||
+        section.stages[0] === undefined ||
+        catalogStageUnlocked(section.stages[0])
+      this.buildModeCard(
+        section.name.toUpperCase(),
+        top + index * 142,
+        width,
+        section.stages.length,
+        sectionClearedCount(section.id),
+        section.id,
+        !sectionOpen,
+      )
     })
-
-    addText(this, GAME_WIDTH / 2, top + 236, 'Tool stages are focused testing grounds for each tool.', {
-      fontFamily: visual.type.family,
-      fontSize: '16px',
-      color: ink(visual.colors.secondaryInk),
-    }).setOrigin(0.5)
 
     addButton(
       this,
       GAME_WIDTH / 2,
-      GAME_HEIGHT - 36,
-      Math.min(260, GAME_WIDTH - 48),
-      '‹  Core stages',
-      () => this.scene.restart(),
+      GAME_HEIGHT - 42,
+      Math.min(230, GAME_WIDTH - 48),
+      '‹  Title',
+      () => this.fadeTo('Menu'),
       { kind: 'quiet', name: 'button-back' },
     )
-    this.input.keyboard?.once('keydown-ESC', () => this.scene.restart())
+    this.input.keyboard?.once('keydown-ESC', () => this.fadeTo('Menu'))
+  }
+
+  private buildModeCard(
+    label: string,
+    y: number,
+    width: number,
+    total: number,
+    cleared: number,
+    mode: StageSectionId,
+    locked: boolean,
+  ): void {
+    const height = 112
+    const active = !locked && cleared < total
+    const card = this.add
+      .rectangle(GAME_WIDTH / 2, y, width, height, 0x161411)
+      .setStrokeStyle(1, active ? 0xedc22e : 0x3a342c)
+      .setName(`mode-${mode}`)
+    if (!locked) {
+      card.setInteractive({ useHandCursor: true })
+      card.on('pointerup', () => this.scene.restart({ page: mode }))
+    }
+    const left = GAME_WIDTH / 2 - width / 2 + 24
+    this.designText(left, y - 30, label, 24, locked ? 0x57534a : 0xf0ead8).setOrigin(0, 0.5).setLetterSpacing(2)
+    const status = cleared === total ? 'CLEARED' : `${cleared} / ${total}`
+    const statusColor = cleared === total && !locked ? 0x1c1712 : 0x8a8478
+    if (cleared === total && !locked) this.add.rectangle(GAME_WIDTH / 2 + width / 2 - 58, y - 30, 84, 25, 0xedc22e).setAngle(-4)
+    if (locked) {
+      this.addLock(GAME_WIDTH / 2 + width / 2 - 58, y - 30)
+        .setName(`section-lock-${mode}`)
+    } else {
+      this.designText(GAME_WIDTH / 2 + width / 2 - 58, y - 30, status, cleared === total ? 11 : 13, statusColor)
+        .setOrigin(0.5)
+        .setLetterSpacing(cleared === total ? 2 : 1)
+    }
+
+    const gap = 6
+    const segmentWidth = (width - 48 - gap * (total - 1)) / total
+    const startX = left + segmentWidth / 2
+    for (let index = 0; index < total; index++) {
+      this.add.rectangle(
+        startX + index * (segmentWidth + gap),
+        y + 28,
+        segmentWidth,
+        10,
+        index < cleared ? 0xedc22e : 0x33302a,
+      )
+    }
+  }
+
+  private buildRedesignedStages(mode: StageSectionId, requested?: number): void {
+    const section = stageSection(mode)
+    const entries = section.stages
+    const unlockAll = getSettings().unlockAllStages
+    const cleared = (index: number): boolean => isCatalogStageCleared(entries[index])
+    const open = (index: number): boolean => unlockAll || catalogStageUnlocked(entries[index])
+    let selected = requested
+    if (selected === undefined || !open(selected)) {
+      selected = entries.findIndex((_, index) => open(index) && !cleared(index))
+      if (selected < 0) selected = entries.length - 1
+    }
+
+    this.buildPaperTitle(section.name.toUpperCase())
+    const width = Math.min(520, GAME_WIDTH - 48)
+    const left = GAME_WIDTH / 2 - width / 2
+    const gridTop = 112
+    const compact = GAME_HEIGHT < 760
+    const gap = compact ? 6 : 10
+    const cols = 2
+    const cellWidth = (width - 28 - gap) / cols
+    const cellHeight = compact ? 42 : 54
+    const rows = Math.ceil(entries.length / cols)
+    const panelHeight = rows * cellHeight + (rows - 1) * gap + 28
+    this.add.rectangle(GAME_WIDTH / 2, gridTop + panelHeight / 2, width, panelHeight, 0x161411)
+      .setStrokeStyle(1, 0x3a342c)
+
+    entries.forEach((entry, index) => {
+      const x = left + 14 + cellWidth / 2 + (index % cols) * (cellWidth + gap)
+      const y = gridTop + 14 + cellHeight / 2 + Math.floor(index / cols) * (cellHeight + gap)
+      const isOpen = open(index)
+      const isCleared = cleared(index)
+      const isSelected = index === selected
+      const fill = isSelected ? (isCleared ? 0xece8dd : 0xedc22e) : isCleared ? 0x25211a : isOpen ? 0xedc22e : 0x1b1815
+      const border = isSelected ? (isCleared ? 0xffffff : 0xf5d75c) : isCleared ? 0x7d6a2e : isOpen ? 0xf5d75c : 0x33302a
+      const tile = this.add.rectangle(x, y, cellWidth, cellHeight, fill).setStrokeStyle(1, border)
+      const hitName = `${mode === 'tutorial' ? 'tutorial' : mode === 'tools' ? 'tool-stage' : 'stage'}-${index}`
+      tile.setName(hitName)
+      if (isOpen) {
+        tile.setInteractive({ useHandCursor: true })
+        tile.on('pointerup', () => this.scene.restart({ page: mode, selected: index }))
+      }
+      const inkColor = isSelected || (!isCleared && isOpen) ? 0x1c1712 : isCleared ? 0xedc22e : 0x57534a
+      this.designText(x - cellWidth / 2 + 12, y - 10, `${entry.id}`, 20, inkColor).setOrigin(0, 0.5)
+      this.designText(
+        x - cellWidth / 2 + 12,
+        y + 13,
+        entry.name.toUpperCase(),
+        12,
+        isSelected || (!isCleared && isOpen) ? 0x1c1712 : isCleared ? 0xc9c2b2 : 0x57534a,
+      ).setOrigin(0, 0.5).setLetterSpacing(1)
+      if (isCleared) this.addDesignStamp(x + cellWidth / 2 - 43, y - 10, isSelected)
+      if (!isOpen) this.addLock(x + cellWidth / 2 - 23, y - 9)
+    })
+
+    const detailTop = gridTop + panelHeight + 14
+    this.buildStageDetail(entries[selected], detailTop, width, cleared(selected), open(selected))
+    addButton(
+      this,
+      GAME_WIDTH / 2,
+      GAME_HEIGHT - 37,
+      Math.min(220, GAME_WIDTH - 48),
+      '‹  Stages',
+      () => this.scene.restart({ page: 'modes' }),
+      { kind: 'quiet', name: 'button-back' },
+    )
+    this.input.keyboard?.once('keydown-ESC', () => this.scene.restart({ page: 'modes' }))
+  }
+
+  private buildStageDetail(
+    entry: StageCatalogEntry,
+    top: number,
+    width: number,
+    cleared: boolean,
+    open: boolean,
+  ): void {
+    const name = entry.name.toUpperCase()
+    const description = entry.tutorial?.explanation.map(({ text }) => text).join(' ') ?? entry.stage.hint
+    const height = Math.min(166, GAME_HEIGHT - top - 88)
+    const centerY = top + height / 2
+    this.add.rectangle(GAME_WIDTH / 2, centerY, width, height, 0x1d1b17)
+      .setStrokeStyle(1, 0x4a4335)
+    this.add.rectangle(GAME_WIDTH / 2, top + 1, width, 2, cleared ? 0xece8dd : 0xedc22e)
+    const left = GAME_WIDTH / 2 - width / 2 + 20
+    this.designText(left, top + 25, `${entry.id}`, 30, cleared ? 0xece8dd : open ? 0xedc22e : 0x57534a).setOrigin(0, 0.5)
+    this.designText(left + 46, top + 25, name, 19, 0xf0ead8).setOrigin(0, 0.5).setLetterSpacing(2)
+    if (cleared) this.addDesignStamp(GAME_WIDTH / 2 + width / 2 - 47, top + 25, false)
+    else this.designText(GAME_WIDTH / 2 + width / 2 - 20, top + 25, open ? 'NEXT UP' : 'LOCKED', 12, 0x8a8478).setOrigin(1, 0.5).setLetterSpacing(2)
+    this.designText(left, top + 55, description, 14, 0xb5afa3, 'normal')
+      .setWordWrapWidth(width - 40)
+      .setLineSpacing(3)
+
+    const ctaY = top + height - 30
+    const button = this.add.rectangle(
+      GAME_WIDTH / 2,
+      ctaY,
+      width - 40,
+      48,
+      !open || cleared ? 0x1d1b17 : 0xedc22e,
+    ).setStrokeStyle(cleared || !open ? 1 : 0, open ? 0xedc22e : 0x4a4335).setName('stage-cta')
+    this.designText(GAME_WIDTH / 2, ctaY, !open ? 'LOCKED' : cleared ? 'REPLAY  ›' : 'PLAY  ›', 17, !open ? 0x57534a : cleared ? 0xedc22e : 0x1c1712)
+      .setOrigin(0.5)
+      .setLetterSpacing(3)
+    if (open) {
+      button.setInteractive({ useHandCursor: true })
+      button.on('pointerup', () => this.fadeTo('Game', stageStartData(entry)))
+    }
+  }
+
+  private addDesignStamp(x: number, y: number, inverted: boolean): void {
+    this.add.rectangle(x, y, 74, 22, inverted ? 0x1c1712 : 0xedc22e).setAngle(-4)
+    this.designText(x, y, 'CLEARED', 9, inverted ? 0xedc22e : 0x1c1712).setOrigin(0.5).setAngle(-4).setLetterSpacing(1.5)
+  }
+
+  private addLock(x: number, y: number): Phaser.GameObjects.Graphics {
+    const lock = this.add.graphics({ x, y }).setAngle(-8)
+    lock.lineStyle(3, 0x57534a)
+    lock.beginPath()
+    lock.arc(0, -5, 7, Math.PI, 0)
+    lock.strokePath()
+    lock.fillStyle(0x57534a)
+    lock.fillRect(-9, -4, 18, 14)
+    lock.fillStyle(0x1b1815)
+    lock.fillRect(-1.5, 1, 3, 6)
+    return lock
   }
 
   /** Cell pitch (cell + gap), sized to the width and capped for desktops. */

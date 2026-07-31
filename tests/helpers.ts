@@ -46,13 +46,17 @@ export async function hitTarget(page: Page, scene: string, name: string): Promis
   return target
 }
 
-/** Menu → stage select → stage 1, the way a player gets into a round. */
+/** Menu → Core mode → stage 1 → Play, the way a player gets into a round. */
 export async function startGame(page: Page): Promise<void> {
   const play = await hitTarget(page, 'Menu', 'button-play')
   await clickWorld(page, 'Menu', play.x, play.y)
   await waitForScene(page, 'StageSelect')
+  const core = await hitTarget(page, 'StageSelect', 'mode-core')
+  await clickWorld(page, 'StageSelect', core.x, core.y)
   const cell = await hitTarget(page, 'StageSelect', 'stage-0')
   await clickWorld(page, 'StageSelect', cell.x, cell.y)
+  const cta = await hitTarget(page, 'StageSelect', 'stage-cta')
+  await clickWorld(page, 'StageSelect', cta.x, cta.y)
   await waitForScene(page, 'Game')
 }
 
