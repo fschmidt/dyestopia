@@ -27,7 +27,7 @@ function outlineAt(t: number): number[] {
   return from.map((value, i) => value + (to[i] - value) * blend)
 }
 
-function splashPath(ctx: CanvasRenderingContext2D, size: number, t: number): void {
+export function splashPath(ctx: CanvasRenderingContext2D, size: number, t: number): void {
   const p = outlineAt(t).map((value) => value * size)
   ctx.beginPath()
   ctx.moveTo(p[0], p[1])
@@ -48,7 +48,7 @@ const base: Painter = (ctx, size, t) => {
   ctx.fill()
 }
 
-const gloss: Painter = (ctx, size, t) => {
+export const splashGloss: Painter = (ctx, size, t) => {
   const drift = Math.sin(t * Math.PI * 2)
   ctx.save()
   ctx.translate(size * (0.29 + drift * 0.006), size * (0.27 - drift * 0.004))
@@ -70,6 +70,6 @@ export const SPLASH: Shape = {
   pad: 14,
   gap: 26,
   base,
-  gloss,
+  gloss: splashGloss,
   motion: SPLASH_MOTION,
 }

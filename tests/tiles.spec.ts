@@ -5,14 +5,16 @@ import { DEFAULT_SHAPE, SHAPES } from '../src/tiles/shapes'
 import { getTheme } from '../src/themes'
 import { open, startGame, waitForScene } from './helpers'
 
-test('the new splash is the default and deep splash keeps the same behaviour', () => {
+test('every splash treatment keeps the same behaviour', () => {
   expect(SHAPES.map(({ id, label }) => ({ id, label }))).toEqual([
     { id: 'splash', label: 'Splash' },
+    { id: 'rim-splash', label: 'Rim Splash' },
+    { id: 'soft-splash', label: 'Soft Splash' },
     { id: 'blob', label: 'Deep Splash' },
     { id: 'mosaic', label: 'Mosaic' },
   ])
   expect(DEFAULT_SHAPE).toBe('splash')
-  expect(SHAPES[0].motion).toBe(SHAPES[1].motion)
+  for (const shape of SHAPES.slice(1, 4)) expect(shape.motion).toBe(SHAPES[0].motion)
 })
 
 test('the Dyestopia recipe uses the system-dye reference colours', () => {
@@ -68,7 +70,7 @@ test('every shape bakes its sheets at boot', async ({ page }) => {
 
   const sheets = await page.evaluate(() => {
     const { textures } = window.dyestopia!.game
-    return ['splash', 'blob', 'mosaic'].flatMap((shape) =>
+    return ['splash', 'rim-splash', 'soft-splash', 'blob', 'mosaic'].flatMap((shape) =>
       ['base', 'gloss'].map((layer) => {
         const key = `tile-${shape}-${layer}`
         return {
@@ -82,7 +84,7 @@ test('every shape bakes its sheets at boot', async ({ page }) => {
 
   // All shapes are baked up front, not on demand — that's what lets the
   // settings screen switch without a stall.
-  expect(sheets).toHaveLength(6)
+  expect(sheets).toHaveLength(10)
   for (const sheet of sheets) {
     expect(sheet.exists, `${sheet.key} was baked`).toBe(true)
     expect(sheet.frames, `${sheet.key} frame count`).toBe(24)

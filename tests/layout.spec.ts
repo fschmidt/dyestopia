@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { clickWorld, hitTarget, open, waitForScene } from './helpers'
 
 /**
- * Portrait-only layout: every viewport uses one 430×844 design canvas. Phaser
+ * Portrait-only layout: every viewport uses one 393×852 iPhone 15 Pro canvas. Phaser
  * scales it uniformly, so browser aspect changes cannot alter the composition.
  */
 
@@ -18,24 +18,24 @@ const worldSize = (
   }))
 
 test('a portrait viewport uses the canonical design canvas', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize({ width: 393, height: 852 })
   await open(page)
 
   const { width, height, dpr } = await worldSize(page)
-  expect(width).toBe(430 * dpr)
-  expect(height).toBe(844 * dpr)
+  expect(width).toBe(393 * dpr)
+  expect(height).toBe(852 * dpr)
 })
 
 test('rotation keeps the same portrait world', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize({ width: 393, height: 852 })
   await open(page)
 
-  await page.setViewportSize({ width: 844, height: 390 })
+  await page.setViewportSize({ width: 852, height: 393 })
 
   // The physical viewport is landscape, but the logical game stays portrait.
   const dpr = (await worldSize(page)).dpr
-  await expect.poll(async () => (await worldSize(page)).width).toBe(430 * dpr)
-  expect((await worldSize(page)).height).toBe(844 * dpr)
+  await expect.poll(async () => (await worldSize(page)).width).toBe(393 * dpr)
+  expect((await worldSize(page)).height).toBe(852 * dpr)
 
   // The menu rebuilt against the new world: its Play button hit-tests where
   // the *new* coordinate space says it is.
@@ -48,7 +48,7 @@ test('rotation keeps the same portrait world', async ({ page }) => {
 test('different desktop sizes keep exactly the same portrait world', async ({ page }) => {
   await open(page)
   const before = await worldSize(page)
-  expect(before).toEqual({ width: 430 * before.dpr, height: 844 * before.dpr, dpr: before.dpr })
+  expect(before).toEqual({ width: 393 * before.dpr, height: 852 * before.dpr, dpr: before.dpr })
 
   await page.setViewportSize({ width: 1100, height: 700 })
   await page.waitForTimeout(400)

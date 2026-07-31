@@ -160,7 +160,7 @@ test('shared primary buttons use the brighter reference highlight on hover', asy
 })
 
 test('portrait menu follows the supplied poster proportions', async ({ page }) => {
-  await page.setViewportSize({ width: 430, height: 844 })
+  await page.setViewportSize({ width: 393, height: 852 })
   await open(page)
 
   const layout = await page.evaluate(() => {
@@ -178,24 +178,24 @@ test('portrait menu follows the supplied poster proportions', async ({ page }) =
     }
   })
 
-  expect(layout.card.x / 430).toBeGreaterThan(0.07)
-  expect(layout.card.x / 430).toBeLessThan(0.1)
-  expect(layout.card.y / 844).toBeGreaterThan(0.21)
-  expect(layout.card.y / 844).toBeLessThan(0.26)
-  expect(layout.card.width / 430).toBeGreaterThan(0.81)
-  expect(layout.card.width / 430).toBeLessThan(0.86)
-  expect(layout.card.height / 844).toBeGreaterThan(0.33)
-  expect(layout.card.height / 844).toBeLessThan(0.37)
-  expect(layout.play.width / 430).toBeGreaterThan(0.45)
-  expect(layout.play.width / 430).toBeLessThan(0.52)
-  expect(layout.play.centerY / 844).toBeGreaterThan(0.64)
-  expect(layout.play.centerY / 844).toBeLessThan(0.7)
-  expect(layout.settings.centerY / 844).toBeGreaterThan(0.71)
-  expect(layout.settings.centerY / 844).toBeLessThan(0.76)
+  expect(layout.card.x / 393).toBeGreaterThan(0.07)
+  expect(layout.card.x / 393).toBeLessThan(0.1)
+  expect(layout.card.y / 852).toBeGreaterThan(0.21)
+  expect(layout.card.y / 852).toBeLessThan(0.26)
+  expect(layout.card.width / 393).toBeGreaterThan(0.81)
+  expect(layout.card.width / 393).toBeLessThan(0.86)
+  expect(layout.card.height / 852).toBeGreaterThan(0.33)
+  expect(layout.card.height / 852).toBeLessThan(0.37)
+  expect(layout.play.width / 393).toBeGreaterThan(0.45)
+  expect(layout.play.width / 393).toBeLessThan(0.52)
+  expect(layout.play.centerY / 852).toBeGreaterThan(0.64)
+  expect(layout.play.centerY / 852).toBeLessThan(0.7)
+  expect(layout.settings.centerY / 852).toBeGreaterThan(0.71)
+  expect(layout.settings.centerY / 852).toBeLessThan(0.76)
 })
 
 test('the complete title artwork shares the placard tilt', async ({ page }) => {
-  await page.setViewportSize({ width: 430, height: 844 })
+  await page.setViewportSize({ width: 393, height: 852 })
   await open(page)
 
   const placard = await page.evaluate(() => {

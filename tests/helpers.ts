@@ -7,8 +7,8 @@ import type { BoardReport, GameStartData } from '../src/scenes/GameScene'
 import { FIRST_STAGE, stageMix, type Stage } from '../src/stage'
 
 /** The single portrait coordinate space used at every viewport size. */
-export const GAME_WIDTH = 430
-export const GAME_HEIGHT = 844
+export const GAME_WIDTH = 393
+export const GAME_HEIGHT = 852
 
 export async function open(page: Page): Promise<void> {
   await page.goto('/')

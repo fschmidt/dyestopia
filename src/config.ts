@@ -13,8 +13,9 @@ import { StageSelectScene } from './scenes/StageSelectScene'
  * The game has one portrait design canvas. Browser and device dimensions only
  * change its uniform display scale; they never change scene geometry.
  */
-export const GAME_WIDTH = 430
-export const GAME_HEIGHT = 844
+/** iPhone 15 Pro portrait viewport in CSS pixels / logical points. */
+export const GAME_WIDTH = 393
+export const GAME_HEIGHT = 852
 
 /**
  * Device pixels per CSS pixel, capped.
