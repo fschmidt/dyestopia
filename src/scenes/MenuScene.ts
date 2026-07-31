@@ -1,5 +1,3 @@
-import Phaser from 'phaser'
-
 import type { ColorId } from '../colors'
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import { activeTheme } from '../settings'
@@ -9,7 +7,7 @@ import { ink, resolveVisualProfile } from '../ui/visual-system'
 import { BaseScene } from './BaseScene'
 
 /** Title flourish: the primaries and their mixes, in wheel order. */
-const SWATCH_COLORS: ColorId[] = ['red', 'orange', 'yellow', 'blue', 'green']
+const SWATCH_COLORS: ColorId[] = ['red', 'orange', 'yellow', 'blue', 'green', 'purple']
 
 export class MenuScene extends BaseScene {
   constructor() {
@@ -73,54 +71,72 @@ export class MenuScene extends BaseScene {
   /** The reference composition all expressive skins will subsequently share. */
   private createSprayCan(): void {
     const visual = resolveVisualProfile()
-    const contentWidth = Math.min(600, GAME_WIDTH - 48)
+    const contentWidth = GAME_WIDTH * 0.83
     const left = (GAME_WIDTH - contentWidth) / 2
-    const titleX = left + 4
-    const titleSize = `${Math.round(Math.min(72, Math.max(52, GAME_WIDTH * 0.16)))}px`
+    const compositionX = GAME_WIDTH * 0.512
+    const cardTop = GAME_HEIGHT * 0.235
+    const cardHeight = GAME_HEIGHT * 0.35
+    const cardCenterY = cardTop + cardHeight / 2
+    const titleX = left + contentWidth * 0.09
+    const titleLocalX = titleX - compositionX
+    const titleSize = `${Math.round(contentWidth * 0.19)}px`
+    const posterFont = '"Arial Black", Impact, sans-serif'
 
-    addText(this, titleX, Math.max(34, GAME_HEIGHT * 0.06), 'COLOUR LAB · EST. NOW', {
-      fontFamily: visual.type.family,
-      fontSize: visual.type.label,
-      fontStyle: 'bold',
-      letterSpacing: 5,
-      color: ink(visual.colors.secondaryInk),
-    }).setName('lab-mark')
+    this.addMenuColorSheets()
 
-    addText(this, titleX, Math.max(82, GAME_HEIGHT * 0.13), 'DYES', {
-      fontFamily: visual.type.family,
+    const card = this.add.container(compositionX, cardCenterY).setName('title-card').setAngle(-0.5)
+    const shadow = this.add.rectangle(8, 9, contentWidth, cardHeight, 0x000000, 0.7)
+      .setName('title-shadow')
+    const paper = this.add.rectangle(0, 0, contentWidth, cardHeight, 0xeee9df)
+      .setStrokeStyle(3, 0x191511)
+      .setName('title-paper')
+    card.add([shadow, paper])
+
+    const dyes = addText(this, titleLocalX, -cardHeight / 2 + cardHeight * 0.095, 'DYES', {
+      fontFamily: posterFont,
       fontSize: titleSize,
       fontStyle: 'bold',
-      color: ink(visual.colors.primaryInk),
+      color: ink(0x15110e),
     })
       .setName('title-dyes')
-      .setShadow(-8, 8, ink(visual.colors.critical), 10, true, true)
+    card.add(dyes)
 
-    addText(this, titleX, Math.max(142, GAME_HEIGHT * 0.21), 'TOPIA', {
-      fontFamily: visual.type.family,
+    const topia = addText(this, titleLocalX, -cardHeight / 2 + cardHeight * 0.325, 'TOPIA', {
+      fontFamily: posterFont,
       fontSize: titleSize,
       fontStyle: 'bold',
-      color: ink(visual.colors.primaryInk),
+      color: ink(0x15110e),
     })
       .setName('title-topia')
-      .setShadow(-8, 8, ink(visual.colors.critical), 10, true, true)
-
-    const swatchY = Math.max(235, GAME_HEIGHT * 0.34)
+    card.add(topia)
 
     const { values } = activeTheme()
-    const swatchSize = Math.min(44, (contentWidth - 20) / 6)
-    const gap = Math.min(11, swatchSize * 0.24)
+    const swatchSize = Math.min(66, (contentWidth * 0.85) / 6.55)
+    const gap = (contentWidth * 0.85 - swatchSize * 6) / 5
+    const swatchY = -cardHeight / 2 + cardHeight * 0.72
     SWATCH_COLORS.forEach((id, index) => {
-      this.add
+      const swatch = this.add
         .rectangle(
-          titleX + swatchSize / 2 + index * (swatchSize + gap),
+          titleLocalX + swatchSize / 2 + index * (swatchSize + gap),
           swatchY,
           swatchSize,
-          swatchSize,
+          cardHeight * 0.13,
           values[id],
         )
-        .setAngle([-4, 2, -1, 3, -2][index])
         .setName('title-swatch')
+      card.add(swatch)
     })
+
+    const ruleY = -cardHeight / 2 + cardHeight * 0.82
+    const rule = this.add.rectangle(0, ruleY, contentWidth * 0.84, 3, 0x191511).setName('title-rule')
+    const tagline = addText(this, titleLocalX, -cardHeight / 2 + cardHeight * 0.9, 'SWAP · MIX · CHAIN', {
+      fontFamily: visual.type.family,
+      fontSize: `${Math.round(Math.max(13, Math.min(20, contentWidth * 0.035)))}px`,
+      fontStyle: 'bold',
+      letterSpacing: Math.max(3, Math.round(contentWidth * 0.008)),
+      color: ink(0x191511),
+    }).setName('title-tagline').setOrigin(0, 0.5)
+    card.add([rule, tagline])
 
     // Retained as a semantic layout group for tests and future accessibility
     // metadata; Spray Can deliberately draws no enclosing rounded panel.
@@ -129,52 +145,57 @@ export class MenuScene extends BaseScene {
       .setName('menu-controls')
       .setData('surfaceSize', { width: contentWidth, height: 136 })
 
-    const playY = GAME_HEIGHT - 205
-    const settingsY = GAME_HEIGHT - 132
+    const playY = GAME_HEIGHT * 0.67
+    const settingsY = GAME_HEIGHT * 0.735
+    const playWidth = GAME_WIDTH * 0.48
     addButton(
       this,
-      GAME_WIDTH / 2,
+      compositionX,
       playY,
-      contentWidth,
+      playWidth,
       'PLAY',
       () => this.fadeTo('StageSelect', { page: 'modes' }),
-      { kind: 'primary', name: 'button-play', height: 62, fontSize: '26px' },
+      {
+        kind: 'primary',
+        name: 'button-play',
+        height: GAME_HEIGHT * 0.068,
+        fontSize: `${Math.round(GAME_WIDTH * 0.047)}px`,
+        fontFamily: posterFont,
+      },
     )
     addButton(
       this,
-      GAME_WIDTH / 2,
+      compositionX,
       settingsY,
-      contentWidth,
+      GAME_WIDTH * 0.34,
       'SETTINGS',
       () => this.fadeTo('Settings'),
-      { kind: 'quiet', name: 'button-settings', height: 58, fontSize: '21px' },
+      {
+        kind: 'quiet',
+        name: 'button-settings',
+        height: GAME_HEIGHT * 0.045,
+        fontSize: `${Math.round(GAME_WIDTH * 0.031)}px`,
+        fontFamily: posterFont,
+        letterSpacing: 3,
+      },
     )
-
-    const noteLabel = this.add
-      .container(left + 8, GAME_HEIGHT - 54)
-      .setName('start-label')
-      .setAngle(-1.5)
-    const note = addText(this, 14, 0, 'TAP ANYWHERE TO START', {
-      fontFamily: visual.type.family,
-      fontSize: visual.type.small,
-      fontStyle: 'bold',
-      letterSpacing: 3,
-      color: ink(0x292621),
-    })
-      .setOrigin(0, 0.5)
-    const paperWidth = note.width + 28
-    const paperHeight = note.height + 16
-    const plate = this.add.graphics()
-    plate.fillStyle(0xe8e4d9, 1)
-    plate.fillPoints([
-      new Phaser.Math.Vector2(3, -paperHeight / 2),
-      new Phaser.Math.Vector2(paperWidth, -paperHeight / 2 + 1),
-      new Phaser.Math.Vector2(paperWidth - 2, paperHeight / 2),
-      new Phaser.Math.Vector2(0, paperHeight / 2 - 1),
-    ], true)
-    noteLabel.add([plate, note])
 
     this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('StageSelect', { page: 'modes' }))
     this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('StageSelect', { page: 'modes' }))
+  }
+
+  private addMenuColorSheets(): void {
+    const sheets: Array<{ x: number; y: number; width: number; height: number; color: number; angle: number }> = [
+      { x: GAME_WIDTH * 0.04, y: GAME_HEIGHT * 0.25, width: GAME_WIDTH * 0.36, height: GAME_HEIGHT * 0.25, color: 0x3d557c, angle: 7 },
+      { x: GAME_WIDTH * 0.8, y: GAME_HEIGHT * 0.11, width: GAME_WIDTH * 0.45, height: GAME_HEIGHT * 0.24, color: 0x89362e, angle: -8 },
+      { x: GAME_WIDTH * 0.06, y: GAME_HEIGHT * 0.72, width: GAME_WIDTH * 0.38, height: GAME_HEIGHT * 0.25, color: 0x573c6d, angle: -11 },
+      { x: GAME_WIDTH * 0.92, y: GAME_HEIGHT * 0.6, width: GAME_WIDTH * 0.34, height: GAME_HEIGHT * 0.23, color: 0x315f3c, angle: 9 },
+    ]
+    for (const sheet of sheets) {
+      this.add.rectangle(sheet.x + 7, sheet.y + 9, sheet.width, sheet.height, 0x000000, 0.72).setAngle(sheet.angle)
+      this.add.rectangle(sheet.x, sheet.y, sheet.width, sheet.height, sheet.color)
+        .setAngle(sheet.angle)
+        .setName('menu-color-sheet')
+    }
   }
 }

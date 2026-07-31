@@ -6,9 +6,9 @@ import type {} from '../src/debug'
 import type { BoardReport, GameStartData } from '../src/scenes/GameScene'
 import { FIRST_STAGE, stageMix, type Stage } from '../src/stage'
 
-/** Coordinate space scenes are written in — mirrors src/config.ts. */
-export const GAME_WIDTH = 960
-export const GAME_HEIGHT = 720
+/** The single portrait coordinate space used at every viewport size. */
+export const GAME_WIDTH = 430
+export const GAME_HEIGHT = 844
 
 export async function open(page: Page): Promise<void> {
   await page.goto('/')

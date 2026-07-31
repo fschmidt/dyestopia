@@ -63,7 +63,14 @@ export function addButton(
   width: number,
   label: string,
   action: () => void,
-  options: { kind?: ButtonKind; name?: string; height?: number; fontSize?: string } = {},
+  options: {
+    kind?: ButtonKind
+    name?: string
+    height?: number
+    fontSize?: string
+    fontFamily?: string
+    letterSpacing?: number
+  } = {},
 ): Phaser.GameObjects.Container {
   const profile = resolveVisualProfile()
   const kind = options.kind ?? 'secondary'
@@ -74,13 +81,16 @@ export function addButton(
     .setSize(width, height)
     .setName(options.name ?? '')
     .setData('visualTreatment', profile.treatment)
-  const plate = scene.add.graphics()
+    .setData('buttonKind', kind)
+    .setData('buttonHighlight', profile.colors.accentHighlight)
+  const plate = scene.add.graphics().setName('plate')
   const text = addText(scene, 0, 0, label, {
-    fontFamily: profile.type.family,
+    fontFamily: options.fontFamily ?? profile.type.family,
     fontSize: options.fontSize ?? profile.type.body,
     fontStyle: kind === 'primary' ? 'bold' : 'normal',
+    letterSpacing: options.letterSpacing,
     color: ink(kind === 'primary' ? profile.colors.accentInk : profile.colors.primaryInk),
-  }).setOrigin(0.5)
+  }).setOrigin(0.5).setName('label')
   container.add([plate, text])
 
   let focused = false
@@ -88,12 +98,19 @@ export function addButton(
     plate.clear()
     const fill =
       kind === 'primary'
-        ? profile.colors.accent
+        ? focused ? profile.colors.accentHighlight : profile.colors.accent
         : kind === 'quiet'
           ? profile.colors.surfaceStrong
           : profile.colors.surface
     const alpha = kind === 'primary' ? 1 : pressed ? 1 : 0.72
+    container.setData('buttonFill', fill)
     if (profile.treatment === 'spray-can') {
+      if (kind === 'quiet') {
+        const underlineWidth = Math.min(width - 24, Math.max(86, text.width + 8))
+        plate.fillStyle(profile.colors.accent, focused ? 1 : 0.9)
+        plate.fillRect(-underlineWidth / 2, height / 2 - 7, underlineWidth, focused ? 4 : 3)
+        return
+      }
       const skew = Math.min(9, height * 0.15)
       const points = [
         new Phaser.Math.Vector2(-width / 2 + skew, -height / 2),
@@ -106,7 +123,7 @@ export function addButton(
         plate.fillStyle(profile.colors.surfaceStrong, 0.88)
         plate.fillPoints(shadow, true)
       }
-      plate.fillStyle(fill, kind === 'quiet' ? 0.38 : alpha)
+      plate.fillStyle(fill, alpha)
       plate.fillPoints(points, true)
       plate.lineStyle(focused ? 3 : 2, focused ? profile.colors.focus : profile.colors.primaryInk, focused ? 1 : kind === 'primary' ? 0.42 : 0.62)
       plate.strokePoints(points, true)

@@ -52,7 +52,7 @@ test('shape and theme are independent axes', async ({ page }) => {
 test('every combination builds a full board', async ({ page }) => {
   await open(page)
 
-  for (const shape of ['blob', 'mosaic']) {
+  for (const shape of ['splash', 'blob', 'mosaic']) {
     for (const theme of ['dyestopia', 'neon', 'dusk']) {
       await openBoardWith(page, { shape, theme })
       const tiles = await boardLook(page)

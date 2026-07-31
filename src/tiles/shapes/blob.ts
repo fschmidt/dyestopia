@@ -1,4 +1,4 @@
-import type { Painter, Shape } from './types'
+import type { Motion, Painter, Shape } from './types'
 
 /**
  * "Splash of color" — a wet blob of paint with a glossy highlight, sitting on
@@ -117,10 +117,40 @@ const gloss: Painter = (ctx, size, t) => {
   ctx.restore()
 }
 
+export const SPLASH_MOTION: Motion = {
+  lift: 1.12,
+  liftDuration: 170,
+  straighten: false,
+  followLerp: 0.22,
+  stretch: 0.32,
+  flow: { range: 1.1, stiffness: 0.16, damping: 0.9 },
+  lean: 8,
+  agitation: 1.8,
+  drop: { squashX: 1.18, squashY: 0.84, duration: 260, ease: 'Back.easeOut' },
+  swap: { duration: 380, ease: 'Sine.easeInOut', arc: 0.15, stretch: 0.12, passiveLift: 1.08 },
+  merge: {
+    swell: 1.2,
+    rise: 160,
+    settle: 320,
+    settleEase: 'Back.easeOut',
+    agitation: 2.5,
+    tint: 350,
+  },
+  clear: {
+    swell: 1.35,
+    rise: 110,
+    vanish: 180,
+    vanishEase: 'Back.easeIn',
+    agitation: 2.8,
+    spin: 0,
+  },
+  fall: { unit: 200 },
+}
+
 export const BLOB: Shape = {
   id: 'blob',
-  label: 'Splash',
-  blurb: 'Wet paint. The outline breathes.',
+  label: 'Deep Splash',
+  blurb: 'Glossy, dimensional paint with a breathing edge.',
   frames: 24,
   fps: 12,
   pad: 14,
@@ -132,36 +162,5 @@ export const BLOB: Shape = {
   // flows toward the pointer when pulled — elongating along the drag and
   // springing back with a jiggle when it stops — lands with a splat, and
   // merges by swelling as it takes the other's volume.
-  motion: {
-    lift: 1.12,
-    liftDuration: 170,
-    straighten: false,
-    followLerp: 0.22,
-    stretch: 0.32,
-    flow: { range: 1.1, stiffness: 0.16, damping: 0.9 },
-    lean: 8,
-    agitation: 1.8,
-    drop: { squashX: 1.18, squashY: 0.84, duration: 260, ease: 'Back.easeOut' },
-    swap: { duration: 380, ease: 'Sine.easeInOut', arc: 0.15, stretch: 0.12, passiveLift: 1.08 },
-    merge: {
-      swell: 1.2,
-      rise: 160,
-      settle: 320,
-      settleEase: 'Back.easeOut',
-      agitation: 2.5,
-      tint: 350,
-    },
-    // The pop: swell like a blown bubble, thrash, then get sucked into
-    // nothing — Back.easeIn winds inward before the collapse, which is what
-    // sells the burst.
-    clear: {
-      swell: 1.35,
-      rise: 110,
-      vanish: 180,
-      vanishEase: 'Back.easeIn',
-      agitation: 2.8,
-      spin: 0,
-    },
-    fall: { unit: 200 },
-  },
+  motion: SPLASH_MOTION,
 }

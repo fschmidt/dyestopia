@@ -11,6 +11,7 @@ export interface VisualProfile {
     primaryInk: number
     secondaryInk: number
     accent: number
+    accentHighlight: number
     accentInk: number
     warning: number
     critical: number
@@ -45,6 +46,7 @@ export const LAB_PROFILE: VisualProfile = {
     primaryInk: 0xfffbef,
     secondaryInk: 0xb8b4aa,
     accent: 0xffcf4a,
+    accentHighlight: 0xffdf73,
     accentInk: 0x19140a,
     warning: 0xffa629,
     critical: 0xff5b66,
@@ -75,6 +77,7 @@ export const PAPER_PROFILE: VisualProfile = {
     primaryInk: 0x201d18,
     secondaryInk: 0x655f55,
     accent: 0x007e7a,
+    accentHighlight: 0x009c96,
     accentInk: 0xffffff,
   },
 }
@@ -94,6 +97,7 @@ export const SPRAY_CAN_PROFILE: VisualProfile = {
     primaryInk: 0xf4f0e6,
     secondaryInk: 0xaaa69d,
     accent: 0xffcd2e,
+    accentHighlight: 0xffdc52,
     accentInk: 0x17150d,
     warning: 0xff9d24,
     critical: 0xe93476,

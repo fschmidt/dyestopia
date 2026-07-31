@@ -87,39 +87,136 @@ test('Spray Can menu uses the reference composition rather than the lab layout',
 
   const composition = await page.evaluate(() => {
     const scene = window.dyestopia!.game.scene.getScene('Menu')!
-    const object = (name: string) => scene.children.getByName(name) as
-      | Phaser.GameObjects.Text
-      | Phaser.GameObjects.Container
-      | Phaser.GameObjects.Graphics
-    const dyes = object('title-dyes')
-    const topia = object('title-topia')
-    const play = object('button-play')
-    const settings = object('button-settings')
+    const object = (name: string) => {
+      const direct = scene.children.getByName(name)
+      if (direct) return direct
+      for (const child of scene.children.list) {
+        const container = child as Phaser.GameObjects.Container
+        if (Array.isArray(container.list)) {
+          const nested = container.getByName(name)
+          if (nested) return nested
+        }
+      }
+      return undefined
+    }
+    const titled = (object('title-card') as Phaser.GameObjects.Container).list
+    const dyes = object('title-dyes') as Phaser.GameObjects.Text
+    const topia = object('title-topia') as Phaser.GameObjects.Text
+    const play = object('button-play') as Phaser.GameObjects.Container
+    const settings = object('button-settings') as Phaser.GameObjects.Container
     return {
       atmosphere: Boolean(object('skin-atmosphere')),
-      labMark: Boolean(object('lab-mark')),
-      dyes: { x: (dyes as Phaser.GameObjects.Text).x, y: (dyes as Phaser.GameObjects.Text).y },
-      topia: { x: (topia as Phaser.GameObjects.Text).x, y: (topia as Phaser.GameObjects.Text).y },
-      play: { y: (play as Phaser.GameObjects.Container).y, width: (play as Phaser.GameObjects.Container).width },
+      titleCard: Boolean(object('title-card')),
+      tagline: (object('title-tagline') as Phaser.GameObjects.Text)?.text,
+      dyes: { x: dyes.x, y: dyes.y },
+      topia: { x: topia.x, y: topia.y },
+      play: { y: play.y, width: play.width },
       settings: {
-        y: (settings as Phaser.GameObjects.Container).y,
-        width: (settings as Phaser.GameObjects.Container).width,
+        y: settings.y,
+        width: settings.width,
       },
       titleRule: Boolean(object('title-rule')),
-      startLabelType: object('start-label')?.type,
-      swatches: scene.children.list.filter((child) => child.name === 'title-swatch').length,
+      colorSheets: scene.children.list.filter((child) => child.name === 'menu-color-sheet').length,
+      swatches: titled.filter((child) => child.name === 'title-swatch').length,
     }
   })
 
   expect(composition.atmosphere).toBe(true)
-  expect(composition.labMark).toBe(true)
+  expect(composition.titleCard).toBe(true)
+  expect(composition.tagline).toBe('SWAP · MIX · CHAIN')
   expect(composition.dyes.x).toBe(composition.topia.x)
   expect(composition.dyes.y).toBeLessThan(composition.topia.y)
-  expect(composition.swatches).toBe(5)
-  expect(composition.titleRule).toBe(false)
-  expect(composition.startLabelType).toBe('Container')
+  expect(composition.swatches).toBe(6)
+  expect(composition.titleRule).toBe(true)
+  expect(composition.colorSheets).toBe(4)
   expect(composition.play.y).toBeLessThan(composition.settings.y)
-  expect(composition.play.width).toBe(composition.settings.width)
+  expect(composition.play.width).toBeGreaterThan(composition.settings.width)
+})
+
+test('shared primary buttons use the brighter reference highlight on hover', async ({ page }) => {
+  await open(page)
+  const colors = async () => page.evaluate(() => {
+    const button = window.dyestopia!.game.scene
+      .getScene('Menu')!
+      .children.getByName('button-play') as Phaser.GameObjects.Container
+    return {
+      kind: button.getData('buttonKind') as string,
+      resting: button.getData('buttonFill') as number,
+      highlighted: button.getData('buttonHighlight') as number,
+    }
+  })
+
+  const resting = await colors()
+  expect(resting.kind).toBe('primary')
+  expect(resting.highlighted).not.toBe(resting.resting)
+
+  const play = await hitTarget(page, 'Menu', 'button-play')
+  const viewport = await page.evaluate(
+    (point) => window.dyestopia!.worldToViewport('Menu', point.x, point.y),
+    play,
+  )
+  await page.mouse.move(viewport.x, viewport.y)
+  await expect.poll(async () => (await colors()).resting).toBe(resting.highlighted)
+})
+
+test('portrait menu follows the supplied poster proportions', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 844 })
+  await open(page)
+
+  const layout = await page.evaluate(() => {
+    const scene = window.dyestopia!.game.scene.getScene('Menu')!
+    const bounds = (name: string) =>
+      (scene.children.getByName(name) as Phaser.GameObjects.Container).getBounds()
+    const button = (name: string) => {
+      const object = scene.children.getByName(name) as Phaser.GameObjects.Container
+      return { width: object.width, centerY: object.y }
+    }
+    return {
+      card: bounds('title-card'),
+      play: button('button-play'),
+      settings: button('button-settings'),
+    }
+  })
+
+  expect(layout.card.x / 430).toBeGreaterThan(0.07)
+  expect(layout.card.x / 430).toBeLessThan(0.1)
+  expect(layout.card.y / 844).toBeGreaterThan(0.21)
+  expect(layout.card.y / 844).toBeLessThan(0.26)
+  expect(layout.card.width / 430).toBeGreaterThan(0.81)
+  expect(layout.card.width / 430).toBeLessThan(0.86)
+  expect(layout.card.height / 844).toBeGreaterThan(0.33)
+  expect(layout.card.height / 844).toBeLessThan(0.37)
+  expect(layout.play.width / 430).toBeGreaterThan(0.45)
+  expect(layout.play.width / 430).toBeLessThan(0.52)
+  expect(layout.play.centerY / 844).toBeGreaterThan(0.64)
+  expect(layout.play.centerY / 844).toBeLessThan(0.7)
+  expect(layout.settings.centerY / 844).toBeGreaterThan(0.71)
+  expect(layout.settings.centerY / 844).toBeLessThan(0.76)
+})
+
+test('the complete title artwork shares the placard tilt', async ({ page }) => {
+  await page.setViewportSize({ width: 430, height: 844 })
+  await open(page)
+
+  const placard = await page.evaluate(() => {
+    const card = window.dyestopia!.game.scene
+      .getScene('Menu')!
+      .children.getByName('title-card') as Phaser.GameObjects.Container
+    return {
+      angle: card.angle,
+      children: card.list.map((child) => child.name).filter(Boolean),
+    }
+  })
+
+  expect(placard.angle).not.toBe(0)
+  expect(placard.children).toEqual(expect.arrayContaining([
+    'title-paper',
+    'title-dyes',
+    'title-topia',
+    'title-rule',
+    'title-tagline',
+  ]))
+  expect(placard.children.filter((name) => name === 'title-swatch')).toHaveLength(6)
 })
 
 test('settings controls use touch-sized choices and a framed ON/OFF sound row', async ({ page }) => {

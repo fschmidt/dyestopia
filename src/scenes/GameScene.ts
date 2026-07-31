@@ -911,7 +911,7 @@ export class GameScene extends BaseScene {
 
     addButton(
       this,
-      GAME_WIDTH - area.marginX - pauseSize / 2,
+      GAME_WIDTH - area.marginX - pauseSize / 2 - 4,
       42,
       pauseSize,
       'Ⅱ',

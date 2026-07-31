@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { clickWorld, GAME_WIDTH, hitTarget, open, startGame, waitForScene } from './helpers'
+import { clickWorld, GAME_HEIGHT, GAME_WIDTH, hitTarget, open, startGame, waitForScene } from './helpers'
 
 test('boots through to the menu', async ({ page }) => {
   await open(page)
@@ -12,12 +12,13 @@ test('boots through to the menu', async ({ page }) => {
 test('canvas is sized in device pixels', async ({ page }) => {
   await open(page)
 
-  const { canvasWidth, canvasHeight, cssWidth, dpr, zoom } = await page.evaluate(() => {
+  const { canvasWidth, canvasHeight, cssWidth, cssHeight, dpr, zoom } = await page.evaluate(() => {
     const { game } = window.dyestopia!
     return {
       canvasWidth: game.canvas.width,
       canvasHeight: game.canvas.height,
       cssWidth: game.canvas.getBoundingClientRect().width,
+      cssHeight: game.canvas.getBoundingClientRect().height,
       dpr: window.devicePixelRatio,
       zoom: game.scene.getScene('Menu')!.cameras.main.zoom,
     }
@@ -26,13 +27,13 @@ test('canvas is sized in device pixels', async ({ page }) => {
   // The backing store carries the ratio; the camera zoom cancels it so scenes
   // still see GAME_WIDTH x GAME_HEIGHT.
   expect(canvasWidth).toBe(GAME_WIDTH * dpr)
-  expect(canvasHeight).toBe(720 * dpr)
+  expect(canvasHeight).toBe(GAME_HEIGHT * dpr)
   expect(zoom).toBe(dpr)
 
-  // The 1280x720 viewport is height-limited at 4:3, so FIT lands on exactly
-  // GAME_WIDTH CSS pixels — meaning one world unit is one CSS pixel and any
-  // extra sharpness comes purely from the ratio.
-  expect(cssWidth).toBe(GAME_WIDTH)
+  // A landscape browser contains the supported portrait canvas, centred and
+  // fitted to its height.
+  expect(cssHeight).toBe(720)
+  expect(cssWidth).toBeCloseTo((GAME_WIDTH / GAME_HEIGHT) * 720, 1)
 })
 
 test('canvas is centred in the viewport', async ({ page }) => {
