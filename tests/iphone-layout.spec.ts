@@ -9,6 +9,34 @@ interface Bounds {
   bottom: number
 }
 
+test('installed iPhone web app keeps the canvas inside the hardware safe area', async ({ page }) => {
+  await page.addInitScript(() => {
+    const applyInsets = (): boolean => {
+      if (!document.documentElement) return false
+      const root = document.documentElement.style
+      root.setProperty('--dyestopia-safe-top', '59px')
+      root.setProperty('--dyestopia-safe-right', '0px')
+      root.setProperty('--dyestopia-safe-bottom', '34px')
+      root.setProperty('--dyestopia-safe-left', '0px')
+      return true
+    }
+    if (!applyInsets()) {
+      const observer = new MutationObserver(() => {
+        if (applyInsets()) observer.disconnect()
+      })
+      observer.observe(document, { childList: true })
+    }
+  })
+  await open(page)
+
+  const bounds = await page.evaluate(() => {
+    const rect = window.dyestopia!.game.canvas.getBoundingClientRect()
+    return { top: rect.top, bottom: rect.bottom, viewportHeight: window.innerHeight }
+  })
+  expect(bounds.top).toBeGreaterThanOrEqual(59)
+  expect(bounds.bottom).toBeLessThanOrEqual(bounds.viewportHeight - 34)
+})
+
 test('iPhone 15 Pro Max stage header clears the metric row', async ({ page }) => {
   await open(page)
   await page.evaluate(() => {
