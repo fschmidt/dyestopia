@@ -53,15 +53,15 @@ export class MenuScene extends BaseScene {
     addSurface(this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 120, controlsWidth, 150, 'menu-controls')
     addButton(
       this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 90, controlsWidth - 32, 'PLAY',
-      () => this.fadeTo('StageSelect'), { kind: 'primary', name: 'button-play' },
+      () => this.fadeTo('StageSelect', { page: 'modes' }), { kind: 'primary', name: 'button-play' },
     )
     addButton(
       this, GAME_WIDTH / 2, GAME_HEIGHT / 2 + 150, controlsWidth - 32, 'Settings',
       () => this.fadeTo('Settings'), { kind: 'quiet', name: 'button-settings' },
     )
 
-    this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('StageSelect'))
-    this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('StageSelect'))
+    this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('StageSelect', { page: 'modes' }))
+    this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('StageSelect', { page: 'modes' }))
 
     addText(this, GAME_WIDTH / 2, GAME_HEIGHT - 40, 'Press space or click', {
       fontFamily: visual.type.family,
@@ -137,7 +137,7 @@ export class MenuScene extends BaseScene {
       playY,
       contentWidth,
       'PLAY',
-      () => this.fadeTo('StageSelect'),
+      () => this.fadeTo('StageSelect', { page: 'modes' }),
       { kind: 'primary', name: 'button-play', height: 62, fontSize: '26px' },
     )
     addButton(
@@ -174,7 +174,7 @@ export class MenuScene extends BaseScene {
     ], true)
     noteLabel.add([plate, note])
 
-    this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('StageSelect'))
-    this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('StageSelect'))
+    this.input.keyboard?.once('keydown-SPACE', () => this.fadeTo('StageSelect', { page: 'modes' }))
+    this.input.keyboard?.once('keydown-ENTER', () => this.fadeTo('StageSelect', { page: 'modes' }))
   }
 }

@@ -28,7 +28,7 @@ import {
 import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import type { ColorId } from '../colors'
 import { flags } from '../flags'
-import { recordTutorialClear, recordWin } from '../progress'
+import { recordToolClear, recordTutorialClear, recordWin } from '../progress'
 import { mulberry32, takeSeed, type Rng } from '../rng'
 import { activeShape, activeTheme } from '../settings'
 import { playSfx } from '../sfx'
@@ -441,7 +441,14 @@ export class GameScene extends BaseScene {
       28,
       88,
       '‹ Stages',
-      () => this.fadeTo('StageSelect', this.toolStageIndex !== undefined ? { page: 'tools' } : {}),
+      () => this.fadeTo(
+        'StageSelect',
+        this.toolStageIndex !== undefined
+          ? { page: 'tools', selected: this.toolStageIndex }
+          : this.tutorialIndex !== undefined
+            ? { page: 'tutorial', selected: this.tutorialIndex }
+            : { page: 'core', selected: this.stageIndex },
+      ),
       { kind: 'quiet', name: 'back', height: 34, fontSize: '14px' },
     )
 
@@ -1041,7 +1048,7 @@ export class GameScene extends BaseScene {
     this.paused = true
     const visual = resolveVisualProfile()
     const width = Math.min(GAME_WIDTH - 48, 520)
-    const height = 470
+    const height = 550
     const panel = this.add
       .container(GAME_WIDTH / 2, GAME_HEIGHT / 2)
       .setName('pause-dialog')
@@ -1081,15 +1088,21 @@ export class GameScene extends BaseScene {
     const actions = [
       { label: 'RESUME', name: 'resume', kind: 'primary' as const, action: () => this.closePause() },
       { label: 'HELP', name: 'pause-help', kind: 'secondary' as const, action: () => this.openMixHelp() },
+      {
+        label: 'SELECT STAGE',
+        name: 'pause-stage-select',
+        kind: 'secondary' as const,
+        action: () => this.fadeTo('StageSelect', { page: 'modes' }),
+      },
       { label: 'SETTINGS', name: 'pause-settings', kind: 'secondary' as const, action: () => this.fadeTo('Settings') },
       { label: 'MAIN MENU', name: 'pause-menu', kind: 'secondary' as const, action: () => this.fadeTo('Menu') },
     ]
     actions.forEach((action, index) => {
-      const button = addButton(this, 0, -105 + index * 82, buttonWidth, action.label, action.action, {
+      const button = addButton(this, 0, -145 + index * 76, buttonWidth, action.label, action.action, {
         kind: action.kind,
         name: action.name,
-        height: 62,
-        fontSize: '22px',
+        height: 56,
+        fontSize: '20px',
       })
       panel.add(button)
     })
@@ -1592,7 +1605,7 @@ export class GameScene extends BaseScene {
             label: 'Back to stages',
             name: 'back-to-stages',
             primary: true,
-            action: () => this.fadeTo('StageSelect'),
+            action: () => this.fadeTo('StageSelect', { page: 'tutorial', selected: index }),
           }]
         : [
             {
@@ -1604,7 +1617,7 @@ export class GameScene extends BaseScene {
             {
               label: 'Back to stages',
               name: 'back-to-stages',
-              action: () => this.fadeTo('StageSelect'),
+              action: () => this.fadeTo('StageSelect', { page: 'tutorial', selected: index }),
             },
           ],
     )
@@ -1978,7 +1991,9 @@ export class GameScene extends BaseScene {
   private async win(): Promise<void> {
     this.outcome = 'won'
     playSfx('win')
-    const opened = this.stageIndex !== undefined && recordWin(this.stageIndex)
+    const opened = this.toolStageIndex !== undefined
+      ? recordToolClear(this.toolStageIndex)
+      : this.stageIndex !== undefined && recordWin(this.stageIndex)
 
     const cx = this.originX + (this.grid.cols * this.pitch) / 2
     const cy = this.originY + (this.grid.rows * this.pitch) / 2
@@ -2024,10 +2039,8 @@ export class GameScene extends BaseScene {
         action: () => this.fadeTo(
           'StageSelect',
           this.toolStageIndex !== undefined
-            ? { page: 'tools' }
-            : opened
-              ? { reveal: next }
-              : {},
+            ? { page: 'tools', selected: next }
+            : { page: 'core', selected: opened ? next : this.stageIndex },
         ),
       },
     ])
@@ -2073,7 +2086,9 @@ export class GameScene extends BaseScene {
           name: 'stages',
           action: () => this.fadeTo(
             'StageSelect',
-            this.toolStageIndex !== undefined ? { page: 'tools' } : {},
+            this.toolStageIndex !== undefined
+              ? { page: 'tools', selected: this.toolStageIndex }
+              : { page: 'core', selected: this.stageIndex },
           ),
         },
       ],

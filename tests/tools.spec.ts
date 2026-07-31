@@ -14,17 +14,28 @@ import {
   waitForScene,
 } from './helpers'
 
-test('tool stages live on their own stage-select page', async ({ page }) => {
+test('Tools drills down from the stages hub to its own scalable stage grid', async ({ page }) => {
   await open(page)
-  await page.evaluate(() => window.dyestopia!.goTo('StageSelect'))
+  await page.evaluate(() => {
+    window.dyestopia!.setSettings({ unlockAllStages: true })
+    window.dyestopia!.goTo('StageSelect', { page: 'modes' })
+  })
   await waitForScene(page, 'StageSelect')
 
-  const tools = await hitTarget(page, 'StageSelect', 'tool-stages')
+  const texts = await page.evaluate(() => window.dyestopia!.texts('StageSelect'))
+  expect(texts).toContain('STAGES')
+  expect(texts).toContain('TOOLS')
+  const tools = await hitTarget(page, 'StageSelect', 'mode-tools')
   await clickWorld(page, 'StageSelect', tools.x, tools.y)
 
-  expect(await page.evaluate(() => window.dyestopia!.texts('StageSelect'))).toContain('TOOLS')
+  await expect.poll(() => page.evaluate(() => window.dyestopia!.texts('StageSelect')))
+    .toContain('TOOLS')
   const first = await hitTarget(page, 'StageSelect', 'tool-stage-0')
   await clickWorld(page, 'StageSelect', first.x, first.y)
+  expect(await page.evaluate(() => window.dyestopia!.isActive('Game'))).toBe(false)
+
+  const cta = await hitTarget(page, 'StageSelect', 'stage-cta')
+  await clickWorld(page, 'StageSelect', cta.x, cta.y)
   await waitForScene(page, 'Game')
 
   const report = await board(page)

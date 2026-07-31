@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { GAME_WIDTH, open, startGame, waitForScene } from './helpers'
+import { clickWorld, GAME_WIDTH, hitTarget, open, startGame, waitForScene } from './helpers'
 
 test('boots through to the menu', async ({ page }) => {
   await open(page)
@@ -89,4 +89,20 @@ test('escape toggles pause without abandoning the round', async ({ page }) => {
     ),
   ).toBe(false)
   expect(await page.evaluate(() => window.dyestopia!.isActive('Game'))).toBe(true)
+})
+
+test('pause menu can return to stage selection', async ({ page }) => {
+  await open(page)
+  await page.evaluate(() => window.dyestopia!.goTo('Game', { stage: 0 }))
+  await waitForScene(page, 'Game')
+
+  await page.keyboard.press('Escape')
+  const selectStage = await hitTarget(page, 'Game', 'pause-stage-select')
+  await clickWorld(page, 'Game', selectStage.x, selectStage.y)
+
+  await waitForScene(page, 'StageSelect')
+  expect(await page.evaluate(() => window.dyestopia!.texts('StageSelect'))).toContain('STAGES')
+  expect(await page.evaluate(() =>
+    window.dyestopia!.hitTargets('StageSelect').some(({ name }) => name === 'mode-core'),
+  )).toBe(true)
 })

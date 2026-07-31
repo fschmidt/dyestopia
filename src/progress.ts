@@ -1,43 +1,79 @@
+import {
+  stageEntry,
+  stageSection,
+  type StageCatalogEntry,
+  type StageSectionId,
+} from './stage-catalog'
 import { STAGES } from './stages'
-import { TUTORIALS } from './tutorials'
 
 const STORAGE_KEY = 'dyestopia:progress'
 
+/** Legacy projection retained for the debug bridge and existing consumers. */
 export interface ProgressState {
   clearedStages: number[]
   clearedTutorials: number[]
 }
 
-let state = load()
+interface StoredProgress extends Partial<ProgressState> {
+  clearedStageIds?: number[]
+  unlocked?: number
+}
 
-function validIndices(value: unknown, length: number): number[] {
+let clearedStageIds = load()
+
+function validIds(value: unknown): number[] {
   if (!Array.isArray(value)) return []
   return [...new Set(value)]
-    .filter((index): index is number => Number.isInteger(index) && index >= 0 && index < length)
+    .filter((id): id is number => Number.isInteger(id) && stageEntry(id) !== undefined)
     .sort((a, b) => a - b)
 }
 
-function load(): ProgressState {
+function idsFromIndices(sectionId: StageSectionId, value: unknown): number[] {
+  if (!Array.isArray(value)) return []
+  const section = stageSection(sectionId)
+  return [...new Set(value)]
+    .filter((index): index is number =>
+      Number.isInteger(index) && index >= 0 && index < section.stages.length)
+    .map((index) => section.stages[index].id)
+}
+
+function load(): number[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { clearedStages: [], clearedTutorials: [] }
-    const parsed = JSON.parse(raw) as Partial<ProgressState> & { unlocked?: number }
-    // Migrate the old frontier-only format by treating stages behind it as cleared.
-    const migrated = Number.isInteger(parsed.unlocked)
-      ? Array.from({ length: Math.max(0, Math.min(STAGES.length, parsed.unlocked! - 1)) }, (_, i) => i)
-      : []
-    return {
-      clearedStages: validIndices(parsed.clearedStages ?? migrated, STAGES.length),
-      clearedTutorials: validIndices(parsed.clearedTutorials, TUTORIALS.length),
-    }
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as StoredProgress
+    if (parsed.clearedStageIds) return validIds(parsed.clearedStageIds)
+
+    // Migrate both historical formats to stable catalog IDs.
+    const migratedCore = Number.isInteger(parsed.unlocked)
+      ? Array.from(
+          { length: Math.max(0, Math.min(STAGES.length, parsed.unlocked! - 1)) },
+          (_, index) => index,
+        )
+      : parsed.clearedStages
+    return validIds([
+      ...idsFromIndices('core', migratedCore),
+      ...idsFromIndices('tutorial', parsed.clearedTutorials),
+    ])
   } catch {
-    return { clearedStages: [], clearedTutorials: [] }
+    return []
   }
+}
+
+function indicesFor(sectionId: StageSectionId): number[] {
+  return stageSection(sectionId).stages
+    .filter(({ id }) => clearedStageIds.includes(id))
+    .map(({ index }) => index)
 }
 
 function save(): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      clearedStageIds,
+      // Keep legacy projections so older builds can still read this save.
+      clearedStages: indicesFor('core'),
+      clearedTutorials: indicesFor('tutorial'),
+    }))
   } catch {
     // Session progress remains usable when storage is unavailable.
   }
@@ -45,50 +81,79 @@ function save(): void {
 
 export function progressState(): ProgressState {
   return {
-    clearedStages: [...state.clearedStages],
-    clearedTutorials: [...state.clearedTutorials],
+    clearedStages: indicesFor('core'),
+    clearedTutorials: indicesFor('tutorial'),
   }
 }
 
+export function clearedIds(): number[] {
+  return [...clearedStageIds]
+}
+
+export function isCatalogStageCleared(stage: StageCatalogEntry | number): boolean {
+  const id = typeof stage === 'number' ? stage : stage.id
+  return clearedStageIds.includes(id)
+}
+
+export function catalogStageUnlocked(stage: StageCatalogEntry | number): boolean {
+  const entry = typeof stage === 'number' ? stageEntry(stage) : stage
+  if (!entry) return false
+  return entry.lockedBy === null ||
+    clearedStageIds.includes(entry.lockedBy) ||
+    clearedStageIds.includes(entry.id)
+}
+
+export function sectionClearedCount(sectionId: StageSectionId): number {
+  return indicesFor(sectionId).length
+}
+
 export function isStageCleared(index: number): boolean {
-  return state.clearedStages.includes(index)
+  const entry = stageSection('core').stages[index]
+  return entry ? isCatalogStageCleared(entry) : false
 }
 
 export function isTutorialCleared(index: number): boolean {
-  return state.clearedTutorials.includes(index)
+  const entry = stageSection('tutorial').stages[index]
+  return entry ? isCatalogStageCleared(entry) : false
 }
 
 export function naturalStageUnlocked(index: number): boolean {
-  return index === 0 || state.clearedStages.includes(index - 1) || isStageCleared(index)
+  const entry = stageSection('core').stages[index]
+  return entry ? catalogStageUnlocked(entry) : false
 }
 
 export function naturalTutorialUnlocked(index: number): boolean {
-  return index === 0 || state.clearedTutorials.includes(index - 1) || isTutorialCleared(index)
+  const entry = stageSection('tutorial').stages[index]
+  return entry ? catalogStageUnlocked(entry) : false
 }
 
 export function unlockedCount(): number {
-  let count = 0
-  while (count < STAGES.length && naturalStageUnlocked(count)) count++
-  return count
+  return stageSection('core').stages.filter(({ id }) => catalogStageUnlocked(id)).length
+}
+
+function recordSectionClear(sectionId: StageSectionId, index: number): boolean {
+  const section = stageSection(sectionId)
+  const entry = section.stages[index]
+  if (!entry || isCatalogStageCleared(entry)) return false
+  clearedStageIds.push(entry.id)
+  clearedStageIds.sort((a, b) => a - b)
+  save()
+  return index + 1 < section.stages.length
 }
 
 export function recordWin(index: number): boolean {
-  if (isStageCleared(index)) return false
-  state.clearedStages.push(index)
-  state.clearedStages.sort((a, b) => a - b)
-  save()
-  return index + 1 < STAGES.length
+  return recordSectionClear('core', index)
 }
 
 export function recordTutorialClear(index: number): boolean {
-  if (isTutorialCleared(index)) return false
-  state.clearedTutorials.push(index)
-  state.clearedTutorials.sort((a, b) => a - b)
-  save()
-  return index + 1 < TUTORIALS.length
+  return recordSectionClear('tutorial', index)
+}
+
+export function recordToolClear(index: number): boolean {
+  return recordSectionClear('tools', index)
 }
 
 export function resetProgress(): void {
-  state = { clearedStages: [], clearedTutorials: [] }
+  clearedStageIds = []
   save()
 }
