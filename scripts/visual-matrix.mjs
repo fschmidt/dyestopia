@@ -1,15 +1,9 @@
-/** Capture the M6 five-background × three-scene portrait review matrix. */
+/** Capture the background × three-scene portrait review matrix. */
 import { mkdir } from 'node:fs/promises'
 
 import { chromium } from '@playwright/test'
 
-const backgrounds = [
-  'canvas-fluid',
-  'fluid-ink',
-  'mosaic-grid',
-  'industrial-grunge',
-  'frosted-glass',
-]
+const backgrounds = ['fluid-ink']
 const scenes = ['Menu', 'Settings', 'Game']
 const out = '.screenshots/m6-matrix'
 await mkdir(out, { recursive: true })
