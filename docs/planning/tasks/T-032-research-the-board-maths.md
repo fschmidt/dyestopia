@@ -2,7 +2,7 @@
 id: T-032
 type: task
 title: Research the board maths
-status: Todo
+status: In Review
 ordinal: 300
 labels: [engine, balance, research]
 ---
@@ -55,10 +55,10 @@ concept and what follows it.
 ## Acceptance criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 A written survey of how comparable games parameterise their boards,
+- [x] #1 A written survey of how comparable games parameterise their boards,
       with sources, and a note on what applies here and what does not
-- [ ] #2 A complete inventory of the constants and rule-shaped decisions, each
+- [x] #2 A complete inventory of the constants and rule-shaped decisions, each
       with its current value and location
-- [ ] #3 Both are folded into `C-001`, which moves to Review
-- [ ] #4 No gameplay change and no parameter chosen
+- [x] #3 Both are folded into `C-001`, which moves to Review
+- [x] #4 No gameplay change and no parameter chosen
 <!-- AC:END -->

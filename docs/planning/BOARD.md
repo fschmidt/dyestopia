@@ -10,9 +10,8 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
 | `T-021` Tutorial rounds can be lost silently |   | `T-009` Architecture rules | `T-014` Free Move tool MVP |
-| `T-022` Headless playout harness |   |   | `T-015` Consistent stage-select design |
-| `T-032` Research the board maths |   |   | `T-016` iPhone 15 viewport |
-| `T-031` Measure the combo spike |   |   |   |
+| `T-022` Headless playout harness |   | `T-032` Research the board maths | `T-015` Consistent stage-select design |
+| `T-031` Measure the combo spike |   |   | `T-016` iPhone 15 viewport |
 | `T-023` Say why a drop was refused |   |   |   |
 | `T-024` Make the multiplier necessary |   |   |   |
 | `T-012` Resolve the combo spike |   |   |   |
@@ -23,11 +22,10 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | `T-030` Dedicated rainbow chain indicator |   |   |   |
 | `T-008` Revise the gravity algorithm |   |   |   |
 
-### Todo (13/15)
+### Todo (12/15)
 
 - `T-021` [Tutorial rounds can be lost silently](tasks/T-021-tutorial-silent-loss.md) · _tutorial_, _bug_
 - `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
-- `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
 - `T-031` [Measure the combo spike](tasks/T-031-measure-combo-spike.md) · _engine_, _testing_
 - `T-023` [Say why a drop was refused](tasks/T-023-refusal-reasons.md) · _feel_, _onboarding_
 - `T-024` [Make the multiplier necessary](tasks/T-024-multiplier-must-matter.md) · _engine_, _decision_
@@ -43,9 +41,10 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 _Empty._
 
-### In Review (1)
+### In Review (2)
 
 - `T-009` [Architecture rules](tasks/T-009-architecture-rules.md) · _docs_
+- `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
 
 ### Done (3)
 
