@@ -2,7 +2,7 @@
 id: D-002
 type: decision
 title: Result-tile supply is a flow, not a stock
-status: Proposed
+status: Accepted
 tasks: []
 ---
 
