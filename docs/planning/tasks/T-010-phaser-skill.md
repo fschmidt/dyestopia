@@ -2,7 +2,7 @@
 id: T-010
 type: task
 title: Phaser / game-development skill
-status: Todo
+status: Deferred
 ordinal: 800
 labels: [tooling]
 ---

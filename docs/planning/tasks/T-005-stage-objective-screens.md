@@ -2,8 +2,8 @@
 id: T-005
 type: task
 title: Stage objective in the pause menu and an intro screen
-status: Todo
-ordinal: 400
+status: Deferred
+ordinal: 600
 labels: [stages, M3]
 ---
 

@@ -2,7 +2,7 @@
 id: T-013
 type: task
 title: Monitor phone behaviour with a simulator
-status: Todo
+status: Deferred
 ordinal: 900
 labels: [testing, mobile]
 ---

@@ -2,8 +2,8 @@
 id: T-003
 type: task
 title: Per-tool tutorial stage pattern
-status: Todo
-ordinal: 200
+status: Deferred
+ordinal: 400
 labels: [tools, M2]
 ---
 

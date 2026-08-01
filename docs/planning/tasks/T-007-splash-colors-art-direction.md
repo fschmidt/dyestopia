@@ -2,8 +2,8 @@
 id: T-007
 type: task
 title: Splash Colors art direction
-status: Todo
-ordinal: 600
+status: Deferred
+ordinal: 700
 labels: [visuals]
 ---
 

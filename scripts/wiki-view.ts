@@ -1,5 +1,6 @@
 /**
- * Read-only markdown viewer for the board's side menu.
+ * Read-only markdown viewer for the board's side menu, and for the panel a card
+ * opens into — a card is a markdown file, so previewing one is just rendering it.
  *
  * Serves the repo's own documentation — `docs/`, plus the three root files an
  * agent is told to read — as a folder tree and rendered HTML. It is a viewer,

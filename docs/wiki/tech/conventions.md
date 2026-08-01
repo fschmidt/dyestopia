@@ -51,7 +51,19 @@ file in `docs/planning/tasks/`, never by editing the board. `npm run board`
 writes the same two fields as a drag and regenerates `BOARD.md` after every
 drop — so the board file is only ever an output, whichever way you move a card.
 It drags within the pipeline only; deferring a card or promoting an idea stays
-an edit, because each is a rewrite rather than a change of lane.
+an edit, because each is a rewrite rather than a change of lane. Clicking a card
+opens it in a panel — reading one is a glance, and the board keeps its place
+underneath. The panel is read-only, like everything else the viewer serves.
+
+**The wiki never speculates.** It describes what is true *now* — that is why it
+is pinned to source hashes and why its paths are checked. A proposal belongs in
+[docs/concepts/](../../concepts/index.md), a settled choice in
+[docs/decisions/](../../decisions/index.md), and neither is documentation. When a
+concept lands, what the game *does* moves here; the concept stays as the record
+of why. See `D-001`.
+
+**An accepted decision is immutable.** Supersede it with a later one rather than
+editing it. The point of an ADR is what was believed at the time.
 
 **Do not write file-by-file descriptions by hand.** The module map generates
 itself from header comments — if a module's one-liner is wrong, fix the comment
