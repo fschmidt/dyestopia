@@ -99,6 +99,8 @@ and visual profile are independent settings; none of them touch the engine.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run wiki` | `tsx scripts/wiki.ts` |
 | `npm run wiki:check` | `tsx scripts/wiki.ts --check` |
+| `npm run board` | `tsx scripts/board.ts` |
+| `npm run board:host` | `tsx scripts/board.ts --host` |
 | `npm run test` | `playwright test` |
 | `npm run test:headed` | `playwright test --headed` |
 | `npm run test:ui` | `playwright test --ui` |

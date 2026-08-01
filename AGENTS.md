@@ -11,6 +11,8 @@ Playwright. Deployed to GitHub Pages on push to `main`.
 - `npm run typecheck` — types only.
 - `npm test` — Playwright. There is no unit-test runner.
 - `npm run wiki` — regenerate the wiki. `npm run wiki:check` to verify it.
+- `npm run board` — drag-and-drop board on :5174, with a read-only wiki viewer
+  in its side menu. `board:host` to reach it from a phone.
 
 ## Invariants
 
@@ -50,10 +52,16 @@ Full rules in `docs/wiki/tech/conventions.md` — read it before changing docs.
 Cards live in `docs/planning/tasks/`, one file each. `docs/planning/BOARD.md` is
 a generated view of them.
 
-- **Move a card by editing its `status` field**, never by editing the board.
+- **Move a card by editing its `status` field**, or by dragging it in
+  `npm run board`. Never by editing `BOARD.md`.
 - `status` is one of `Todo`, `In Progress`, `In Review`, `Done`, `Deferred`.
 - `ordinal` sets priority within a lane — lower first, spaced by 100 so a card
-  can be inserted between two others without renumbering.
+  can be inserted between two others without renumbering. A drag respaces the
+  whole lane back to 100, 200, 300…, so one drop rewrites every card below it.
+- **Only the four pipeline lanes are draggable.** Deferred and Ideas are holding
+  areas: `npm run board` lists them in its side menu but will not move a card in
+  or out of either, because both directions are a rewrite rather than a field
+  change. Do those by editing the card.
 - **Todo holds at most 15 cards.** If it is full, something must be deferred
   before anything new is queued. The check enforces this.
 - Ideas are `type: idea` with an `I-` id and no lane. Promoting an idea means

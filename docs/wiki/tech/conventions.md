@@ -47,7 +47,11 @@ the wiki generator runs under `tsx` rather than Node's native type stripping.
 `npm run wiki`. Change the source data or the generator, never the block.
 
 **`docs/planning/BOARD.md` is generated in full.** Move a card by editing its
-file in `docs/planning/tasks/`, never by editing the board.
+file in `docs/planning/tasks/`, never by editing the board. `npm run board`
+writes the same two fields as a drag and regenerates `BOARD.md` after every
+drop — so the board file is only ever an output, whichever way you move a card.
+It drags within the pipeline only; deferring a card or promoting an idea stays
+an edit, because each is a rewrite rather than a change of lane.
 
 **Do not write file-by-file descriptions by hand.** The module map generates
 itself from header comments — if a module's one-liner is wrong, fix the comment

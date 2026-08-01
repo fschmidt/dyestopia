@@ -11,6 +11,8 @@
     "typecheck": "tsc --noEmit",
     "wiki": "tsx scripts/wiki.ts",
     "wiki:check": "tsx scripts/wiki.ts --check",
+    "board": "tsx scripts/board.ts",
+    "board:host": "tsx scripts/board.ts --host",
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
@@ -23,6 +25,7 @@
   "devDependencies": {
     "@playwright/test": "^1.62.0",
     "@types/node": "^26.1.1",
+    "marked": "^18.0.7",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.5"
