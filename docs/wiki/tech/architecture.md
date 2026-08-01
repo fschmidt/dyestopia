@@ -11,8 +11,9 @@ see [conventions.md](conventions.md).
 ## Stack
 
 Phaser 4 · TypeScript · Vite · Playwright. No framework, no state library, no CSS
-framework. A 960×720 logical canvas, FIT-scaled, portrait-oriented for phones.
-Deployed to GitHub Pages on every push to `main`.
+framework. A 393×852 logical canvas — an iPhone 15 Pro portrait viewport —
+FIT-scaled to whatever screen it lands on. Deployed to GitHub Pages on every push
+to `main`.
 
 ## Module map
 

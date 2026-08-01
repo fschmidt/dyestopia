@@ -18,8 +18,9 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | `T-008` Revise the gravity algorithm |   |   |   |
 | `T-010` Phaser / game-development skill |   |   |   |
 | `T-013` Monitor phone behaviour with a simulator |   |   |   |
+| `T-017` Module map misses most header comments |   |   |   |
 
-### Todo (9/15)
+### Todo (10/15)
 
 - `T-002` [Terminology highlighting and per-mechanic feedback](tasks/T-002-terminology-highlighting.md) · _tutorial_, _M1_
 - `T-003` [Per-tool tutorial stage pattern](tasks/T-003-per-tool-tutorial-stage.md) · _tools_, _M2_
@@ -30,6 +31,7 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 - `T-008` [Revise the gravity algorithm](tasks/T-008-revise-gravity-algorithm.md) · _engine_
 - `T-010` [Phaser / game-development skill](tasks/T-010-phaser-skill.md) · _tooling_
 - `T-013` [Monitor phone behaviour with a simulator](tasks/T-013-phone-compatibility-monitoring.md) · _testing_, _mobile_
+- `T-017` [Module map misses most header comments](tasks/T-017-module-map-misses-headers.md) · _docs_, _tooling_
 
 ### In Progress (1)
 
