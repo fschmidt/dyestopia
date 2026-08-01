@@ -106,15 +106,16 @@ scores, which the scoring system could already support), or a collection (the
 colours themselves are the obvious candidate — a game about making colours that
 does not record which ones you have made is leaving the free thing on the table).
 
-**3. Finite or endless?** `T-029` wants an ending. `I-027` and `I-013` want an
-indefinite tail. Those are not compatible and nothing on the board acknowledges
-the conflict yet. A game finishable in one sitting and a retention structure want
-opposite things from every other decision in this list.
+**3. Finite or endless?** ~~`T-029` wants an ending, `I-027` and `I-013` want an
+indefinite tail, and those are not compatible.~~ **Dissolved by `D-003`.** They
+were incompatible only under a global model. Per mode the puzzle sequence is
+finite and gets its ending, the roguelike is the indefinite tail, and both hold
+at once. Left in the list because the question was real and the way it stopped
+being real is worth remembering.
 
-**4. Global or per-mode?** The structural one, and the reason `C-003` exists. If
-unlocks and progress are global, the modes feed one meta layer and each has to
-earn its place in it. If they are per-mode, there are three economies to balance
-instead of one.
+**4. Global or per-mode?** **Answered — `D-003`.** Progression is per mode, with
+mode access as the single signal that crosses between them. This was the
+structural one, and the reason `C-003` exists.
 
 **5. May progression change play, or only presentation?** `I-027` notes that its
 presentation half is nearly free — tile sets, themes and backgrounds are already
@@ -128,15 +129,18 @@ other answer here, and it is a question about the author as much as the player.
 
 ## What this concept must emit
 
-Nothing is ripe. Recorded here so the queue is visible:
+One emitted, three outstanding:
 
+- **Global versus per-mode progression.** ✅ `D-003` — per mode, with mode access
+  as the only shared signal.
 - **Whether the game carries fiction, and how much.** Blocked on nothing but
   taste — this one could be decided the moment there is an opinion.
-- **Whether unlocks may change play or only presentation.** Nearly ripe. It
-  bounds `I-027` and it is cheap to hold to.
-- **Global versus per-mode progression.** Blocked on `C-003`.
-- **Ending versus indefinite tail.** Blocked on the mode question, because the
-  answer differs for a ten-stage puzzle game and a roguelike.
+- **Whether unlocks may change play or only presentation.** Nearly ripe, and
+  riper since `D-003`, which identified the award/wardrobe seam as the place a
+  global currency would sneak in. It bounds `I-027` and it is cheap to hold to.
+- **Ending versus indefinite tail.** No longer owed as a single decision.
+  `D-003` made it a per-mode question, so it belongs to whichever mode is being
+  designed — `T-029` can now answer it for the puzzle sequence alone.
 
 When the thinking starts in earnest it likely wants a research card of its own,
 the way `T-032` fed `C-001` — a survey of how comparable games answer this,
@@ -170,3 +174,7 @@ already on the board as a Deferred card behind `T-018`.
 - **Draft** — opened because the gap was named in conversation and had nowhere to
   live. Four dependent items identified on the board, six axes listed, no
   position taken on any of them. Sibling to `C-003`, which holds the modes.
+- **Draft** — first position taken. Axis 4 answered as `D-003`: progression is
+  per mode, and a mode may be locked behind progression made in another. Axis 3
+  dissolved as a consequence rather than being decided. Four of six axes remain
+  open, so the concept stays Draft.

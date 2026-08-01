@@ -10,6 +10,10 @@ was believed at the time.
 Concepts emit decisions. A decision can also stand alone, and a card labelled
 `decision` should land as one.
 
+### Proposed (1)
+
+- `D-003` [Progression is per mode, and mode access is the only thing shared](D-003-progression-is-per-mode.md)
+
 ### Accepted (2)
 
 - `D-001` [Concepts and decisions live outside the wiki](D-001-concepts-and-decisions.md)

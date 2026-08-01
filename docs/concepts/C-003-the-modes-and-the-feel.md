@@ -88,11 +88,15 @@ not a given.
 
 ## The axes
 
-**1. Which mode is the centre of gravity?** Everything else follows. If the
-puzzle sequence is the game and the rest are extras, the ten stages deserve the
-polish and the modes can stay thin. If the roguelike is the real game, the
-authored stages are a tutorial with ambitions and `T-025`'s ramp matters far
-less than it currently looks like it does.
+**1. Which mode is the centre of gravity?** **Half answered — `D-003`.** The
+puzzle sequence is the entry point and the gate: it is the only mode open on
+first launch and the roguelike is earned through it. So it is the centre *early*,
+and `T-025`'s ramp matters as much as it currently looks like it does.
+
+What `D-003` does not settle is whether the roguelike becomes the game a returning
+player actually opens. It can be the eventual centre of gravity while the puzzle
+sequence stays the way in — a shape a lot of games have — and nothing so far
+rules that out or in.
 
 **2. Is the core loop the same everywhere?** Mix to build, swap to cash in. If
 every mode keeps that contract intact, the modes are wrappers and the engine work
@@ -116,10 +120,11 @@ That reasoning generalises beyond supply and is probably this concept's first
 inherited rule — a mode may modulate the base game, it may not substitute for
 fixing it.
 
-**6. Which mode does a first-timer meet?** Currently the puzzle sequence, because
-it is the only one. `T-028` is already about steering a first-timer into the
-tutorial. Once there is a menu with three entries, that becomes a real design
-question rather than a default.
+**6. Which mode does a first-timer meet?** **Answered — `D-003`.** The puzzle
+sequence, and now by decision rather than by default: the other modes are locked
+behind progression, so the menu never presents a new player with three
+unexplained entries. `T-028` keeps its current meaning — steering a first-timer
+into the tutorial — instead of becoming one branch of a menu problem.
 
 ## What "feel" means
 
@@ -147,8 +152,12 @@ once more than one person is committing.
 
 - **`C-001` / `D-002`.** The base economy must work before any mode modulates it.
   `D-002` already refused the reverse.
-- **`C-002`.** Axis 4 there and axis 1 here are the same question seen from two
-  sides. Whichever is answered first constrains the other.
+- **`C-002`.** Axis 4 there and axis 1 here were the same question seen from two
+  sides, and `D-003` answered both at once: progression is per mode, with mode
+  access as the only shared signal.
+- **`D-003`.** Also fixes the first-timer answer here and dissolves `C-002`'s
+  finite-versus-endless conflict, since per-mode progression lets the puzzle
+  sequence end while the roguelike runs on.
 - **`D-001`.** Why this is a concept rather than a long card, and why nothing in
   here is ever deleted.
 
@@ -169,3 +178,7 @@ once more than one person is committing.
   and is recorded here as a set of questions rather than as the answers, because
   the answers currently exist only in conversation. No mode is endorsed and no
   card is cut.
+- **Draft** — `D-003` lands. Axis 6 answered outright, axis 1 half answered: the
+  puzzle sequence is the way in, but whether the roguelike becomes the mode a
+  returning player opens is still open. Four axes untouched, still Draft, still
+  no card cut.
