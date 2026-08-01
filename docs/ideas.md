@@ -51,3 +51,6 @@ Second step: Rainbow chain breaking
 
 # Roguelike mode
 - Enemies can interact with your board. Interactions are telegraphed and can be countered
+
+# Phone compatibility
+- Use simulator or similar things to monitor behavior
