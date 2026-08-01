@@ -79,7 +79,7 @@ promoting something from here usually means demoting something else.
 Unvetted. An idea is not a commitment and carries no lane — promoting one means
 rewriting it as a task (`T-` id, `type: task`, a real lane).
 
-### Ideas (19)
+### Ideas (26)
 
 - `I-001` [Recolour tool](tasks/I-001-recolour-tool.md) · _tools_
 - `I-002` [Reposition tool](tasks/I-002-reposition-tool.md) · _tools_
@@ -100,3 +100,10 @@ rewriting it as a task (`T-` id, `type: task`, a real lane).
 - `I-017` [Escalating combo visual effects](tasks/I-017-escalating-combo-effects.md) · _visuals_
 - `I-019` [Redesign the chain-break animations](tasks/I-019-chain-break-animations.md) · _visuals_
 - `I-020` [Debug toggle for internal modifiers](tasks/I-020-debug-modifier-toggle.md) · _dev_
+- `I-021` [Tool: additional moves](tasks/I-021-tool-additional-moves.md) · _tools_
+- `I-022` [Tool: additional time](tasks/I-022-tool-additional-time.md) · _tools_
+- `I-023` [Tile: mixed colour with a decay counter](tasks/I-023-decaying-mixed-tile.md) · _engine_, _balance_
+- `I-024` [Tile: bomb](tasks/I-024-bomb-tile.md) · _engine_
+- `I-025` [Passive: raise the odds of higher-tier colours](tasks/I-025-passive-higher-tier-odds.md) · _passives_, _engine_
+- `I-026` [Passive: a match creates a tile one tier higher](tasks/I-026-passive-match-promotes-tier.md) · _passives_, _engine_
+- `I-027` [Unlockables](tasks/I-027-unlockables.md) · _progression_, _visuals_
