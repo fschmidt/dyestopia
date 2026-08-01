@@ -9,6 +9,11 @@ the documentation.
 A concept is not work and carries no lane. Its research and its implementation are
 cards; the thinking itself lives here, and outlives them.
 
+### Draft (2)
+
+- `C-002` [Why the player moves on](C-002-why-the-player-moves-on.md)
+- `C-003` [The modes and how the game should feel](C-003-the-modes-and-the-feel.md)
+
 ### Accepted (1)
 
 - `C-001` [The board maths](C-001-board-maths.md) · `T-032`
