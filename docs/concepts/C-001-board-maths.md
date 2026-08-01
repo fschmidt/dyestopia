@@ -2,19 +2,21 @@
 id: C-001
 type: concept
 title: The board maths
-status: Review
+status: Accepted
 tasks: [T-032]
 ---
 
 # The board maths
 
-**In review.** This document holds the thinking; it is not documentation. When it
-is accepted, the decisions it locks become records in [docs/decisions/](../decisions/index.md),
-the implementation is cut into cards, and what the game *does* moves to the game
-wiki. Until then nothing here is true.
+**Accepted.** The analysis here is agreed: the inventory is the state of the
+board, the survey is the prior art, and the result-tile economy is the problem.
+What is *not* yet settled is the answer — sections 2 and 3 remain unwritten, and
+the decisions this concept owes are listed at the end with the ones that are ripe
+marked as such.
 
-`T-032` has filled in the survey and the inventory. What follows the inventory is
-still open.
+A concept stays living until the code lands. The decisions it locks become
+records in [docs/decisions/](../decisions/index.md) and the implementation is cut
+into cards; what the game *does* then moves to the game wiki.
 
 ## The problem
 
@@ -548,19 +550,27 @@ draw table by context, and we vary ours not at all.
 
 ## Decisions this concept must emit
 
-Unchanged in shape, sharpened by the survey. Expected:
+**Ripe now** — decidable on what this document already contains:
+
+- **Whether supply is a stock or a flow.** It precedes every value question here,
+  and the economy section answers it: a stock cannot be right at the first move
+  and the last simultaneously. Deciding the *shape* does not require choosing the
+  mechanism, so this one does not wait on `T-031`.
+- **The metrics that define a good balance** — win rate as the headline, with an
+  explicit statement of what greedy-bot numbers do and do not support. Already
+  reflected in `T-022`.
+
+**Blocked on evidence** — these need the harness or its numbers first:
 
 - **The parameter set's boundary** — proposed test: a parameter earns its place
-  if the harness can sweep it and report a difference. Depends on `T-022`.
+  if the harness can sweep it and report a difference. Depends on `T-022`
+  existing at all.
 - **The refill model** — the live candidate is a pity counter over mixable
-  supply, not a bag and not the Tetris lineage.
-- **Whether supply is a stock or a flow**, which precedes every value question
-  in this document and is the one decision that cannot be deferred to tuning.
+  supply, not a bag and not the Tetris lineage. Depends on `T-031`.
 - **The treatment of mix legality**, plus the two further rule-shaped levers the
-  inventory found (wave multiplier inheritance, merge scoring order).
-- **The metrics that define a good balance** — proposed: win rate as the
-  headline, with an explicit statement of what greedy-bot numbers do and do not
-  support.
+  inventory found (wave multiplier inheritance, merge scoring order). The
+  legality lever moves supply and the multiplier together, so it should not be
+  decided before both are measured.
 
 ## Open questions
 
@@ -603,6 +613,10 @@ Unchanged in shape, sharpened by the survey. Expected:
   problem we do not have, greedy-bot numbers support comparative claims only,
   and the parameter boundary has no industry line to borrow. No value chosen and
   no gameplay changed.
+- **Accepted** — the analysis is agreed. Sections 2 and 3 stay unwritten, and the
+  decisions the concept owes are split into the two that are ripe and the three
+  that need evidence. `T-022` carries the metrics decision as acceptance
+  criteria; the stock-versus-flow decision is owed as a `D-` record.
 - **Review, amended** — added [The result-tile economy](#the-result-tile-economy)
   after the inventory made the arithmetic checkable. The non-seed pool is
   monotonically non-increasing and each merge spends three to return one, so the
