@@ -206,7 +206,9 @@
         border: 1px solid var(--line);
         border-radius: 8px;
         box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+        cursor: pointer;
       }
+      .card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
       .card.idea { border-left: 3px solid var(--accent); }
       .grip {
         flex: 0 0 auto;
@@ -319,6 +321,93 @@
       .doc th { background: var(--panel); font-weight: 600; }
       .doc input[type='checkbox'] { margin-right: 4px; }
 
+      /* ----------------------------------------------------------- preview */
+      /* A panel rather than a route: the board stays put underneath, so reading
+         a card does not cost the scroll position or a trip back. */
+      .veil {
+        position: fixed;
+        inset: 0;
+        z-index: 12;
+        background: rgb(0 0 0 / 0.4);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s ease;
+      }
+      body.previewing .veil { opacity: 1; pointer-events: auto; }
+
+      .preview {
+        position: fixed;
+        inset: 0 0 0 auto;
+        z-index: 13;
+        width: min(480px, 100vw);
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        border-left: 1px solid var(--line);
+        box-shadow: -6px 0 28px rgb(0 0 0 / 0.22);
+        transform: translateX(101%);
+        transition: transform 0.2s ease;
+      }
+      body.previewing .preview { transform: none; }
+
+      .preview > header {
+        align-items: flex-start;
+        padding: 14px 14px 12px 16px;
+        padding-top: calc(14px + env(safe-area-inset-top));
+        background: var(--panel);
+      }
+      .preview h2 { font-size: 15.5px; font-weight: 620; margin: 1px 0 0; letter-spacing: -0.01em; }
+      .preview .meta {
+        margin-top: 5px;
+        font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: var(--dim);
+      }
+      .preview .labels { margin-top: 7px; }
+      .preview .scroller { padding: 14px 16px calc(20px + env(safe-area-inset-bottom)) 16px; }
+      /* The panel header already carries the title; the card's own H1 repeats it. */
+      .preview .doc > h1:first-child { display: none; }
+      .preview .doc h2 { margin-top: 20px; font-size: 15px; }
+      .preview .doc h2:first-child { margin-top: 0; }
+      .preview .loading { color: var(--dim); }
+      .preview footer {
+        padding: 10px 16px calc(10px + env(safe-area-inset-bottom)) 16px;
+        border-top: 1px solid var(--line);
+        background: var(--panel);
+        font-size: 12px;
+      }
+      .preview footer a { color: var(--accent); }
+      #close {
+        flex: 0 0 auto;
+        margin-left: auto;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        background: none;
+        color: var(--dim);
+        cursor: pointer;
+      }
+      #close:hover { background: var(--bg); border-color: var(--line); color: var(--ink); }
+
+      /* On a phone there is no room beside the board, so it becomes a sheet. */
+      @media (max-width: 899px) {
+        .preview {
+          inset: auto 0 0 0;
+          width: auto;
+          height: min(86vh, 100%);
+          border-left: 0;
+          border-top: 1px solid var(--line);
+          border-radius: 14px 14px 0 0;
+          transform: translateY(101%);
+          box-shadow: 0 -6px 28px rgb(0 0 0 / 0.22);
+        }
+        .preview > header { padding-top: 14px; }
+      }
+
       .toast {
         position: fixed;
         left: 50%;
@@ -358,6 +447,26 @@
       <div class="backdrop" id="backdrop"></div>
       <main id="main"></main>
     </div>
+
+    <div class="veil" id="veil"></div>
+    <aside class="preview" id="preview" aria-hidden="true">
+      <header>
+        <div class="body">
+          <span class="id" id="p-id"></span>
+          <h2 id="p-title"></h2>
+          <div class="meta" id="p-meta"></div>
+          <div id="p-labels"></div>
+        </div>
+        <button id="close" title="Close" aria-label="Close">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path d="M1.5 1.5l10 10M11.5 1.5l-10 10" stroke-linecap="round" />
+          </svg>
+        </button>
+      </header>
+      <div class="scroller" id="p-body"></div>
+      <footer><a id="p-full" href="#">Open as a page ↗</a></footer>
+    </aside>
+
     <div class="toast" id="toast"></div>
 
     <script type="module">
@@ -455,8 +564,8 @@
         for (const card of cards) {
           const row = document.createElement('button')
           row.className = `row ${card.type}`
-          // The card file is servable, so the list doubles as a way into it.
-          row.dataset.route = `wiki/${card.file}`
+          // Rows open the same preview a card does — a holding area is still cards.
+          row.dataset.id = card.id
           row.innerHTML = `<span class="id">${esc(card.id)}</span>
             <span class="body">
               <span class="title">${esc(card.title)}</span>
@@ -488,9 +597,72 @@
         scroller.scrollTop = 0
       }
 
+      // ------------------------------------------------------------- preview
+
+      /**
+       * A card, rendered in place. The board keeps its scroll and its lanes
+       * underneath, which is the whole point of a panel rather than a route —
+       * reading a card is a glance, not a navigation.
+       */
+      const previewEl = document.getElementById('preview')
+      const preview = {
+        id: document.getElementById('p-id'),
+        title: document.getElementById('p-title'),
+        meta: document.getElementById('p-meta'),
+        labels: document.getElementById('p-labels'),
+        body: document.getElementById('p-body'),
+        full: document.getElementById('p-full'),
+      }
+      let showing = null
+
+      function findCard(id) {
+        for (const cards of [...state.columns.map((c) => c.cards), ...Object.values(state.lists)]) {
+          const card = cards.find((candidate) => candidate.id === id)
+          if (card) return card
+        }
+        return null
+      }
+
+      function closePreview() {
+        showing = null
+        document.body.classList.remove('previewing')
+        previewEl.setAttribute('aria-hidden', 'true')
+      }
+
+      async function openPreview(id) {
+        const card = findCard(id)
+        if (!card) return
+        showing = id
+        preview.id.textContent = card.id
+        preview.title.textContent = card.title
+        // Lane, priority and filename — the three things the card body never states.
+        preview.meta.textContent = `${card.status ?? 'Idea'} · ordinal ${card.ordinal} · ${card.file}`
+        preview.labels.innerHTML = labelsHtml(card.labels)
+        preview.body.innerHTML = '<p class="loading">Loading…</p>'
+        preview.full.href = `#wiki/${card.file}`
+        previewEl.setAttribute('aria-hidden', 'false')
+        document.body.classList.add('previewing')
+
+        const res = await fetch(`/api/wiki/page?path=${encodeURIComponent(card.file)}`)
+        const body = await res.json()
+        // Two quick clicks race; the one still on screen wins.
+        if (showing !== id) return
+        preview.body.innerHTML = res.ok
+          ? `<article class="doc">${body.html}</article>`
+          : `<p class="loading">${esc(body.error)}</p>`
+        preview.body.scrollTop = 0
+      }
+
+      document.getElementById('close').addEventListener('click', closePreview)
+      document.getElementById('veil').addEventListener('click', closePreview)
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closePreview()
+      })
+
       // ------------------------------------------------------------- routing
 
       function route() {
+        closePreview()
         const hash = decodeURIComponent(location.hash.slice(1)) || 'board'
         for (const item of drawer.querySelectorAll('.nav-item')) {
           item.classList.toggle('on', item.dataset.route === hash)
@@ -505,12 +677,17 @@
       }
 
       window.addEventListener('hashchange', route)
-      for (const scope of [drawer, main]) {
-        scope.addEventListener('click', (event) => {
-          const item = event.target.closest('.nav-item, .row')
-          if (item) location.hash = item.dataset.route
-        })
-      }
+      drawer.addEventListener('click', (event) => {
+        const item = event.target.closest('.nav-item')
+        if (item) location.hash = item.dataset.route
+      })
+      main.addEventListener('click', (event) => {
+        // A drag ends in a click on whatever the pointer happened to be over,
+        // so a drop must not also open the card it just moved.
+        if (drag || performance.now() - dropped < 250) return
+        const card = event.target.closest('.card, .row')
+        if (card) openPreview(card.dataset.id)
+      })
 
       // ---------------------------------------------------------- board data
 
@@ -561,6 +738,7 @@
       // ------------------------------------------------------------ dragging
 
       let drag = null
+      let dropped = -Infinity
 
       main.addEventListener('pointerdown', (event) => {
         const grip = event.target.closest('.grip')
@@ -591,7 +769,9 @@
         event.preventDefault()
       })
 
-      main.addEventListener('pointermove', (event) => {
+      // On the window, not on `main`: a drag that ends over the header or the
+      // drawer still has to end, or the board stays stuck holding the card.
+      window.addEventListener('pointermove', (event) => {
         if (!drag) return
         drag.floating.style.left = `${event.clientX - drag.offsetX}px`
         drag.floating.style.top = `${event.clientY - drag.offsetY}px`
@@ -618,6 +798,7 @@
         if (!drag) return
         const { id, placeholder, floating, from, fromIndex } = drag
         drag = null
+        dropped = performance.now()
         floating.remove()
         placeholder.classList.remove('placeholder')
         document.body.classList.remove('dragging')
@@ -629,8 +810,8 @@
         commit(id, column, index)
       }
 
-      main.addEventListener('pointerup', endDrag)
-      main.addEventListener('pointercancel', endDrag)
+      window.addEventListener('pointerup', endDrag)
+      window.addEventListener('pointercancel', endDrag)
 
       // --------------------------------------------------------------- start
 

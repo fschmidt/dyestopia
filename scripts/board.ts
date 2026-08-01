@@ -146,8 +146,17 @@ function regenerate(): string | null {
 
 // -------------------------------------------------------------------- http
 
+/** `status` is null for an idea, which sits outside the lanes and carries none. */
 function shape(task: Task) {
-  return { id: task.id, title: task.title, type: task.type, labels: task.labels, file: task.file }
+  return {
+    id: task.id,
+    title: task.title,
+    type: task.type,
+    status: task.type === 'idea' ? null : task.status,
+    ordinal: task.ordinal,
+    labels: task.labels,
+    file: task.file,
+  }
 }
 
 function boardState() {
