@@ -1,6 +1,6 @@
 ---
 name: wiki-audit
-description: Use when the wiki may have drifted from the code - after a refactor, a rename, a batch of changes, or when asked to audit, prune or slim the docs. Proposes concrete numbered fixes for prose that is no longer TRUE, data that should be generated, and text that has outlived its usefulness, then applies only what the human accepts. Never commits.
+description: Use when the wiki may have drifted from the code - after a refactor, a rename, a batch of changes, or when asked to audit, prune or slim the docs. Reports a short plain-language summary of prose that is no longer TRUE, data that should be generated, and text that has outlived its usefulness. Each finding is routed to either a wiki edit or a new task card, and only what the human accepts is applied. Never commits.
 ---
 
 # Wiki audit
@@ -50,53 +50,100 @@ treat it as the deep-explanation companion, not a target.
 
 ---
 
-## Phase 2 — Propose
+## Phase 2 — Summarise
 
-Present every finding as a numbered item in this exact shape:
+**Route every finding before writing it.** There are exactly three destinations,
+and a finding that fits none of them is not a finding:
+
+- **`[wiki]`** — the prose is wrong. Fixable here, now, by editing the page.
+- **`[task]`** — the fix is in code, the generator or the build. It becomes a
+  card in `docs/planning/tasks/`. It is *not* a doc edit and must never be
+  applied as one.
+- **drop it** — true but inconsequential. Say nothing. A short list that is all
+  signal beats a long one that is honest about trivia.
+
+Then write the summary. This is the only thing the human reads, so it is prose,
+not a report:
 
 ```
-A3 · FALSE · docs/wiki/game/scoring-and-chains.md:34
-    Claim:    "A swap while a chain is live doubles the multiplier."
-    Code:     src/board.ts:451 multiplies by 3 at max chain, not 2.
-    Proposed: <the exact replacement text>
-    Safety:   mechanical | needs-your-call
+3 findings — 1 wiki fix, 2 that belong on the board.
+
+1. The architecture page says the canvas is 960×720 landscape. It is 393×852
+   portrait — the iPhone 15 change never reached the docs.              [wiki]
+
+2. The module map shows "—" for 30 modules. 25 of them do have a description;
+   the generator only looks above the imports, so it never sees them.   [task]
 ```
 
 Rules for this phase:
 
-- **One finding, one number.** Never bundle two edits under one item — the human
-  must be able to take the third and refuse the fourth.
-- **`Proposed:` must be the literal text you would write.** "Reword this section"
-  is not a proposal and cannot be accepted.
-- **Mark every finding's safety honestly:**
-  - `mechanical` — the target is known and the fix is substitution: a stale path,
-    a renamed symbol, a number that disagrees with source, deleting a sentence
-    about something that no longer exists.
-  - `needs-your-call` — the fix requires deciding what is *true* or what the
-    project *intends*. Anything rewriting a rule, or cutting text that might be
-    load-bearing, is this. When unsure, it is this.
+- **Write for someone who has not read the code today.** Two or three lines per
+  finding: what the doc claims, what is actually so, why it matters if that is
+  not obvious. No line numbers, no regexes, no internal identifiers, no
+  `Claim:`/`Code:` scaffolding. Hold the evidence — Phase 3 needs it, and the
+  human may ask — but do not print it unasked.
+- **Show the replacement text only when it is a sentence or less.** Otherwise
+  describe the change and offer the exact wording. A wall of proposed prose is
+  the thing that makes an audit unreviewable.
+- **At most seven findings.** More than that is a rewrite, not an audit — report
+  the top seven and say plainly that the list was cut.
+- **One finding, one number**, so the human can take the third and refuse the
+  fourth.
 - **Rank by consequence.** A false rule in `AGENTS.md` outranks a stale sentence
   in a game page.
-- **Say plainly when a section is fine.** An audit that invents findings to look
+- **Say plainly when everything is fine.** An audit that invents findings to look
   thorough is worse than one that reports nothing. Zero findings is a valid and
-  common outcome.
+  common outcome, and one line is the right way to report it.
 
-Then ask the human which to apply, and **wait**. Offer: all, all `mechanical`
-only, a specific list of numbers, or none. Do not proceed on silence or on an
-ambiguous answer — ask again.
+End with a single question naming the obvious default — typically "apply the
+wiki fixes and file the rest as tasks?". Then **wait**. Do not proceed on
+silence or on an ambiguous answer.
 
 ---
 
 ## Phase 3 — Apply
 
-Only for accepted numbers. Nothing else, however obviously right it seemed.
+Only for accepted numbers. Nothing else, however obviously right it seemed. Each
+one goes to the destination it was routed to in Phase 2 — never the other.
 
-1. Make exactly the edits proposed — not improved versions of them. If applying
+**For a `[wiki]` finding**, edit the page:
+
+1. Make exactly the edit summarised — not an improved version of it. If applying
    one reveals it was wrong, stop and re-propose rather than improvising.
 2. Run `npm run wiki` to regenerate blocks and re-pin.
 3. Run `npm run wiki:check`. It must pass. If it does not, report and stop.
-4. Show `git diff --stat` and summarise what changed in one line per file.
-5. **Stop there. Do not commit, and do not offer to.** The diff is the review.
+
+**For a `[task]` finding**, write a card in `docs/planning/tasks/` — do not fix
+the code, and do not edit the doc to describe the bug:
+
+1. Take the next free `T-` id and name the file `T-0NN-short-slug.md`.
+2. Frontmatter: `id`, `type: task`, `title`, `status: Todo`, `ordinal`, and
+   `labels`. Give it the ordinal of the lane's last card plus 100 — an audit
+   finding starts at the back of the queue unless the human says otherwise.
+3. Body: a `## Description` explaining what is wrong and how it was found, then
+   `## Acceptance criteria` with numbered checkboxes between `<!-- AC:BEGIN -->`
+   and `<!-- AC:END -->`. This is where the evidence from Phase 1 goes — file
+   paths and the failing case belong in the card, where whoever picks it up
+   needs them.
+4. **Keep the card the size of the cards already there** — around 25 lines, and
+   never more than the largest existing card. Check before writing:
+   `wc -c docs/planning/tasks/T-*.md | sort -rn | head -3`.
+
+   You will have just finished a deep verification pass, and the temptation is
+   to pour the working notes in. Resist it. What earns its place is the
+   diagnosis: what is broken, and enough of why that nobody has to rediscover
+   it. What does not is a comparison of possible fixes, a worked example, or
+   your recommendation — naming the options in one sentence is enough, and
+   whoever works the card will know more than you do by then. An audit-filed
+   card that dwarfs its neighbours is a bug in this skill, not thoroughness.
+5. **Check the Todo lane first.** It caps at 15. If filing would overflow it,
+   say so and ask what to defer rather than filing anyway — `wiki:check` will
+   fail the build otherwise.
+6. Run `npm run wiki` to regenerate the board.
+
+**Then, for both:** show `git diff --stat`, summarise what changed in one line
+per file, and **stop. Do not commit, and do not offer to.** The diff is the
+review.
 
 For a rejected finding, the human may say it should never be raised again. In
 that case add a short inline marker next to the prose rather than keeping a
