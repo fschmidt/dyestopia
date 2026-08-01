@@ -12,23 +12,14 @@
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { basename, dirname, join } from 'node:path'
 
 import { COLORS, colorTier, colorValue } from '../src/colors'
 import { STAGE_SECTIONS } from '../src/stage-catalog'
 import { stageMaxMultiplier, stageMixes, type Stage } from '../src/stage'
+import { LANES, PIPELINE, ROOT, TODO_LIMIT, loadTasks, read, type Lane, type Task } from './tasks'
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CHECK = process.argv.includes('--check')
-
-/** The working pipeline, left to right. Deferred and ideas sit outside it. */
-const PIPELINE = ['Todo', 'In Progress', 'In Review', 'Done'] as const
-const LANES = [...PIPELINE, 'Deferred'] as const
-type Lane = (typeof LANES)[number]
-
-/** Queue discipline: past this, something has to be deferred rather than queued. */
-const TODO_LIMIT = 15
 
 /** Below this, a generator has silently stopped matching and must fail loudly. */
 const MIN_ROWS = 3
@@ -41,10 +32,6 @@ function fail(message: string) {
 }
 
 // ---------------------------------------------------------------- helpers
-
-function read(path: string): string {
-  return readFileSync(join(ROOT, path), 'utf8')
-}
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(join(ROOT, dir))) {
@@ -169,81 +156,7 @@ function scriptRows(): string[][] {
   ])
 }
 
-// ------------------------------------------------------------ board model
-
-interface Task {
-  file: string
-  id: string
-  title: string
-  /** Ideas sit outside the pipeline entirely, so their status is unused. */
-  type: 'task' | 'idea'
-  status: Lane
-  ordinal: number
-  labels: string[]
-}
-
-/** Flat scalars and flat lists only — the subset every writer round-trips safely. */
-function frontmatter(source: string, file: string): Record<string, string> {
-  const match = source.match(/^---\n([\s\S]*?)\n---/)
-  if (!match) {
-    fail(`${file}: missing YAML frontmatter`)
-    return {}
-  }
-  const fields: Record<string, string> = {}
-  for (const line of match[1].split('\n')) {
-    const field = line.match(/^([a-z_]+):\s*(.*)$/)
-    if (field) fields[field[1]] = field[2].trim()
-  }
-  return fields
-}
-
-function loadTasks(): Task[] {
-  const dir = 'docs/planning/tasks'
-  if (!existsSync(join(ROOT, dir))) return []
-  const tasks: Task[] = []
-  const seen = new Map<string, string>()
-
-  for (const name of readdirSync(join(ROOT, dir)).sort()) {
-    if (!name.endsWith('.md')) continue
-    const file = `${dir}/${name}`
-    const fields = frontmatter(read(file), file)
-    const id = fields.id ?? ''
-    const type = (fields.type ?? 'task') as Task['type']
-    const status = fields.status as Lane
-
-    if (type !== 'task' && type !== 'idea') fail(`${file}: type must be task or idea, got "${type}"`)
-    // The id prefix carries the type, so the two can never desync.
-    const prefix = type === 'idea' ? 'I' : 'T'
-    if (!new RegExp(`^${prefix}-\\d{3}$`).test(id)) {
-      fail(`${file}: a ${type} needs an id like ${prefix}-001, got "${id}"`)
-    }
-    if (!name.startsWith(`${id}-`)) fail(`${file}: filename must start with its id "${id}"`)
-    if (seen.has(id)) fail(`${file}: duplicate id ${id}, already used by ${seen.get(id)}`)
-    seen.set(id, file)
-    if (type === 'task' && !LANES.includes(status)) {
-      fail(`${file}: status "${fields.status}" is not one of ${LANES.join(' | ')}`)
-    }
-    if (!/^\d+$/.test(fields.ordinal ?? '')) {
-      fail(`${file}: ordinal must be a number, got "${fields.ordinal}"`)
-    }
-    if (!fields.title) fail(`${file}: missing title`)
-
-    tasks.push({
-      file,
-      id,
-      type,
-      title: fields.title ?? name,
-      status,
-      ordinal: Number(fields.ordinal ?? 0),
-      labels: (fields.labels ?? '')
-        .replace(/^\[|\]$/g, '')
-        .split(',')
-        .map((label) => label.trim())
-        .filter(Boolean),
-    })
-  }
-  return tasks
-}
+// ------------------------------------------------------------ board render
 
 function card(task: Task): string {
   const link = `${basename(dirname(task.file))}/${basename(task.file)}`
@@ -485,7 +398,7 @@ function write(file: string, next: string): void {
 
 // -------------------------------------------------------------------- main
 
-const tasks = loadTasks()
+const tasks = loadTasks(fail)
 if (tasks.length) write('docs/planning/BOARD.md', renderBoard(tasks))
 applyBlocks()
 applyPins()
