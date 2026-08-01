@@ -11,8 +11,9 @@ Playwright. Deployed to GitHub Pages on push to `main`.
 - `npm run typecheck` — types only.
 - `npm test` — Playwright. There is no unit-test runner.
 - `npm run wiki` — regenerate the wiki. `npm run wiki:check` to verify it.
-- `npm run board` — drag-and-drop board on :5174, with a read-only wiki viewer
-  in its side menu. `board:host` to reach it from a phone.
+- `npm run board` — drag-and-drop board on :5174. Click a card to read it in a
+  side panel; the side menu holds a read-only wiki viewer. `board:host` to reach
+  it from a phone.
 
 ## Invariants
 
@@ -46,6 +47,24 @@ Full rules in `docs/wiki/tech/conventions.md` — read it before changing docs.
   have not confirmed.
 - Run `npm run wiki` after changing game data, adding a module, or touching a
   task, and commit the result.
+
+## Concepts and decisions
+
+Prose that is not a description of the code has two homes, neither of them the
+wiki and neither of them a lane. Full reasoning in `D-001`.
+
+- **`docs/concepts/`** (`C-0xx`) — a design worked out before it is built. Living
+  until the code lands, then marked Implemented. The wiki takes over describing
+  what the game does; the concept remains the record of why.
+- **`docs/decisions/`** (`D-0xx`) — one choice each, ADR-style. **Immutable once
+  accepted**: supersede, never edit.
+- The order is research card → concept → decisions and implementation cards →
+  wiki. Small designs stay in the card that implements them; this is for the
+  ones that do not fit.
+- Both are validated like cards — id shape, filename agreement, real status — and
+  their indexes are generated. A `C-` or `D-` id cited anywhere must resolve, and
+  a record's `tasks:` must name cards that exist.
+- Nothing here is ever deleted. A rejected record stops the idea coming back.
 
 ## Editing the board
 
