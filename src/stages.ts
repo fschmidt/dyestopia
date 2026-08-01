@@ -10,8 +10,12 @@ import type { Stage } from './stage'
  * A mix is legal only when the dyed target completes a line with two
  * result-coloured tiles already in place, so the letters author *in-line
  * pairs* — each one a made mix away from a clear, once the right primary
- * drifts next door. Loose result tiles beyond those come only from merge
- * survivors (a converted dragged tile the cleared line didn't include).
+ * drifts next door.
+ *
+ * Those letters are the stage's whole lifetime supply of every colour beyond
+ * the primaries. A merge spends three of them — the two in line plus the dyed
+ * target — and returns one, the converted dragged tile the cleared line didn't
+ * include, so the non-seed pool only ever shrinks. See `C-001`.
  *
  * Thresholds are calibrated per board rather than forced to rise monotonically:
  * a 300-seed chain-aware simulation estimates each shape's full-budget score,

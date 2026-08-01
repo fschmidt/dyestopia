@@ -11,9 +11,8 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | --- | --- | --- | --- |
 | `T-021` Tutorial rounds can be lost silently |   | `T-009` Architecture rules | `T-014` Free Move tool MVP |
 | `T-022` Headless playout harness |   |   | `T-015` Consistent stage-select design |
-| `T-032` Research the board maths |   |   | `T-016` iPhone 15 viewport |
-| `T-031` Measure the combo spike |   |   |   |
-| `T-023` Say why a drop was refused |   |   |   |
+| `T-031` Measure the combo spike |   |   | `T-016` iPhone 15 viewport |
+| `T-023` Say why a drop was refused |   |   | `T-032` Research the board maths |
 | `T-024` Make the multiplier necessary |   |   |   |
 | `T-012` Resolve the combo spike |   |   |   |
 | `T-025` Ramp the stage sequence |   |   |   |
@@ -23,11 +22,10 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | `T-030` Dedicated rainbow chain indicator |   |   |   |
 | `T-008` Revise the gravity algorithm |   |   |   |
 
-### Todo (13/15)
+### Todo (12/15)
 
 - `T-021` [Tutorial rounds can be lost silently](tasks/T-021-tutorial-silent-loss.md) · _tutorial_, _bug_
 - `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
-- `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
 - `T-031` [Measure the combo spike](tasks/T-031-measure-combo-spike.md) · _engine_, _testing_
 - `T-023` [Say why a drop was refused](tasks/T-023-refusal-reasons.md) · _feel_, _onboarding_
 - `T-024` [Make the multiplier necessary](tasks/T-024-multiplier-must-matter.md) · _engine_, _decision_
@@ -47,11 +45,12 @@ _Empty._
 
 - `T-009` [Architecture rules](tasks/T-009-architecture-rules.md) · _docs_
 
-### Done (3)
+### Done (4)
 
 - `T-014` [Free Move tool MVP](tasks/T-014-free-move-tool.md) · _tools_, _M2_
 - `T-015` [Consistent stage-select design](tasks/T-015-stage-select-design.md) · _visuals_
 - `T-016` [iPhone 15 viewport](tasks/T-016-iphone-viewport.md) · _mobile_
+- `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
 
 ## Deferred
 
@@ -80,7 +79,7 @@ promoting something from here usually means demoting something else.
 Unvetted. An idea is not a commitment and carries no lane — promoting one means
 rewriting it as a task (`T-` id, `type: task`, a real lane).
 
-### Ideas (19)
+### Ideas (26)
 
 - `I-001` [Recolour tool](tasks/I-001-recolour-tool.md) · _tools_
 - `I-002` [Reposition tool](tasks/I-002-reposition-tool.md) · _tools_
@@ -101,3 +100,10 @@ rewriting it as a task (`T-` id, `type: task`, a real lane).
 - `I-017` [Escalating combo visual effects](tasks/I-017-escalating-combo-effects.md) · _visuals_
 - `I-019` [Redesign the chain-break animations](tasks/I-019-chain-break-animations.md) · _visuals_
 - `I-020` [Debug toggle for internal modifiers](tasks/I-020-debug-modifier-toggle.md) · _dev_
+- `I-021` [Tool: additional moves](tasks/I-021-tool-additional-moves.md) · _tools_
+- `I-022` [Tool: additional time](tasks/I-022-tool-additional-time.md) · _tools_
+- `I-023` [Tile: mixed colour with a decay counter](tasks/I-023-decaying-mixed-tile.md) · _engine_, _balance_
+- `I-024` [Tile: bomb](tasks/I-024-bomb-tile.md) · _engine_
+- `I-025` [Passive: raise the odds of higher-tier colours](tasks/I-025-passive-higher-tier-odds.md) · _passives_, _engine_
+- `I-026` [Passive: a match creates a tile one tier higher](tasks/I-026-passive-match-promotes-tier.md) · _passives_, _engine_
+- `I-027` [Unlockables](tasks/I-027-unlockables.md) · _progression_, _visuals_

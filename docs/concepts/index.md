@@ -9,6 +9,6 @@ the documentation.
 A concept is not work and carries no lane. Its research and its implementation are
 cards; the thinking itself lives here, and outlives them.
 
-### Draft (1)
+### Accepted (1)
 
 - `C-001` [The board maths](C-001-board-maths.md) · `T-032`

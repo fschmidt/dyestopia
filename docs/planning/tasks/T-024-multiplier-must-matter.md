@@ -23,8 +23,12 @@ and every cascade wave it sets off inherits it. If chain play only wins by a
 little against payouts like that, the likely reason is that chain play is
 mostly unavailable: a mix is legal only when the dyed target completes a line
 with two result-coloured tiles already in place, refills only ever drop `seed`
-colours, and each merge nets roughly one surviving result tile. Confirm or kill
-that hypothesis first — the harness can, and `T-031` reports the mix counts.
+colours, and **each merge spends more result tiles than it returns** — two in
+line plus the dyed target clear, and only the dragged tile survives. The
+non-seed pool is therefore monotonically non-increasing across a round, and for
+a tertiary the drain compounds because the ingredient is non-seed too. `C-001`
+works the arithmetic. Confirm or kill that hypothesis first — the harness can,
+and `T-031` reports the mix counts.
 
 Candidate levers, none of them presumed:
 
