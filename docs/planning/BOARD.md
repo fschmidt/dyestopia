@@ -9,10 +9,10 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
-| `T-021` Tutorial rounds can be lost silently |   | `T-009` Architecture rules | `T-014` Free Move tool MVP |
-| `T-022` Headless playout harness |   |   | `T-015` Consistent stage-select design |
-| `T-031` Measure the combo spike |   |   | `T-016` iPhone 15 viewport |
-| `T-023` Say why a drop was refused |   |   | `T-032` Research the board maths |
+| `T-022` Headless playout harness |   | `T-009` Architecture rules | `T-014` Free Move tool MVP |
+| `T-031` Measure the combo spike |   |   | `T-015` Consistent stage-select design |
+| `T-023` Say why a drop was refused |   |   | `T-016` iPhone 15 viewport |
+| `T-021` Tutorial rounds can be lost silently |   |   | `T-032` Research the board maths |
 | `T-024` Make the multiplier necessary |   |   |   |
 | `T-012` Resolve the combo spike |   |   |   |
 | `T-025` Ramp the stage sequence |   |   |   |
@@ -24,10 +24,10 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 ### Todo (12/15)
 
-- `T-021` [Tutorial rounds can be lost silently](tasks/T-021-tutorial-silent-loss.md) · _tutorial_, _bug_
 - `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
 - `T-031` [Measure the combo spike](tasks/T-031-measure-combo-spike.md) · _engine_, _testing_
 - `T-023` [Say why a drop was refused](tasks/T-023-refusal-reasons.md) · _feel_, _onboarding_
+- `T-021` [Tutorial rounds can be lost silently](tasks/T-021-tutorial-silent-loss.md) · _tutorial_, _bug_
 - `T-024` [Make the multiplier necessary](tasks/T-024-multiplier-must-matter.md) · _engine_, _decision_
 - `T-012` [Resolve the combo spike](tasks/T-012-resolve-combo-spike.md) · _engine_, _decision_
 - `T-025` [Ramp the stage sequence](tasks/T-025-ramp-the-stage-sequence.md) · _stages_, _balance_

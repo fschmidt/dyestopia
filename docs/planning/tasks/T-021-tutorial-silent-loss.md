@@ -3,7 +3,7 @@ id: T-021
 type: task
 title: Tutorial rounds can be lost silently
 status: Todo
-ordinal: 100
+ordinal: 400
 labels: [tutorial, bug]
 ---
 

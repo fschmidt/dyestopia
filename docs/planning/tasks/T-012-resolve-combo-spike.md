@@ -3,7 +3,7 @@ id: T-012
 type: task
 title: Resolve the combo spike
 status: Todo
-ordinal: 700
+ordinal: 600
 labels: [engine, decision]
 ---
 

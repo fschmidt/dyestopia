@@ -3,7 +3,7 @@ id: T-018
 type: task
 title: Rework the tutorial concept
 status: Todo
-ordinal: 900
+ordinal: 800
 labels: [tutorial, M1]
 ---
 

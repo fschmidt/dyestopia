@@ -3,7 +3,7 @@ id: T-023
 type: task
 title: Say why a drop was refused
 status: Todo
-ordinal: 500
+ordinal: 300
 labels: [feel, onboarding]
 ---
 
