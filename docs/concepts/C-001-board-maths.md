@@ -28,6 +28,115 @@ Balance work done against that state has to be redone every time a constant
 becomes a variable. So the variables get named once, and the tuning happens
 afterwards.
 
+## The result-tile economy
+
+The sharpest single statement of what is wrong, and the thing the rest of this
+document kept gesturing at from three directions without naming.
+
+### The invariant
+
+**The number of non-seed tiles on a board is monotonically non-increasing over a
+round.** There is no path that adds one:
+
+- `refill` draws from `stage.seed`, which is `[red, yellow, blue]` in every
+  authored stage.
+- Cascades clear and refill from the same list, so waves add nothing either.
+- `mergeClears` means **no merge can happen without clearing**, so mixing cannot
+  leave a result tile standing on purpose.
+
+The opening deal's colour letters are therefore the entire lifetime supply of
+every secondary and tertiary a stage plays.
+
+### The arithmetic, which is worse than "nothing replenishes"
+
+Each merge does not merely fail to add supply — it **spends more than it
+returns**. `mergeClears` requires two result-coloured tiles already in line, and
+[GameScene](../../src/scenes/GameScene.ts) dyes both participants:
+
+```
+cells[origin] = cells[cell] = move.result
+```
+
+A teal merge, walked through:
+
+| | Teal | Green | Non-seed total |
+| --- | --- | --- | --- |
+| Before | 2 in line | 1 (the target or the dragged tile) | **3** |
+| Dyed | 4 momentarily | 0 | 4 |
+| After the line clears | 1 survivor | 0 | **1** |
+
+Three non-seed tiles in, one out. And if the dragged tile extends the line into a
+run of four, `findMatches` takes all of it and the return is zero.
+
+For a tertiary the drain compounds, because the ingredient is itself non-seed:
+making teal costs a green *and* a teal, and green cannot be replaced either. The
+tertiary is gated behind spending a resource with no source.
+
+Deep Teal deals four greens and four teals. That is the whole budget, scattered
+by gravity, against a fourteen-move round. This is why a tertiary clear has never
+been observed in play.
+
+### Why the supply question has no right answer as posed
+
+Supply is a **stock** — one quantity, authored once, only depleting. A stock has
+to be simultaneously correct at the first move and the last, which no value
+achieves: enough to make tertiaries reachable late is enough to make chains
+trivial early.
+
+That is not a tuning failure to be solved with a better number. It is the wrong
+shape. A **flow** has a rate, and a rate can be scarce-but-renewing. Most of the
+too-many-versus-too-few tension dissolves the moment supply regenerates at all,
+which is why this concept should choose a mechanism before it chooses a value.
+
+### The conflict underneath
+
+The pitch is *mix to build, swap to cash in*. But a mix must clear to be legal,
+so **mixing is cashing in**. The two halves of the pitch are the same action, and
+there is no build phase for the multiplier to accumulate across.
+
+This is the same fault `T-024` is chasing from the other side. The multiplier
+looks optional and the tertiaries look unreachable for one reason: building and
+spending are welded together by `mergeClears`.
+
+### Candidate shapes, none chosen
+
+Ordered by how much they respect the constraint that the board must not appear to
+steer the player — see [Prior art §2](#2-how-is-refill-actually-done) on why
+bounding the floor reads as fair while placing the useful tile does not.
+
+| Shape | Effect on the economy | Cost |
+| --- | --- | --- |
+| **Legality without clearing** — a merge is legal, costs a move, and leaves two result tiles standing | −2 becomes +2, and mixing becomes investment | The largest change on the table; removes "earned by setup", and the move budget becomes the only brake |
+| **Cascade-earned supply** — a wave seeds a result tile | Rate, tied to skilful play rather than a timer | Cascades currently have no second role, so this invents one |
+| **Pity floor on mixable material** — seed-only until the board has offered no legal mix for N moves, then one drop | Rate, with a floor and no steering | A new counter in the engine; N is a parameter nobody has measured |
+| **Combo wave** (`T-012`) | Genuine +N | Pays on every mix regardless of setup, which is the "too easy" half of the problem |
+| **Richer opening deals** | Still a stock | Does not change the shape; postpones the same wall |
+
+A **tool** that relieves the scarcity is deliberately absent from this table. A
+tool over a working economy is content; a tool that exists because the economy is
+broken is a patch with an interface, and it would make the tray load-bearing for
+a fault the engine should not have.
+
+`I-013`'s roguelike mode does not benefit from this fault either — it *masks* it.
+A run that hands out supply-fixing passives conceals an economy that is still
+broken in every other mode. The correct reading is that roguelike wants a working
+base economy whose rate it modulates per run, which is the layered
+base-plus-modifier shape [Prior art §6](#6-what-do-roguelikes-and-deck-builders-do)
+describes.
+
+### Correction to existing prose
+
+Two places in the repo describe the survivor as the supply and omit what the
+merge consumed, which reads as a weakly positive economy rather than a negative
+one:
+
+- `T-024` — "each merge nets roughly one surviving result tile"
+- [src/stages.ts](../../src/stages.ts) — "Loose result tiles beyond those come
+  only from merge survivors"
+
+Both are corrected alongside this section. Neither was wrong about the survivor;
+both were silent about the three tiles spent to produce it.
+
 ## What has to be answered
 
 ### 1. The inventory
@@ -190,6 +299,12 @@ play is, and it is unreachable by any parameter because it is a branch, not a
 value. At minimum it needs a form in which a variant can be measured. Whether it
 becomes a parameter, a strategy, or stays a constant with one alternative is
 open.
+
+It is also the rule that welds building to spending — see
+[The result-tile economy](#the-conflict-underneath). Any variant that lets a
+merge resolve without clearing changes the supply economy and the multiplier
+problem at the same time, which is the strongest argument for treating this
+lever first.
 
 The inventory adds two more of the same kind, both currently invisible to
 tuning:
@@ -439,6 +554,8 @@ Unchanged in shape, sharpened by the survey. Expected:
   if the harness can sweep it and report a difference. Depends on `T-022`.
 - **The refill model** — the live candidate is a pity counter over mixable
   supply, not a bag and not the Tetris lineage.
+- **Whether supply is a stock or a flow**, which precedes every value question
+  in this document and is the one decision that cannot be deferred to tuning.
 - **The treatment of mix legality**, plus the two further rule-shaped levers the
   inventory found (wave multiplier inheritance, merge scoring order).
 - **The metrics that define a good balance** — proposed: win rate as the
@@ -453,6 +570,12 @@ Unchanged in shape, sharpened by the survey. Expected:
   are currently welded together?
 - Is the greedy-versus-chain gap the right primary metric for `T-024`, or does
   that card need a target expressed as a win rate?
+- Can the harness measure the non-seed pool over a round directly? A per-move
+  count of standing result tiles would turn the economy argument above from
+  arithmetic into evidence, and it is cheaper than any of the fixes.
+- If a merge could resolve without clearing, what stops a player mixing the whole
+  board before cashing in once? The move budget alone may not be enough of a
+  brake.
 
 ## Sources
 
@@ -480,3 +603,9 @@ Unchanged in shape, sharpened by the survey. Expected:
   problem we do not have, greedy-bot numbers support comparative claims only,
   and the parameter boundary has no industry line to borrow. No value chosen and
   no gameplay changed.
+- **Review, amended** — added [The result-tile economy](#the-result-tile-economy)
+  after the inventory made the arithmetic checkable. The non-seed pool is
+  monotonically non-increasing and each merge spends three to return one, so the
+  supply question has no right answer while supply is a stock. Corrected the two
+  places in the repo that described the survivor without the spend. Still no
+  value chosen.
