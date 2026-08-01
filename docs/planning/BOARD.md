@@ -58,7 +58,7 @@ _Empty._
 Real work, consciously postponed. Nothing here is scheduled. Todo is capped at 15, so
 promoting something from here usually means demoting something else.
 
-### Deferred (13)
+### Deferred (14)
 
 - `T-020` [Separate the rules engine from the game](tasks/T-020-headless-engine.md) · _engine_, _decision_
 - `T-019` [Declarative stages and a determinism model](tasks/T-019-declarative-determinism.md) · _stages_, _engine_, _decision_
@@ -73,6 +73,7 @@ promoting something from here usually means demoting something else.
 - `T-028` [Steer a first-timer into the tutorial](tasks/T-028-steer-into-the-tutorial.md) · _onboarding_
 - `T-029` [An ending](tasks/T-029-an-ending.md) · _stages_, _feel_
 - `T-011` [Friends playtest and release](tasks/T-011-friends-playtest.md) · _release_
+- `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
 
 ## Ideas
 
