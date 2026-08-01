@@ -2,8 +2,8 @@
 id: T-004
 type: task
 title: Automated coverage for free-move interactions
-status: Todo
-ordinal: 300
+status: Deferred
+ordinal: 500
 labels: [tools, testing, M2]
 ---
 

@@ -2,7 +2,7 @@
 id: T-017
 type: task
 title: Module map misses most header comments
-status: Todo
+status: Deferred
 ordinal: 1000
 labels: [docs, tooling]
 ---

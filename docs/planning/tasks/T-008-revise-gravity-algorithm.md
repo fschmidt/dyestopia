@@ -3,7 +3,7 @@ id: T-008
 type: task
 title: Revise the gravity algorithm
 status: Todo
-ordinal: 700
+ordinal: 1300
 labels: [engine]
 ---
 

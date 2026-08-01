@@ -9,33 +9,39 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
-| `T-002` Terminology highlighting and per-mechanic feedback | `T-001` Finish authoring the tutorial prepared boards | `T-009` Architecture rules | `T-014` Free Move tool MVP |
-| `T-003` Per-tool tutorial stage pattern |   |   | `T-015` Consistent stage-select design |
-| `T-004` Automated coverage for free-move interactions |   |   | `T-016` iPhone 15 viewport |
-| `T-005` Stage objective in the pause menu and an intro screen |   |   |   |
-| `T-006` Stages as external descriptors |   |   |   |
-| `T-007` Splash Colors art direction |   |   |   |
+| `T-021` Tutorial rounds can be lost silently |   | `T-009` Architecture rules | `T-014` Free Move tool MVP |
+| `T-022` Headless playout harness |   |   | `T-015` Consistent stage-select design |
+| `T-032` Research the board maths |   |   | `T-016` iPhone 15 viewport |
+| `T-031` Measure the combo spike |   |   |   |
+| `T-023` Say why a drop was refused |   |   |   |
+| `T-024` Make the multiplier necessary |   |   |   |
+| `T-012` Resolve the combo spike |   |   |   |
+| `T-025` Ramp the stage sequence |   |   |   |
+| `T-018` Rework the tutorial concept |   |   |   |
+| `T-026` Persist the in-round state |   |   |   |
+| `T-027` Orientation, viewport and the missing manifest |   |   |   |
+| `T-030` Dedicated rainbow chain indicator |   |   |   |
 | `T-008` Revise the gravity algorithm |   |   |   |
-| `T-010` Phaser / game-development skill |   |   |   |
-| `T-013` Monitor phone behaviour with a simulator |   |   |   |
-| `T-017` Module map misses most header comments |   |   |   |
 
-### Todo (10/15)
+### Todo (13/15)
 
-- `T-002` [Terminology highlighting and per-mechanic feedback](tasks/T-002-terminology-highlighting.md) · _tutorial_, _M1_
-- `T-003` [Per-tool tutorial stage pattern](tasks/T-003-per-tool-tutorial-stage.md) · _tools_, _M2_
-- `T-004` [Automated coverage for free-move interactions](tasks/T-004-free-move-test-coverage.md) · _tools_, _testing_, _M2_
-- `T-005` [Stage objective in the pause menu and an intro screen](tasks/T-005-stage-objective-screens.md) · _stages_, _M3_
-- `T-006` [Stages as external descriptors](tasks/T-006-stages-as-descriptors.md) · _stages_, _M3_
-- `T-007` [Splash Colors art direction](tasks/T-007-splash-colors-art-direction.md) · _visuals_
+- `T-021` [Tutorial rounds can be lost silently](tasks/T-021-tutorial-silent-loss.md) · _tutorial_, _bug_
+- `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
+- `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
+- `T-031` [Measure the combo spike](tasks/T-031-measure-combo-spike.md) · _engine_, _testing_
+- `T-023` [Say why a drop was refused](tasks/T-023-refusal-reasons.md) · _feel_, _onboarding_
+- `T-024` [Make the multiplier necessary](tasks/T-024-multiplier-must-matter.md) · _engine_, _decision_
+- `T-012` [Resolve the combo spike](tasks/T-012-resolve-combo-spike.md) · _engine_, _decision_
+- `T-025` [Ramp the stage sequence](tasks/T-025-ramp-the-stage-sequence.md) · _stages_, _balance_
+- `T-018` [Rework the tutorial concept](tasks/T-018-rework-tutorial-concept.md) · _tutorial_, _M1_
+- `T-026` [Persist the in-round state](tasks/T-026-persist-in-round-state.md) · _engine_, _mobile_
+- `T-027` [Orientation, viewport and the missing manifest](tasks/T-027-orientation-and-viewport.md) · _mobile_, _bug_
+- `T-030` [Dedicated rainbow chain indicator](tasks/T-030-rainbow-chain-indicator.md) · _visuals_, _feel_
 - `T-008` [Revise the gravity algorithm](tasks/T-008-revise-gravity-algorithm.md) · _engine_
-- `T-010` [Phaser / game-development skill](tasks/T-010-phaser-skill.md) · _tooling_
-- `T-013` [Monitor phone behaviour with a simulator](tasks/T-013-phone-compatibility-monitoring.md) · _testing_, _mobile_
-- `T-017` [Module map misses most header comments](tasks/T-017-module-map-misses-headers.md) · _docs_, _tooling_
 
-### In Progress (1)
+### In Progress (0)
 
-- `T-001` [Finish authoring the tutorial prepared boards](tasks/T-001-tutorial-prepared-boards.md) · _tutorial_, _M1_
+_Empty._
 
 ### In Review (1)
 
@@ -52,17 +58,28 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 Real work, consciously postponed. Nothing here is scheduled. Todo is capped at 15, so
 promoting something from here usually means demoting something else.
 
-### Deferred (2)
+### Deferred (13)
 
+- `T-020` [Separate the rules engine from the game](tasks/T-020-headless-engine.md) · _engine_, _decision_
+- `T-019` [Declarative stages and a determinism model](tasks/T-019-declarative-determinism.md) · _stages_, _engine_, _decision_
+- `T-006` [Stages as external descriptors](tasks/T-006-stages-as-descriptors.md) · _stages_, _M3_
+- `T-003` [Per-tool tutorial stage pattern](tasks/T-003-per-tool-tutorial-stage.md) · _tools_, _M2_
+- `T-004` [Automated coverage for free-move interactions](tasks/T-004-free-move-test-coverage.md) · _tools_, _testing_, _M2_
+- `T-005` [Stage objective in the pause menu and an intro screen](tasks/T-005-stage-objective-screens.md) · _stages_, _M3_
+- `T-007` [Splash Colors art direction](tasks/T-007-splash-colors-art-direction.md) · _visuals_
+- `T-010` [Phaser / game-development skill](tasks/T-010-phaser-skill.md) · _tooling_
+- `T-013` [Monitor phone behaviour with a simulator](tasks/T-013-phone-compatibility-monitoring.md) · _testing_, _mobile_
+- `T-017` [Module map misses most header comments](tasks/T-017-module-map-misses-headers.md) · _docs_, _tooling_
+- `T-028` [Steer a first-timer into the tutorial](tasks/T-028-steer-into-the-tutorial.md) · _onboarding_
+- `T-029` [An ending](tasks/T-029-an-ending.md) · _stages_, _feel_
 - `T-011` [Friends playtest and release](tasks/T-011-friends-playtest.md) · _release_
-- `T-012` [Resolve the combo spike](tasks/T-012-resolve-combo-spike.md) · _engine_, _decision_
 
 ## Ideas
 
 Unvetted. An idea is not a commitment and carries no lane — promoting one means
 rewriting it as a task (`T-` id, `type: task`, a real lane).
 
-### Ideas (20)
+### Ideas (19)
 
 - `I-001` [Recolour tool](tasks/I-001-recolour-tool.md) · _tools_
 - `I-002` [Reposition tool](tasks/I-002-reposition-tool.md) · _tools_
@@ -81,6 +98,5 @@ rewriting it as a task (`T-` id, `type: task`, a real lane).
 - `I-015` [Chill / endless mode](tasks/I-015-endless-mode.md) · _modes_
 - `I-016` [Weighted refill toward the dominant colour](tasks/I-016-weighted-refill.md) · _engine_
 - `I-017` [Escalating combo visual effects](tasks/I-017-escalating-combo-effects.md) · _visuals_
-- `I-018` [Dedicated rainbow chain indicator](tasks/I-018-rainbow-chain-indicator.md) · _visuals_
 - `I-019` [Redesign the chain-break animations](tasks/I-019-chain-break-animations.md) · _visuals_
 - `I-020` [Debug toggle for internal modifiers](tasks/I-020-debug-modifier-toggle.md) · _dev_
