@@ -3,7 +3,7 @@ id: T-027
 type: task
 title: Orientation, viewport and the missing manifest
 status: Todo
-ordinal: 1100
+ordinal: 1000
 labels: [mobile, bug]
 ---
 

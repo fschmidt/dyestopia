@@ -3,7 +3,7 @@ id: T-026
 type: task
 title: Persist the in-round state
 status: Todo
-ordinal: 1000
+ordinal: 900
 labels: [engine, mobile]
 ---
 

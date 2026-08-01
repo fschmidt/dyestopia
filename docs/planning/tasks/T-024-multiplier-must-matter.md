@@ -3,7 +3,7 @@ id: T-024
 type: task
 title: Make the multiplier necessary
 status: Todo
-ordinal: 600
+ordinal: 500
 labels: [engine, decision]
 ---
 

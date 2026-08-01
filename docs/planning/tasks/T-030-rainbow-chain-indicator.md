@@ -3,7 +3,7 @@ id: T-030
 type: task
 title: Dedicated rainbow chain indicator
 status: Todo
-ordinal: 1200
+ordinal: 1100
 labels: [visuals, feel]
 ---
 

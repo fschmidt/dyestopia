@@ -3,7 +3,7 @@ id: T-022
 type: task
 title: Headless playout harness
 status: Todo
-ordinal: 200
+ordinal: 100
 labels: [engine, testing]
 ---
 
