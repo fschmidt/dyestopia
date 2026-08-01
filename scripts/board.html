@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Dyestopia board</title>
+    <style>
+      :root {
+        --bg: #f6f6f4;
+        --panel: #fff;
+        --card: #fff;
+        --ink: #1c1c1e;
+        --dim: #78787f;
+        --line: #e2e2de;
+        --accent: #7c5cff;
+        --warn: #c8322b;
+        --drawer: 250px;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #16161a;
+          --panel: #1d1d22;
+          --card: #24242b;
+          --ink: #ececf1;
+          --dim: #8d8d99;
+          --line: #2f2f38;
+          --accent: #9a83ff;
+          --warn: #ff6b61;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.45 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        display: flex;
+        flex-direction: column;
+        overscroll-behavior: none;
+      }
+
+      /* ------------------------------------------------------------ chrome */
+      header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 16px;
+        padding-top: calc(10px + env(safe-area-inset-top));
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        z-index: 5;
+      }
+      #menu {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        margin-left: -6px;
+        padding: 0;
+        border: 1px solid transparent;
+        border-radius: 7px;
+        background: none;
+        color: var(--ink);
+        cursor: pointer;
+      }
+      #menu:hover { background: var(--bg); border-color: var(--line); }
+      h1 { font-size: 15px; font-weight: 620; margin: 0; letter-spacing: -0.01em; }
+      .status { margin-left: auto; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; }
+      .status.saving { color: var(--accent); }
+
+      .shell { flex: 1; display: flex; min-height: 0; position: relative; }
+
+      /* ------------------------------------------------------------ drawer */
+      .drawer {
+        flex: 0 0 var(--drawer);
+        width: var(--drawer);
+        border-right: 1px solid var(--line);
+        background: var(--panel);
+        overflow-y: auto;
+        padding: 10px 8px calc(16px + env(safe-area-inset-bottom)) 8px;
+        transition: margin-left 0.18s ease;
+      }
+      body.closed .drawer { margin-left: calc(var(--drawer) * -1); }
+      .drawer h3 {
+        margin: 14px 0 4px 8px;
+        font-size: 11px;
+        font-weight: 620;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--dim);
+      }
+      .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        width: 100%;
+        padding: 6px 8px;
+        border: 0;
+        border-radius: 6px;
+        background: none;
+        color: var(--ink);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .nav-item:hover { background: var(--bg); }
+      .nav-item.on { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); font-weight: 560; }
+      .nav-item .n { margin-left: auto; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+      .nav-item.on .n { color: inherit; }
+      /* A guide line per level — without it `docs/planning/BOARD.md` and
+         `docs/tutorial.md` sit at almost the same indent and read as siblings. */
+      .tree details { margin-left: 9px; padding-left: 7px; border-left: 1px solid var(--line); }
+      .tree summary {
+        padding: 4px 6px;
+        border-radius: 6px;
+        color: var(--dim);
+        cursor: pointer;
+        font-size: 12.5px;
+        list-style: none;
+      }
+      .tree summary::-webkit-details-marker { display: none; }
+      .tree summary::before { content: '▸ '; font-size: 9px; vertical-align: 1px; }
+      .tree details[open] > summary::before { content: '▾ '; }
+      .tree summary:hover { background: var(--bg); }
+      .tree .nav-item { font-size: 12.5px; padding: 4px 8px; }
+
+      .backdrop { display: none; }
+      @media (max-width: 899px) {
+        .drawer {
+          position: absolute;
+          inset: 0 auto 0 0;
+          z-index: 4;
+          margin-left: 0;
+          transform: translateX(0);
+          transition: transform 0.18s ease;
+          box-shadow: 4px 0 18px rgb(0 0 0 / 0.18);
+        }
+        body.closed .drawer { transform: translateX(-100%); margin-left: 0; }
+        .backdrop {
+          display: block;
+          position: absolute;
+          inset: 0;
+          z-index: 3;
+          background: rgb(0 0 0 / 0.4);
+          opacity: 1;
+          transition: opacity 0.18s ease;
+        }
+        body.closed .backdrop { opacity: 0; pointer-events: none; }
+      }
+
+      main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+      /* ------------------------------------------------------------- board */
+      .board {
+        flex: 1;
+        display: flex;
+        gap: 12px;
+        padding: 12px 16px calc(16px + env(safe-area-inset-bottom)) 16px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scroll-snap-type: x proximity;
+      }
+      .column {
+        flex: 0 0 264px;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        scroll-snap-align: start;
+      }
+      .column > h2 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: 620;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--dim);
+        border-bottom: 1px solid var(--line);
+      }
+      .count { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 500; letter-spacing: 0; }
+      .count.full { color: var(--warn); }
+      .cards {
+        flex: 1;
+        min-height: 40px;
+        padding: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow-y: auto;
+      }
+
+      .card {
+        display: flex;
+        gap: 8px;
+        padding: 8px 10px 8px 6px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+      }
+      .card.idea { border-left: 3px solid var(--accent); }
+      .grip {
+        flex: 0 0 auto;
+        width: 18px;
+        margin: -8px 0 -8px -6px;
+        padding-left: 6px;
+        display: flex;
+        align-items: center;
+        color: var(--line);
+        cursor: grab;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .grip:hover { color: var(--dim); }
+      .grip svg { pointer-events: none; }
+      .body { min-width: 0; }
+      .id { font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--dim); }
+      .title { display: block; margin-top: 1px; }
+      .labels { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+      .label {
+        font-size: 10px;
+        line-height: 1.6;
+        padding: 0 5px;
+        border-radius: 4px;
+        background: color-mix(in srgb, var(--accent) 12%, transparent);
+        color: color-mix(in srgb, var(--accent) 80%, var(--ink));
+      }
+
+      .card.placeholder { visibility: hidden; }
+      .card.floating {
+        position: fixed;
+        z-index: 10;
+        margin: 0;
+        pointer-events: none;
+        box-shadow: 0 8px 24px rgb(0 0 0 / 0.22);
+        transform: rotate(1.2deg);
+        cursor: grabbing;
+      }
+      body.dragging { cursor: grabbing; }
+
+      /* -------------------------------------------------------- list & doc */
+      .scroller { flex: 1; overflow-y: auto; padding: 20px 24px calc(40px + env(safe-area-inset-bottom)) 24px; }
+      .holding { max-width: 720px; }
+      .holding > p { color: var(--dim); margin: 0 0 16px; max-width: 60ch; }
+      .holding > p code {
+        font: 12px ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: color-mix(in srgb, var(--ink) 8%, transparent);
+        padding: 1px 4px;
+        border-radius: 4px;
+      }
+      /* A scanning list, not a board — one row per card, dense enough to read 20. */
+      .row {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 10px;
+        border: 0;
+        border-left: 3px solid var(--line);
+        border-radius: 0 6px 6px 0;
+        background: none;
+        color: var(--ink);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .row:hover { background: var(--panel); }
+      .row.idea { border-left-color: var(--accent); }
+      .row .id { flex: 0 0 auto; }
+      .row .title { margin: 0; }
+      .row .labels { margin: 0 0 0 auto; flex-wrap: nowrap; }
+      .row .file {
+        display: block;
+        font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: var(--dim);
+      }
+
+      .doc { max-width: 760px; }
+      .doc h1 { font-size: 24px; margin: 0 0 14px; letter-spacing: -0.02em; }
+      .doc h2 { font-size: 17px; margin: 28px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+      .doc h3 { font-size: 14.5px; margin: 20px 0 6px; }
+      .doc p, .doc li { line-height: 1.6; }
+      .doc ul, .doc ol { padding-left: 20px; }
+      .doc a { color: var(--accent); }
+      .doc .dead-link { color: var(--dim); text-decoration: underline dotted; text-underline-offset: 2px; cursor: help; }
+      .doc code {
+        font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+        background: color-mix(in srgb, var(--ink) 8%, transparent);
+        padding: 1px 4px;
+        border-radius: 4px;
+      }
+      .doc pre {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px 14px;
+        overflow-x: auto;
+      }
+      .doc pre code { background: none; padding: 0; }
+      .doc blockquote {
+        margin: 0;
+        padding-left: 14px;
+        border-left: 3px solid var(--line);
+        color: var(--dim);
+      }
+      .doc hr { border: 0; border-top: 1px solid var(--line); margin: 26px 0; }
+      .doc table { border-collapse: collapse; font-size: 13px; display: block; overflow-x: auto; }
+      .doc th, .doc td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; vertical-align: top; }
+      .doc th { background: var(--panel); font-weight: 600; }
+      .doc input[type='checkbox'] { margin-right: 4px; }
+
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(20px + env(safe-area-inset-bottom));
+        transform: translateX(-50%);
+        max-width: min(560px, calc(100vw - 32px));
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: var(--warn);
+        color: #fff;
+        box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+        white-space: pre-wrap;
+        z-index: 20;
+      }
+      .toast:empty { display: none; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button id="menu" title="Menu" aria-label="Menu">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M2 4h12M2 8h12M2 12h12" stroke-linecap="round" />
+        </svg>
+      </button>
+      <h1 id="view-title">Board</h1>
+      <span class="status" id="status"></span>
+    </header>
+
+    <div class="shell">
+      <aside class="drawer" id="drawer">
+        <button class="nav-item" data-route="board">Board</button>
+        <button class="nav-item" data-route="deferred">Deferred <span class="n" id="n-deferred"></span></button>
+        <button class="nav-item" data-route="ideas">Ideas <span class="n" id="n-ideas"></span></button>
+        <h3>Wiki</h3>
+        <div class="tree" id="tree"></div>
+      </aside>
+      <div class="backdrop" id="backdrop"></div>
+      <main id="main"></main>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+      const main = document.getElementById('main')
+      const drawer = document.getElementById('drawer')
+      const treeEl = document.getElementById('tree')
+      const titleEl = document.getElementById('view-title')
+      const statusEl = document.getElementById('status')
+      const toastEl = document.getElementById('toast')
+      const narrow = () => window.matchMedia('(max-width: 899px)').matches
+
+      let state = null // last /api/board payload
+      let toastTimer
+
+      function toast(message) {
+        clearTimeout(toastTimer)
+        toastEl.textContent = message
+        toastTimer = setTimeout(() => (toastEl.textContent = ''), 7000)
+      }
+
+      // ---------------------------------------------------------- the drawer
+
+      function setDrawer(open) {
+        document.body.classList.toggle('closed', !open)
+      }
+      document.getElementById('menu').addEventListener('click', () =>
+        setDrawer(document.body.classList.contains('closed')),
+      )
+      document.getElementById('backdrop').addEventListener('click', () => setDrawer(false))
+      // Hidden on a phone, open on a desktop where there is room for it.
+      setDrawer(!narrow())
+
+      // ----------------------------------------------------------- rendering
+
+      const GRIP = `<svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor" aria-hidden="true">
+        <circle cx="1.5" cy="2" r="1.5"/><circle cx="6.5" cy="2" r="1.5"/>
+        <circle cx="1.5" cy="7" r="1.5"/><circle cx="6.5" cy="7" r="1.5"/>
+        <circle cx="1.5" cy="12" r="1.5"/><circle cx="6.5" cy="12" r="1.5"/></svg>`
+
+      const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
+
+      function labelsHtml(labels) {
+        return labels.length ? `<div class="labels">${labels.map((l) => `<span class="label">${esc(l)}</span>`).join('')}</div>` : ''
+      }
+
+      function cardEl(card) {
+        const el = document.createElement('article')
+        el.className = `card ${card.type}`
+        el.dataset.id = card.id
+        el.innerHTML = `<span class="grip" title="Drag to move">${GRIP}</span>
+          <div class="body">
+            <span class="id">${esc(card.id)}</span>
+            <span class="title">${esc(card.title)}</span>
+            ${labelsHtml(card.labels)}
+          </div>`
+        return el
+      }
+
+      function renderBoard() {
+        const wrap = document.createElement('div')
+        wrap.className = 'board'
+        for (const column of state.columns) {
+          const el = document.createElement('section')
+          el.className = 'column'
+          el.dataset.name = column.name
+          const over = column.limit && column.cards.length >= column.limit
+          el.innerHTML = `<h2>${column.name}<span class="count ${over ? 'full' : ''}">${
+            column.cards.length
+          }${column.limit ? `/${column.limit}` : ''}</span></h2>`
+          const list = document.createElement('div')
+          list.className = 'cards'
+          for (const card of column.cards) list.append(cardEl(card))
+          el.append(list)
+          wrap.append(el)
+        }
+        main.replaceChildren(wrap)
+      }
+
+      const BLURB = {
+        Deferred: 'Real work, consciously postponed. Bringing one back is a deliberate edit — set `status` to a lane in the task file.',
+        Ideas: 'Unvetted, and carrying no lane. Promoting one means rewriting it as a task: a `T-` id, `type: task`, a real status and some acceptance criteria.',
+      }
+
+      /** Backticks in the blurbs, since the rules they quote are written in code. */
+      const ticks = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>')
+
+      function renderList(name) {
+        const cards = state.lists[name]
+        const scroller = document.createElement('div')
+        scroller.className = 'scroller'
+        const wrap = document.createElement('div')
+        wrap.className = 'holding'
+        wrap.innerHTML = `<p>${ticks(BLURB[name])}</p>`
+
+        for (const card of cards) {
+          const row = document.createElement('button')
+          row.className = `row ${card.type}`
+          // The card file is servable, so the list doubles as a way into it.
+          row.dataset.route = `wiki/${card.file}`
+          row.innerHTML = `<span class="id">${esc(card.id)}</span>
+            <span class="body">
+              <span class="title">${esc(card.title)}</span>
+              <span class="file">${esc(card.file)}</span>
+            </span>
+            ${labelsHtml(card.labels)}`
+          wrap.append(row)
+        }
+        if (!cards.length) wrap.insertAdjacentHTML('beforeend', '<p><em>Empty.</em></p>')
+        scroller.append(wrap)
+        main.replaceChildren(scroller)
+      }
+
+      async function renderDoc(path) {
+        const res = await fetch(`/api/wiki/page?path=${encodeURIComponent(path)}`)
+        const body = await res.json()
+        if (!res.ok) {
+          main.replaceChildren()
+          return toast(body.error)
+        }
+        titleEl.textContent = body.title
+        const scroller = document.createElement('div')
+        scroller.className = 'scroller'
+        const doc = document.createElement('article')
+        doc.className = 'doc'
+        doc.innerHTML = body.html
+        scroller.append(doc)
+        main.replaceChildren(scroller)
+        scroller.scrollTop = 0
+      }
+
+      // ------------------------------------------------------------- routing
+
+      function route() {
+        const hash = decodeURIComponent(location.hash.slice(1)) || 'board'
+        for (const item of drawer.querySelectorAll('.nav-item')) {
+          item.classList.toggle('on', item.dataset.route === hash)
+        }
+        if (narrow()) setDrawer(false)
+
+        if (hash.startsWith('wiki/')) return renderDoc(hash.slice(5))
+        if (hash === 'deferred') { titleEl.textContent = 'Deferred'; return renderList('Deferred') }
+        if (hash === 'ideas') { titleEl.textContent = 'Ideas'; return renderList('Ideas') }
+        titleEl.textContent = 'Board'
+        renderBoard()
+      }
+
+      window.addEventListener('hashchange', route)
+      for (const scope of [drawer, main]) {
+        scope.addEventListener('click', (event) => {
+          const item = event.target.closest('.nav-item, .row')
+          if (item) location.hash = item.dataset.route
+        })
+      }
+
+      // ---------------------------------------------------------- board data
+
+      async function load() {
+        const res = await fetch('/api/board')
+        const body = await res.json()
+        if (!res.ok) return toast(body.error)
+        apply(body)
+      }
+
+      function apply(body) {
+        state = body
+        document.getElementById('n-deferred').textContent = body.lists.Deferred.length
+        document.getElementById('n-ideas').textContent = body.lists.Ideas.length
+      }
+
+      async function commit(id, column, index) {
+        statusEl.textContent = 'saving…'
+        statusEl.className = 'status saving'
+        try {
+          const res = await fetch('/api/move', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ id, column, index }),
+          })
+          const body = await res.json()
+          statusEl.className = 'status'
+          if (!res.ok) {
+            statusEl.textContent = ''
+            toast(body.error)
+            await load()
+            return renderBoard()
+          }
+          apply(body)
+          renderBoard()
+          statusEl.textContent = body.touched.length
+            ? `${body.touched.length} file${body.touched.length > 1 ? 's' : ''} written`
+            : 'no change'
+          if (body.warning) toast(`Move saved, but the wiki generator complained:\n${body.warning}`)
+        } catch (error) {
+          statusEl.textContent = ''
+          toast(String(error))
+          await load()
+          renderBoard()
+        }
+      }
+
+      // ------------------------------------------------------------ dragging
+
+      let drag = null
+
+      main.addEventListener('pointerdown', (event) => {
+        const grip = event.target.closest('.grip')
+        if (!grip || event.button > 0) return
+        const card = grip.closest('.card')
+        const rect = card.getBoundingClientRect()
+        const floating = card.cloneNode(true)
+
+        floating.classList.add('floating')
+        floating.style.width = `${rect.width}px`
+        floating.style.left = `${rect.left}px`
+        floating.style.top = `${rect.top}px`
+        document.body.append(floating)
+        card.classList.add('placeholder')
+        document.body.classList.add('dragging')
+
+        drag = {
+          id: card.dataset.id,
+          placeholder: card,
+          floating,
+          board: main.querySelector('.board'),
+          from: card.closest('.column').dataset.name,
+          fromIndex: [...card.parentElement.children].indexOf(card),
+          offsetX: event.clientX - rect.left,
+          offsetY: event.clientY - rect.top,
+        }
+        grip.setPointerCapture(event.pointerId)
+        event.preventDefault()
+      })
+
+      main.addEventListener('pointermove', (event) => {
+        if (!drag) return
+        drag.floating.style.left = `${event.clientX - drag.offsetX}px`
+        drag.floating.style.top = `${event.clientY - drag.offsetY}px`
+
+        const column = document.elementFromPoint(event.clientX, event.clientY)?.closest('.column')
+        if (column) {
+          const list = column.querySelector('.cards')
+          const siblings = [...list.querySelectorAll('.card:not(.placeholder)')]
+          const before = siblings.find((el) => {
+            const box = el.getBoundingClientRect()
+            return event.clientY < box.top + box.height / 2
+          })
+          list.insertBefore(drag.placeholder, before ?? null)
+        }
+
+        // Nudge the board sideways when a drag reaches the edge, so the far
+        // columns are reachable on a phone without letting go.
+        const edge = 60
+        if (event.clientX < edge) drag.board.scrollLeft -= 12
+        else if (event.clientX > window.innerWidth - edge) drag.board.scrollLeft += 12
+      })
+
+      function endDrag() {
+        if (!drag) return
+        const { id, placeholder, floating, from, fromIndex } = drag
+        drag = null
+        floating.remove()
+        placeholder.classList.remove('placeholder')
+        document.body.classList.remove('dragging')
+
+        const column = placeholder.closest('.column').dataset.name
+        const index = [...placeholder.parentElement.children].indexOf(placeholder)
+        // A drop back where it started is not a move, and must not touch a file.
+        if (column === from && index === fromIndex) return
+        commit(id, column, index)
+      }
+
+      main.addEventListener('pointerup', endDrag)
+      main.addEventListener('pointercancel', endDrag)
+
+      // --------------------------------------------------------------- start
+
+      function renderTree(nodes, parent) {
+        for (const node of nodes) {
+          if (node.children) {
+            // Expanded by default: the tree is ~50 files, so every page should be
+            // one click away rather than hidden behind two folders.
+            const details = document.createElement('details')
+            details.open = true
+            details.innerHTML = `<summary>${esc(node.name)}</summary>`
+            renderTree(node.children, details)
+            parent.append(details)
+          } else {
+            const item = document.createElement('button')
+            item.className = 'nav-item'
+            item.dataset.route = `wiki/${node.path}`
+            item.textContent = node.name
+            parent.append(item)
+          }
+        }
+      }
+
+
+      const [board, wiki] = await Promise.all([
+        fetch('/api/board').then((r) => r.json()),
+        fetch('/api/wiki').then((r) => r.json()),
+      ])
+      apply(board)
+      renderTree(wiki.tree, treeEl)
+      route()
+    </script>
+  </body>
+</html>
