@@ -1,0 +1,67 @@
+# Dyestopia
+
+A mobile-web match-3 where tiles are pigments: mix colours to build a
+multiplier, then cash it in with a swap. Phaser 4 · TypeScript · Vite ·
+Playwright. Deployed to GitHub Pages on push to `main`.
+
+## Commands
+
+- `npm run dev` — dev server. `npm run dev:host` to reach it from a phone.
+- `npm run build` — runs `wiki:check`, then `tsc --noEmit`, then the Vite build.
+- `npm run typecheck` — types only.
+- `npm test` — Playwright. There is no unit-test runner.
+- `npm run wiki` — regenerate the wiki. `npm run wiki:check` to verify it.
+
+## Invariants
+
+These are not style preferences. Breaking one is a bug.
+
+- **Every scene extends `BaseScene`, and all text goes through `addText`.**
+  Phaser 4 has no HiDPI support; `BaseScene` cancels the density scaling by hand.
+  Bypassing it renders at the wrong size on every retina device.
+- **The content modules must stay Phaser-free** — `src/colors.ts`,
+  `src/stages.ts`, `src/tool-stages.ts`, `src/tutorials.ts`,
+  `src/stage-catalog.ts`. `scripts/wiki.ts` imports them under Node. A Phaser
+  import in any of them breaks `npm run build`.
+- **Colours are ideas, not pixel values.** Never hardcode a hex against a colour
+  id outside `src/themes.ts` / `src/palette.ts`.
+- **Refills only ever drop `seed` colours.** Every deeper colour on a board is
+  either authored into the opening deal or player-made.
+- **Imports are extensionless**; no enums, no namespaces.
+
+## Editing the wiki
+
+Full rules in `docs/wiki/tech/conventions.md` — read it before changing docs.
+
+- **Never edit between `<!-- generated:name -->` and `<!-- /generated:name -->`.**
+  Those blocks come from source data via `scripts/wiki.ts`. Change the data or
+  the generator.
+- **Never edit `docs/planning/BOARD.md`.** It is generated in full.
+- **A `<!-- pin:path sha=… -->` marker** means the prose below it describes that
+  file. If the check reports the pin is stale, re-read the section against the
+  file, correct it if it is now wrong, then run `npm run wiki` to re-pin.
+- **Paths in prose are checked for existence.** Do not write a `src/…` path you
+  have not confirmed.
+- Run `npm run wiki` after changing game data, adding a module, or touching a
+  task, and commit the result.
+
+## Editing the board
+
+Cards live in `docs/planning/tasks/`, one file each. `docs/planning/BOARD.md` is
+a generated view of them.
+
+- **Move a card by editing its `status` field**, never by editing the board.
+- `status` is one of `Todo`, `In Progress`, `In Review`, `Done`, `Deferred`.
+- `ordinal` sets priority within a lane — lower first, spaced by 100 so a card
+  can be inserted between two others without renumbering.
+- **Todo holds at most 15 cards.** If it is full, something must be deferred
+  before anything new is queued. The check enforces this.
+- Ideas are `type: idea` with an `I-` id and no lane. Promoting an idea means
+  rewriting it as a task: `T-` id, `type: task`, a real `status`.
+- The id prefix and the type must agree, and the filename must start with the id.
+
+## Conventions
+
+- Two-space indent, single quotes, no semicolons — match the file you are in.
+- British spelling in docs and prose; the code uses `color` for identifiers
+  because that is what the source already does.
