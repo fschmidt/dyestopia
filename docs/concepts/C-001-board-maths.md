@@ -555,7 +555,8 @@ draw table by context, and we vary ours not at all.
 - **Whether supply is a stock or a flow.** It precedes every value question here,
   and the economy section answers it: a stock cannot be right at the first move
   and the last simultaneously. Deciding the *shape* does not require choosing the
-  mechanism, so this one does not wait on `T-031`.
+  mechanism, so this one does not wait on `T-031`. **Emitted as `D-002`**
+  (Proposed).
 - **The metrics that define a good balance** — win rate as the headline, with an
   explicit statement of what greedy-bot numbers do and do not support. Already
   reflected in `T-022`.

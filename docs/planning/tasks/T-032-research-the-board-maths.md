@@ -2,7 +2,7 @@
 id: T-032
 type: task
 title: Research the board maths
-status: In Review
+status: Done
 ordinal: 300
 labels: [engine, balance, research]
 ---

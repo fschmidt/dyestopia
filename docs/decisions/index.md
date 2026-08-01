@@ -10,6 +10,10 @@ was believed at the time.
 Concepts emit decisions. A decision can also stand alone, and a card labelled
 `decision` should land as one.
 
+### Proposed (1)
+
+- `D-002` [Result-tile supply is a flow, not a stock](D-002-supply-is-a-flow.md)
+
 ### Accepted (1)
 
 - `D-001` [Concepts and decisions live outside the wiki](D-001-concepts-and-decisions.md)

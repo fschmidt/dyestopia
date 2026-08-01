@@ -10,9 +10,9 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
 | `T-021` Tutorial rounds can be lost silently |   | `T-009` Architecture rules | `T-014` Free Move tool MVP |
-| `T-022` Headless playout harness |   | `T-032` Research the board maths | `T-015` Consistent stage-select design |
+| `T-022` Headless playout harness |   |   | `T-015` Consistent stage-select design |
 | `T-031` Measure the combo spike |   |   | `T-016` iPhone 15 viewport |
-| `T-023` Say why a drop was refused |   |   |   |
+| `T-023` Say why a drop was refused |   |   | `T-032` Research the board maths |
 | `T-024` Make the multiplier necessary |   |   |   |
 | `T-012` Resolve the combo spike |   |   |   |
 | `T-025` Ramp the stage sequence |   |   |   |
@@ -41,16 +41,16 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 _Empty._
 
-### In Review (2)
+### In Review (1)
 
 - `T-009` [Architecture rules](tasks/T-009-architecture-rules.md) · _docs_
-- `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
 
-### Done (3)
+### Done (4)
 
 - `T-014` [Free Move tool MVP](tasks/T-014-free-move-tool.md) · _tools_, _M2_
 - `T-015` [Consistent stage-select design](tasks/T-015-stage-select-design.md) · _visuals_
 - `T-016` [iPhone 15 viewport](tasks/T-016-iphone-viewport.md) · _mobile_
+- `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
 
 ## Deferred
 
