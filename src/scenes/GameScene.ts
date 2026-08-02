@@ -1,18 +1,15 @@
 import Phaser from 'phaser'
 
 import {
-  applyGravity,
   advanceColorChain,
   breakColorChain,
-  clearScore,
   comboConversions,
   findLegalMove,
-  findMatches,
   generateBoard,
   isAdjacent,
   parseMask,
-  refill,
   reshuffle,
+  resolveCascade,
   resolveMove,
   scoreResolutionForMerge,
   scoreResolutionForSwap,
@@ -1518,17 +1515,22 @@ export class GameScene extends BaseScene {
    */
   private async resolve(resolution: ScoreResolution, resetChainAfter = false): Promise<void> {
     this.resolving = true
-    for (let wave = 1; ; wave++) {
-      const matched = findMatches(this.grid, this.cells)
-      if (matched.size === 0) break
 
-      // Mix participants have already taken the result colour, so their score
-      // value comes from that result rather than from their former ingredients.
-      const clearedColors = [...matched].map((index) => this.cells[index]!)
-      const points = clearScore(clearedColors, resolution.multiplier)
+    // The rules run to a standstill before anything is drawn, so `cells` is
+    // already settled by the time the first tile clears. The waves are the
+    // recording the tiles catch up to.
+    const waves = resolveCascade(
+      this.grid,
+      this.cells,
+      resolution.multiplier,
+      this.stage.seed,
+      this.rng,
+    )
+
+    for (const [wave, { matched, points, falls, spawns }] of waves.entries()) {
       this.score += points
       // Cascades still climb in pitch, but no longer grow the score multiplier.
-      playSfx('match', wave)
+      playSfx('match', wave + 1)
       this.floatScore(points, resolution, matched)
       this.updateHud(resolution.multiplier)
       if (!this.thresholdMet && this.score >= this.stage.threshold) {
@@ -1536,19 +1538,16 @@ export class GameScene extends BaseScene {
         this.celebrateThreshold()
       }
       await Promise.all(
-        [...matched].map(
+        matched.map(
           (index) =>
             new Promise<void>((done) => {
               const tile = this.tiles[index]
-              this.cells[index] = null
               this.tiles[index] = undefined
               tile ? tile.clearOut(0, done) : done()
             }),
         ),
       )
 
-      const falls = applyGravity(this.grid, this.cells)
-      const spawns = refill(this.grid, this.cells, this.stage.seed, this.rng)
       await this.animateDescent(falls, spawns)
     }
 
@@ -1885,7 +1884,7 @@ export class GameScene extends BaseScene {
   private floatScore(
     points: number,
     resolution: ScoreResolution,
-    matched: Set<number>,
+    matched: readonly number[],
   ): void {
     const visual = resolveVisualProfile()
     const multiplier = resolution.multiplier
@@ -1896,8 +1895,8 @@ export class GameScene extends BaseScene {
       sx += x
       sy += y
     }
-    const x = sx / matched.size
-    const y = sy / matched.size
+    const x = sx / matched.length
+    const y = sy / matched.length
 
     const label = `+${points} ×${multiplier}`
     const scoreFloat = this.add.container(x, y).setDepth(30)

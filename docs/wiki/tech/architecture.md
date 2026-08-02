@@ -60,12 +60,18 @@ to `main`.
 
 ## The shape of it
 
-<!-- pin:src/board.ts sha=3456f0fb4948 -->
+<!-- pin:src/board.ts sha=155aa2c095ad -->
 
 **The engine** is `src/board.ts`. It is pure: grids, masks, matches, gravity,
 refills, cascades, reshuffles and chain bookkeeping, with no Phaser import and no
-rendering. `resolveMove` is the entry point and it tries *mix before swap*.
-Everything about how the game plays is decided here.
+rendering. Everything about how the game plays is decided here.
+
+It has two entry points. `resolveMove` decides what a move *is*, and it tries
+*mix before swap*. `resolveCascade` then plays that move's cascade to a
+standstill and returns it as a list of waves — what matched, what it paid, what
+fell and what spawned. The board settles before anything is drawn; `GameScene`
+replays the waves to catch the tiles up. Nothing in the loop waits on a tween,
+so the same call can play a round with no screen attached at all.
 
 <!-- pin:src/colors.ts sha=8b0cfc592ac7 -->
 
