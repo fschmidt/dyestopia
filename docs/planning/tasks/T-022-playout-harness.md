@@ -2,7 +2,7 @@
 id: T-022
 type: task
 title: Headless playout harness
-status: Todo
+status: In Progress
 ordinal: 100
 labels: [engine, testing]
 ---
@@ -29,6 +29,20 @@ Do not reimplement the loop inside the script. A second copy will drift from the
 one the game runs, and a simulator that does not match the game is worse than
 none.
 
+**Where it stands.** The seam exists: `resolveCascade` in `src/board.ts` plays a
+move's cascade to a standstill and returns it as a list of waves, and `GameScene`
+replays them to catch the tiles up. Nothing in the loop waits on a tween, so the
+same call can play a round with no screen attached — AC #1 is done.
+
+`tests/match.spec.ts` had kept a hand-copied replay of the loop to predict where
+the live game should land, which was precisely the drift warned about above; it
+now calls `resolveCascade`, so the prediction and the game cannot diverge.
+
+What remains is the script itself and everything it reports. Note that the round
+lifecycle below the cascade — win, loss, reshuffle, the move budget — still lives
+in the scene, so the harness needs that much lifted before it can play a whole
+round rather than a single move.
+
 The stage targets are currently documented as the output of a simulation that is
 not in the repo, so this also restores a claim the codebase already makes about
 itself. Restoring it is not the same as vindicating it — see the caveat below.
@@ -52,7 +66,7 @@ will believe the wrong thing.
 ## Acceptance criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 The cascade resolves in one place, used by both the game and the harness
+- [x] #1 The cascade resolves in one place, used by both the game and the harness
 - [ ] #2 Runs from the command line over N seeded playouts of any stage
 - [ ] #3 At least two policies — one points-chasing, one chain-building
 - [ ] #4 Reports win rate and score distribution per stage
