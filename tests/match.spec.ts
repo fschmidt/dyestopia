@@ -1,14 +1,13 @@
 import { expect, test } from '@playwright/test'
 
 import {
-  applyGravity,
   clearScore,
   comboConversions,
   findLegalMove,
   findMatches,
   generateBoard,
   parseMask,
-  refill,
+  resolveCascade,
   resolveMove,
 } from '../src/board'
 import { mulberry32 } from '../src/rng'
@@ -187,11 +186,8 @@ test('the combo prototype ripples the merge into adjacent groups', async ({ page
     cells[move[0]] = cells[move[1]] = resolved.result
     const conversions = comboConversions(grid, cells, [move[0], move[1]])
     if (conversions.length === 0) continue
-    for (let m = findMatches(grid, cells); m.size > 0; m = findMatches(grid, cells)) {
-      for (const index of m) cells[index] = null
-      applyGravity(grid, cells)
-      refill(grid, cells, FIRST_STAGE.seed, rng)
-    }
+    // The same call the scene makes, so this replay cannot drift from the game.
+    resolveCascade(grid, cells, 1, FIRST_STAGE.seed, rng)
     // A dead settled board would reshuffle live and spend rng the replay
     // didn't — skip such seeds rather than model it.
     if (!findLegalMove(grid, cells, stageRules)) continue

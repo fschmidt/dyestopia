@@ -13,6 +13,7 @@ import {
   parseMask,
   refill,
   reshuffle,
+  resolveCascade,
   resolveMove,
   scoreResolutionForMerge,
   scoreResolutionForSwap,
@@ -112,6 +113,63 @@ test.describe('gravity and refill', () => {
     const spawns = refill(grid, cells, ['blue'], mulberry32(7))
     expect(spawns.map((s) => s.index).sort()).toEqual([1, 3])
     expect(cells).toEqual(['red', 'blue', null, 'blue'])
+  })
+})
+
+test.describe('the cascade', () => {
+  // Bottom row clears; nothing above it lines up, so the wave count is the
+  // clear plus whatever the refill happens to make.
+  const grid = parseMask(['###', '###', '###', '###'])
+  const rows = ['ygb', 'gyg', 'bgy', 'rrr']
+  const seed: ColorId[] = ['red', 'yellow', 'blue']
+
+  test('reports the clear, the fall and the refill as one wave', () => {
+    const cells = cellsOf(grid, rows)
+    const [first] = resolveCascade(grid, cells, 1, seed, mulberry32(11))
+
+    expect(first.matched).toEqual([9, 10, 11])
+    expect(first.colors).toEqual(['red', 'red', 'red'])
+    expect(first.points).toBe(colorValue('red') * 3)
+    // Every column shuffles down one, bottom-up, column by column.
+    expect(first.falls).toEqual([
+      { from: 6, to: 9 },
+      { from: 3, to: 6 },
+      { from: 0, to: 3 },
+      { from: 7, to: 10 },
+      { from: 4, to: 7 },
+      { from: 1, to: 4 },
+      { from: 8, to: 11 },
+      { from: 5, to: 8 },
+      { from: 2, to: 5 },
+    ])
+    // The three emptied cells are the top row, and refill fills exactly those.
+    expect(first.spawns.map((s) => s.index)).toEqual([0, 1, 2])
+    expect(first.spawns.every((s) => seed.includes(s.color))).toBe(true)
+  })
+
+  test('leaves the board settled', () => {
+    const cells = cellsOf(grid, rows)
+    resolveCascade(grid, cells, 1, seed, mulberry32(11))
+    expect(findMatches(grid, cells).size).toBe(0)
+    expect(cells.some((cell) => cell === null)).toBe(false)
+  })
+
+  test('every wave scores at the move multiplier — cascades inherit, never grow', () => {
+    const cells = cellsOf(grid, rows)
+    const waves = resolveCascade(grid, cells, 3, seed, mulberry32(11))
+    for (const wave of waves) {
+      expect(wave.points).toBe(clearScore(wave.colors, 3))
+    }
+    expect(waves[0].points).toBe(colorValue('red') * 3 * 3)
+  })
+
+  test('same seed in, same waves out', () => {
+    const once = cellsOf(grid, rows)
+    const twice = cellsOf(grid, rows)
+    expect(resolveCascade(grid, once, 1, seed, mulberry32(11))).toEqual(
+      resolveCascade(grid, twice, 1, seed, mulberry32(11)),
+    )
+    expect(once).toEqual(twice)
   })
 })
 

@@ -478,3 +478,54 @@ export function scoreResolutionForSwap(
 export function clearScore(colors: readonly ColorId[], multiplier: number): number {
   return colors.reduce((sum, color) => sum + colorValue(color), 0) * multiplier
 }
+
+/** One clear-and-settle pass: what matched, what it paid, and what moved. */
+export interface CascadeWave {
+  /** Cells that matched, in scan order. */
+  matched: number[]
+  /** The colour each matched cell held — its scoring colour, after any dye. */
+  colors: ColorId[]
+  /** Points for this wave alone, already multiplied. */
+  points: number
+  falls: CellMove[]
+  spawns: Spawn[]
+}
+
+/**
+ * Play a move's cascade to a standstill and return what happened, wave by wave.
+ *
+ * The whole loop resolves before anything is drawn: `cells` comes back settled,
+ * and the returned waves are the recording the scene replays to catch the tiles
+ * up. That is the seam that lets a round be played without a screen — the
+ * harness calls this and reads the waves instead of animating them.
+ *
+ * Every wave scores at `multiplier`; cascades inherit the move's and never grow
+ * (see `clearScore`). Mutates `cells` and advances `rng`, which is what makes a
+ * seeded playout reproducible.
+ */
+export function resolveCascade(
+  grid: Grid,
+  cells: Cells,
+  multiplier: number,
+  seed: ColorId[],
+  rng: Rng,
+): CascadeWave[] {
+  const waves: CascadeWave[] = []
+  for (;;) {
+    const matched = [...findMatches(grid, cells)]
+    if (matched.length === 0) return waves
+
+    // Mix participants have already taken the result colour, so their score
+    // value comes from that result rather than from their former ingredients.
+    const colors = matched.map((index) => cells[index]!)
+    for (const index of matched) cells[index] = null
+
+    waves.push({
+      matched,
+      colors,
+      points: clearScore(colors, multiplier),
+      falls: applyGravity(grid, cells),
+      spawns: refill(grid, cells, seed, rng),
+    })
+  }
+}
