@@ -3,11 +3,14 @@ id: T-024
 type: task
 title: Make the multiplier necessary
 status: Todo
-ordinal: 500
+ordinal: 800
 labels: [engine, decision]
 ---
 
 ## Description
+
+**Blocked on `T-031`, `T-036`, `T-037` and `T-035`. Feeds `T-025`.** Every card
+ahead of it on the spine exists to give this one something to decide with.
 
 A player who ignores the multiplier entirely clears essentially every stage. A
 player who builds chains wins by a small margin and never has to. The pitch of
@@ -38,9 +41,17 @@ Candidate levers, none of them presumed:
 - **Objectives** — winning conditions the multiplier is the only route to,
   rather than a score target any route can reach
 
-Blocked on `T-032`. Until the board maths are parameters, the only levers this
-card can reach are thresholds, move budgets and board masks — and any tuning
-done with those is invalidated the moment the real variables exist.
+`T-032` delivered the research and `C-001` was accepted on it, but that did not
+unblock this card so much as name what it was waiting for. Until the board maths
+are parameters (`T-035`), the only levers this card can reach are thresholds,
+move budgets and board masks — and any tuning done with those is invalidated the
+moment the real variables exist.
+
+**This card and `T-038` may turn out to be one decision.** Both list a merge that
+resolves without clearing among their candidates, and `C-001` argues that lever
+moves supply and the multiplier together. If `T-036`'s numbers point there,
+whichever card reaches the decision first records the `D-` and the other cites it
+rather than deciding it twice.
 
 Raising thresholds is not on the list. Targets are already calibrated near the
 achievable ceiling, so pushing them past the points-chasing line makes stages

@@ -2,8 +2,8 @@
 id: T-008
 type: task
 title: Revise the gravity algorithm
-status: Todo
-ordinal: 1200
+status: Deferred
+ordinal: 2300
 labels: [engine]
 ---
 
@@ -14,6 +14,11 @@ the Hourglass waist — the current routing produces falls that read as arbitrar
 
 Worth deciding what the intended behaviour *is* before changing code: strict
 per-column fall, or something that routes around gaps.
+
+**Deferred while the `C-001` spine runs.** Gravity is what scatters the result
+tiles the supply economy is counted in, so changing how tiles fall while `T-036`
+and `T-038` are measuring and then changing that economy would invalidate the
+measurements taken either side of it.
 
 ## Acceptance criteria
 

@@ -2,8 +2,8 @@
 id: T-023
 type: task
 title: Say why a drop was refused
-status: Todo
-ordinal: 300
+status: Deferred
+ordinal: 1700
 labels: [feel, onboarding]
 ---
 
@@ -23,6 +23,11 @@ Two things to watch. The adjacency refusal is decided before the rules are
 consulted, so the reason has to be assembled in more than one place. And the
 hint strip is hidden during lessons, so a lesson needs a different surface —
 the floating score text is the existing pattern for a transient message.
+
+**Deferred while the `C-001` spine runs.** These messages are the mix-legality
+rule spoken aloud, and `T-036` is measuring a variant that changes what "the
+dyed target would not complete a line" even means. Teaching a rule while it is
+under review is the wrong order.
 
 ## Acceptance criteria
 

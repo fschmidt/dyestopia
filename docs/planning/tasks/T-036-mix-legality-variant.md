@@ -3,11 +3,14 @@ id: T-036
 type: task
 title: Measure a mix that does not clear
 status: Todo
-ordinal: 450
+ordinal: 300
 labels: [engine, testing, balance]
 ---
 
 ## Description
+
+**Blocked on `T-022`, and it wants `T-031`'s figures beside it. Feeds `T-012`,
+`T-024` and `T-038`.**
 
 `C-001` §4 names mix legality as the largest single influence on how available
 chain play is, and the one lever no parameter can reach, because it is a branch
@@ -26,8 +29,9 @@ no flag in the game, no stage authored against it, nothing shipped. `T-024`,
 `T-012` and `T-038` decide; this card gives them the numbers to decide with, and
 they are the numbers none of those three can currently get.
 
-**Blocked on `T-022`**, and it wants `T-031`'s combo figures beside it, since
-combo and legality are two answers to the same scarcity.
+`T-031` belongs beside this card rather than before it, since combo and legality
+are two answers to the same scarcity and the interesting number is which one
+buys more.
 
 Report, per stage and per policy, against the unchanged rule as the baseline:
 

@@ -9,6 +9,11 @@ labels: [engine, testing]
 
 ## Description
 
+**Nothing blocks this. It gates the rest of the board.** `T-031`, `T-036`,
+`T-037` and `T-035` all need numbers only this card can produce, and the three
+decisions behind them — `T-012`, `T-024`, `T-038` — need those numbers. It is
+first for that reason alone.
+
 A script that plays a stage many times without drawing anything and prints the
 outcome as a distribution: win rate, score spread, moves used. Bot policies are
 swappable, so the same stage can be measured under a player who chases points

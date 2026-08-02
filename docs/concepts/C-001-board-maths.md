@@ -634,6 +634,11 @@ draw table by context, and we vary ours not at all.
   value chosen.
 - **Cut into cards** — `T-034` through `T-038`. Two of them write the sections
   this document still owes; three make the rule-shaped levers measurable and
-  choose the supply mechanism. The three that produce evidence sit in Todo, the
-  two that spend it are Deferred behind `T-022`, `T-031` and `T-036`. Still no
-  value chosen and still no gameplay changed.
+  choose the supply mechanism. Still no value chosen and still no gameplay
+  changed.
+- **The board is sequenced on this concept.** Todo now holds one chain in
+  dependency order — `T-022` → `T-031` → `T-036` → `T-037` → `T-034` → `T-035` →
+  `T-012` → `T-024` → `T-038` → `T-025` — and everything else is Deferred. Each
+  card states what gates it and what it feeds, so the chain is readable from any
+  point in it. Six of the ten change nothing a player can see; they exist so the
+  other four are decidable.

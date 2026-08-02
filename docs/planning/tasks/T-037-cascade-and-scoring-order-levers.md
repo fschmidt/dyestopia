@@ -2,12 +2,15 @@
 id: T-037
 type: task
 title: Measure the cascade and scoring-order levers
-status: Deferred
-ordinal: 1500
+status: Todo
+ordinal: 400
 labels: [engine, testing, balance]
 ---
 
 ## Description
+
+**Blocked on `T-022`, and it wants `T-036` done first — the switch-and-measure
+machinery is the same. Feeds `T-024`.**
 
 The two rule-shaped levers the `C-001` inventory turned up beside mix legality.
 Both are branches rather than numbers, so no parameter set reaches them, and both
@@ -31,9 +34,10 @@ nothing reaches a player. Report win rate, the greedy-versus-chain gap and score
 distribution per stage and per policy, with `T-022`'s comparative-not-predictive
 caveat attached.
 
-**Deferred, not dismissed.** These are cheap once `T-022` and `T-036` exist —
-the switch-and-measure machinery is the same — and they are the two remaining
-levers `T-024` can reach without touching supply. Promote when `T-036` reports.
+These are the two remaining levers `T-024` can reach without touching supply,
+which is why they are queued before the decisions rather than after them. They
+are also the cheapest cards on the spine: by the time `T-036` has landed, both
+are a switch and a run.
 
 ## Acceptance criteria
 

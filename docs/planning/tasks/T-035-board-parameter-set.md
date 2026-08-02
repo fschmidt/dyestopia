@@ -3,17 +3,19 @@ id: T-035
 type: task
 title: Name the board parameter set
 status: Todo
-ordinal: 660
+ordinal: 600
 labels: [engine, balance, decision]
 ---
 
 ## Description
 
+**Blocked on `T-022` and `T-034`. Feeds `T-024`, `T-025`, `T-019` and `I-013`.**
+
 Fill `C-001` §3. Named parameters with today's behaviour as their defaults, so
 adopting the set changes nothing until someone changes a value, and per-stage
 override, because varying them per stage is the point.
 
-**Blocked on `T-022` and `T-034`.** The survey found no industry line between
+The survey found no industry line between
 rule and parameter to borrow, so `C-001` proposes a capability test instead: a
 parameter earns its place if the harness can sweep it and report a difference.
 That test cannot be applied before the harness exists, which is the whole reason
@@ -22,8 +24,10 @@ this card is not simply "expose the constants".
 What the set has to contain, and what it has to survive:
 
 - **A supply rate.** `D-002` decided that result-tile supply is a flow, so a rate
-  is a known member of the set rather than an open question about it — even
-  though `T-038` chooses the mechanism it parameterises.
+  is a known member of the set rather than an open question about it. This card
+  is queued *before* `T-038`, which chooses the mechanism that rate governs, so
+  the rate is named as a slot and left general — a parameter shaped around one
+  candidate mechanism would decide `T-038` by the back door.
 - **The chain ceiling, decided one way or the other.** Today
   `stageMaxMultiplier` is `1 + active recipe count`, so ceiling and palette
   cannot move independently: the only way to raise a stage's ceiling is to change

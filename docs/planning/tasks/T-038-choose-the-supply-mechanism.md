@@ -2,22 +2,30 @@
 id: T-038
 type: task
 title: Choose the supply mechanism
-status: Deferred
-ordinal: 1600
+status: Todo
+ordinal: 900
 labels: [engine, balance, decision]
 ---
 
 ## Description
+
+**Blocked on `T-031` and `T-036`. Feeds `T-025`.** The largest product change on
+the spine, and the last decision before the sequence is retuned.
 
 `D-002` decided the shape: result-tile supply must regenerate during a round, at
 a rate that can be varied per stage, bounding the floor without steering the
 outcome. It deliberately did not choose the mechanism. This card does, and it is
 the card that actually changes what the game plays.
 
-**Blocked on `T-031` and `T-036`.** `D-002` says a mechanism card should be cut
-once `T-031` reports and that a blocked card in a capped Todo lane is noise —
-hence Deferred. Promote it the moment both report; it is the largest product fix
-on the board and it should not sit here a day longer than its evidence takes.
+`D-002` said a mechanism card should be cut once `T-031` reports, and that a
+blocked card in a capped Todo lane is noise. It is queued rather than parked
+because the lane is no longer a mixed backlog — it is this one chain, in order,
+and a gated card in a sequenced lane reads as a position rather than as noise.
+
+**This card and `T-024` may turn out to be one decision** — both list legality
+without clearing among their candidates, and `C-001` argues that lever moves
+supply and the multiplier together. Whichever reaches the decision first records
+the `D-`; the other cites it.
 
 The candidates, from `C-001`, ordered by how much they respect the constraint
 that the board must not appear to steer the player:

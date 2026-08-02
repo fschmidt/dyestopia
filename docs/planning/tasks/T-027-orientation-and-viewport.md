@@ -2,8 +2,8 @@
 id: T-027
 type: task
 title: Orientation, viewport and the missing manifest
-status: Todo
-ordinal: 1000
+status: Deferred
+ordinal: 2100
 labels: [mobile, bug]
 ---
 
@@ -28,6 +28,11 @@ in-round HUD builds no pause button, and pause is otherwise only reachable by a
 key a phone does not have — so a Lab player mid-round cannot reach settings,
 the menu, or the recipe list. It is a deliberate opt-in rather than the default,
 which is why it is a fold-in and not its own card.
+
+**Deferred while the `C-001` spine runs, on priority rather than on a
+dependency.** Nothing here depends on the board maths and nothing here would be
+thrown away — it is presentation, parked because the lane is sequenced on one
+chain. It matters again the moment anyone else is handed a phone.
 
 ## Acceptance criteria
 

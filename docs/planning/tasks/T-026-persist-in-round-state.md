@@ -2,8 +2,8 @@
 id: T-026
 type: task
 title: Persist the in-round state
-status: Todo
-ordinal: 900
+status: Deferred
+ordinal: 2000
 labels: [engine, mobile]
 ---
 
@@ -20,6 +20,11 @@ testers on phones before it happens to anyone else.
 
 The save layer already carries migrations between formats, so adding a slot
 follows an established path rather than inventing one.
+
+**Deferred while the `C-001` spine runs**, and cheaper afterwards. A round's
+state lives in scene fields today, which is precisely what `T-022` has to pull
+out into a value the harness can hand around. Saving a value is a smaller job
+than saving a scene.
 
 ## Acceptance criteria
 

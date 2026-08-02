@@ -3,11 +3,15 @@ id: T-034
 type: task
 title: The board maths as formulas
 status: Todo
-ordinal: 620
+ordinal: 500
 labels: [engine, balance, docs]
 ---
 
 ## Description
+
+**Nothing blocks this. Feeds `T-035`.** It can be done at any point; it is
+queued here because the parameter set is the next card and this is its
+precondition.
 
 Fill `C-001` §2. Scoring, chain growth, cash-in, supply and placement written so
 they can be read, argued about and evaluated without the game running. This is
