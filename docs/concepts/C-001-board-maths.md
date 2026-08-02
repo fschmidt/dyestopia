@@ -642,3 +642,8 @@ draw table by context, and we vary ours not at all.
   card states what gates it and what it feeds, so the chain is readable from any
   point in it. Six of the ten change nothing a player can see; they exist so the
   other four are decidable.
+
+  One card in the lane is not part of the chain: `T-033` sits second, because
+  the engine half of the test suite is what catches a rule quietly ceasing to
+  hold, and three cards below it change engine rules. It guards the spine rather
+  than belonging to it.

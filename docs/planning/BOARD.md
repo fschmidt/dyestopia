@@ -10,19 +10,21 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
 | `T-022` Headless playout harness |   |   | `T-014` Free Move tool MVP |
-| `T-031` Measure the combo spike |   |   | `T-009` Architecture rules |
-| `T-036` Measure a mix that does not clear |   |   | `T-015` Consistent stage-select design |
-| `T-037` Measure the cascade and scoring-order levers |   |   | `T-016` iPhone 15 viewport |
-| `T-034` The board maths as formulas |   |   | `T-032` Research the board maths |
+| `T-033` Run the Playwright suite in Actions |   |   | `T-009` Architecture rules |
+| `T-031` Measure the combo spike |   |   | `T-015` Consistent stage-select design |
+| `T-036` Measure a mix that does not clear |   |   | `T-016` iPhone 15 viewport |
+| `T-037` Measure the cascade and scoring-order levers |   |   | `T-032` Research the board maths |
+| `T-034` The board maths as formulas |   |   |   |
 | `T-035` Name the board parameter set |   |   |   |
 | `T-012` Resolve the combo spike |   |   |   |
 | `T-024` Make the multiplier necessary |   |   |   |
 | `T-038` Choose the supply mechanism |   |   |   |
 | `T-025` Ramp the stage sequence |   |   |   |
 
-### Todo (10/15)
+### Todo (11/15)
 
 - `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
+- `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
 - `T-031` [Measure the combo spike](tasks/T-031-measure-combo-spike.md) · _engine_, _testing_
 - `T-036` [Measure a mix that does not clear](tasks/T-036-mix-legality-variant.md) · _engine_, _testing_, _balance_
 - `T-037` [Measure the cascade and scoring-order levers](tasks/T-037-cascade-and-scoring-order-levers.md) · _engine_, _testing_, _balance_
@@ -54,7 +56,7 @@ _Empty._
 Real work, consciously postponed. Nothing here is scheduled. Todo is capped at 15, so
 promoting something from here usually means demoting something else.
 
-### Deferred (21)
+### Deferred (20)
 
 - `T-020` [Separate the rules engine from the game](tasks/T-020-headless-engine.md) · _engine_, _decision_
 - `T-019` [Declarative stages and a determinism model](tasks/T-019-declarative-determinism.md) · _stages_, _engine_, _decision_
@@ -69,7 +71,6 @@ promoting something from here usually means demoting something else.
 - `T-028` [Steer a first-timer into the tutorial](tasks/T-028-steer-into-the-tutorial.md) · _onboarding_
 - `T-029` [An ending](tasks/T-029-an-ending.md) · _stages_, _feel_
 - `T-011` [Friends playtest and release](tasks/T-011-friends-playtest.md) · _release_
-- `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
 - `T-023` [Say why a drop was refused](tasks/T-023-refusal-reasons.md) · _feel_, _onboarding_
 - `T-021` [Tutorial rounds can be lost silently](tasks/T-021-tutorial-silent-loss.md) · _tutorial_, _bug_
 - `T-018` [Rework the tutorial concept](tasks/T-018-rework-tutorial-concept.md) · _tutorial_, _M1_

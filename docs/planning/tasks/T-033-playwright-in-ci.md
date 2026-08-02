@@ -2,12 +2,17 @@
 id: T-033
 type: task
 title: Run the Playwright suite in Actions
-status: Deferred
-ordinal: 1400
+status: Todo
+ordinal: 150
 labels: [testing, ci]
 ---
 
 ## Description
+
+**Nothing blocks this. It guards the spine.** Queued second, behind `T-022`,
+because `T-036`, `T-037` and `T-038` all change engine rules that
+`tests/board.spec.ts` verifies and `tsc` cannot see — a gate arriving after
+those cards protects nothing they did.
 
 Put `npm test` behind the same gate as the build, so a pull request cannot merge
 with a broken game — only a broken *compile* is caught today, by the `verify`
@@ -62,6 +67,11 @@ block a merge:
 
 Only once it is quiet does the browser check join `verify` in the required list
 on `main`. Adding it before then is the failure mode this card exists to avoid.
+
+Note that this is one card in Todo rather than two, because nothing external
+blocks the second gate. The stability campaign is work done inside this card —
+run the browser suite over the pull requests the spine produces, watch what the
+retries say, then require it. Gate one ships first and does not wait for it.
 
 ## Acceptance criteria
 
