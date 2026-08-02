@@ -2,8 +2,8 @@
 id: T-009
 type: task
 title: Architecture rules
-status: In Review
-ordinal: 100
+status: Done
+ordinal: 200
 labels: [docs]
 ---
 
