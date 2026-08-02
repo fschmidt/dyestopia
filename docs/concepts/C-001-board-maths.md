@@ -3,7 +3,7 @@ id: C-001
 type: concept
 title: The board maths
 status: Accepted
-tasks: [T-032]
+tasks: [T-032, T-034, T-035, T-036, T-037, T-038]
 ---
 
 # The board maths
@@ -13,6 +13,11 @@ board, the survey is the prior art, and the result-tile economy is the problem.
 What is *not* yet settled is the answer — sections 2 and 3 remain unwritten, and
 the decisions this concept owes are listed at the end with the ones that are ripe
 marked as such.
+
+The work is now cut into cards. `T-034` writes §2, `T-035` writes §3, `T-036`
+measures the mix-legality lever of §4 and `T-037` the two smaller ones beside it,
+and `T-038` chooses the supply mechanism `D-002` left open. The evidence they all
+stand on is `T-022` and `T-031`, which existed before this concept did.
 
 A concept stays living until the code lands. The decisions it locks become
 records in [docs/decisions/](../decisions/index.md) and the implementation is cut
@@ -566,13 +571,15 @@ draw table by context, and we vary ours not at all.
 
 - **The parameter set's boundary** — proposed test: a parameter earns its place
   if the harness can sweep it and report a difference. Depends on `T-022`
-  existing at all.
+  existing at all. Owed by `T-035`.
 - **The refill model** — the live candidate is a pity counter over mixable
-  supply, not a bag and not the Tetris lineage. Depends on `T-031`.
+  supply, not a bag and not the Tetris lineage. Depends on `T-031`. Owed by
+  `T-038`, which chooses between it and the other candidates.
 - **The treatment of mix legality**, plus the two further rule-shaped levers the
   inventory found (wave multiplier inheritance, merge scoring order). The
   legality lever moves supply and the multiplier together, so it should not be
-  decided before both are measured.
+  decided before both are measured. Measured by `T-036` and `T-037`; decided by
+  `T-024`, `T-012` and `T-038` on their numbers.
 
 ## Open questions
 
@@ -625,3 +632,8 @@ draw table by context, and we vary ours not at all.
   supply question has no right answer while supply is a stock. Corrected the two
   places in the repo that described the survivor without the spend. Still no
   value chosen.
+- **Cut into cards** — `T-034` through `T-038`. Two of them write the sections
+  this document still owes; three make the rule-shaped levers measurable and
+  choose the supply mechanism. The three that produce evidence sit in Todo, the
+  two that spend it are Deferred behind `T-022`, `T-031` and `T-036`. Still no
+  value chosen and still no gameplay changed.

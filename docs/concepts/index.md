@@ -16,4 +16,4 @@ cards; the thinking itself lives here, and outlives them.
 
 ### Accepted (1)
 
-- `C-001` [The board maths](C-001-board-maths.md) · `T-032`
+- `C-001` [The board maths](C-001-board-maths.md) · `T-032`, `T-034`, `T-035`, `T-036`, `T-037`, `T-038`
