@@ -2,8 +2,8 @@
 id: T-018
 type: task
 title: Rework the tutorial concept
-status: Todo
-ordinal: 800
+status: Deferred
+ordinal: 1900
 labels: [tutorial, M1]
 ---
 
@@ -30,6 +30,11 @@ scripted lessons at all, or moves into the stage progression itself.
 
 `T-011` (friends playtest) is blocked on this — sending people in without a
 working tutorial wastes the one first impression each of them has.
+
+**Deferred while the `C-001` spine runs.** Four of the six lessons teach Mix,
+Chain, Rainbow and the Chain Breaker — exactly the mechanics `T-024` and `T-038`
+are about to change. A tutorial concept settled before those decisions is a
+concept settled against the wrong game.
 
 ## Acceptance criteria
 

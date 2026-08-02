@@ -2,8 +2,8 @@
 id: T-021
 type: task
 title: Tutorial rounds can be lost silently
-status: Todo
-ordinal: 400
+status: Deferred
+ordinal: 1800
 labels: [tutorial, bug]
 ---
 
@@ -25,6 +25,12 @@ documents that as intended and it reads as a crash.
 
 Decide the lesson budget rule rather than patching the symptom — a lesson either
 has no budget, or shows the one it has.
+
+**Deferred while the `C-001` spine runs, on priority rather than on a
+dependency.** Nothing in the board maths touches this and nothing about fixing
+it would be thrown away — it is a live bug parked because the lane is sequenced
+on one chain. It is the strongest candidate for promotion if anything comes off
+the spine.
 
 ## Acceptance criteria
 

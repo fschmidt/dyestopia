@@ -9,45 +9,44 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
-| `T-022` Headless playout harness |   | `T-009` Architecture rules | `T-014` Free Move tool MVP |
+| `T-022` Headless playout harness |   |   | `T-014` Free Move tool MVP |
+| `T-033` Run the Playwright suite in Actions |   |   | `T-009` Architecture rules |
 | `T-031` Measure the combo spike |   |   | `T-015` Consistent stage-select design |
-| `T-023` Say why a drop was refused |   |   | `T-016` iPhone 15 viewport |
-| `T-021` Tutorial rounds can be lost silently |   |   | `T-032` Research the board maths |
-| `T-024` Make the multiplier necessary |   |   |   |
+| `T-036` Measure a mix that does not clear |   |   | `T-016` iPhone 15 viewport |
+| `T-037` Measure the cascade and scoring-order levers |   |   | `T-032` Research the board maths |
+| `T-034` The board maths as formulas |   |   |   |
+| `T-035` Name the board parameter set |   |   |   |
 | `T-012` Resolve the combo spike |   |   |   |
+| `T-024` Make the multiplier necessary |   |   |   |
+| `T-038` Choose the supply mechanism |   |   |   |
 | `T-025` Ramp the stage sequence |   |   |   |
-| `T-018` Rework the tutorial concept |   |   |   |
-| `T-026` Persist the in-round state |   |   |   |
-| `T-027` Orientation, viewport and the missing manifest |   |   |   |
-| `T-030` Dedicated rainbow chain indicator |   |   |   |
-| `T-008` Revise the gravity algorithm |   |   |   |
 
-### Todo (12/15)
+### Todo (11/15)
 
 - `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
+- `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
 - `T-031` [Measure the combo spike](tasks/T-031-measure-combo-spike.md) · _engine_, _testing_
-- `T-023` [Say why a drop was refused](tasks/T-023-refusal-reasons.md) · _feel_, _onboarding_
-- `T-021` [Tutorial rounds can be lost silently](tasks/T-021-tutorial-silent-loss.md) · _tutorial_, _bug_
-- `T-024` [Make the multiplier necessary](tasks/T-024-multiplier-must-matter.md) · _engine_, _decision_
+- `T-036` [Measure a mix that does not clear](tasks/T-036-mix-legality-variant.md) · _engine_, _testing_, _balance_
+- `T-037` [Measure the cascade and scoring-order levers](tasks/T-037-cascade-and-scoring-order-levers.md) · _engine_, _testing_, _balance_
+- `T-034` [The board maths as formulas](tasks/T-034-board-maths-as-formulas.md) · _engine_, _balance_, _docs_
+- `T-035` [Name the board parameter set](tasks/T-035-board-parameter-set.md) · _engine_, _balance_, _decision_
 - `T-012` [Resolve the combo spike](tasks/T-012-resolve-combo-spike.md) · _engine_, _decision_
+- `T-024` [Make the multiplier necessary](tasks/T-024-multiplier-must-matter.md) · _engine_, _decision_
+- `T-038` [Choose the supply mechanism](tasks/T-038-choose-the-supply-mechanism.md) · _engine_, _balance_, _decision_
 - `T-025` [Ramp the stage sequence](tasks/T-025-ramp-the-stage-sequence.md) · _stages_, _balance_
-- `T-018` [Rework the tutorial concept](tasks/T-018-rework-tutorial-concept.md) · _tutorial_, _M1_
-- `T-026` [Persist the in-round state](tasks/T-026-persist-in-round-state.md) · _engine_, _mobile_
-- `T-027` [Orientation, viewport and the missing manifest](tasks/T-027-orientation-and-viewport.md) · _mobile_, _bug_
-- `T-030` [Dedicated rainbow chain indicator](tasks/T-030-rainbow-chain-indicator.md) · _visuals_, _feel_
-- `T-008` [Revise the gravity algorithm](tasks/T-008-revise-gravity-algorithm.md) · _engine_
 
 ### In Progress (0)
 
 _Empty._
 
-### In Review (1)
+### In Review (0)
 
-- `T-009` [Architecture rules](tasks/T-009-architecture-rules.md) · _docs_
+_Empty._
 
-### Done (4)
+### Done (5)
 
 - `T-014` [Free Move tool MVP](tasks/T-014-free-move-tool.md) · _tools_, _M2_
+- `T-009` [Architecture rules](tasks/T-009-architecture-rules.md) · _docs_
 - `T-015` [Consistent stage-select design](tasks/T-015-stage-select-design.md) · _visuals_
 - `T-016` [iPhone 15 viewport](tasks/T-016-iphone-viewport.md) · _mobile_
 - `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
@@ -57,7 +56,7 @@ _Empty._
 Real work, consciously postponed. Nothing here is scheduled. Todo is capped at 15, so
 promoting something from here usually means demoting something else.
 
-### Deferred (14)
+### Deferred (20)
 
 - `T-020` [Separate the rules engine from the game](tasks/T-020-headless-engine.md) · _engine_, _decision_
 - `T-019` [Declarative stages and a determinism model](tasks/T-019-declarative-determinism.md) · _stages_, _engine_, _decision_
@@ -72,7 +71,13 @@ promoting something from here usually means demoting something else.
 - `T-028` [Steer a first-timer into the tutorial](tasks/T-028-steer-into-the-tutorial.md) · _onboarding_
 - `T-029` [An ending](tasks/T-029-an-ending.md) · _stages_, _feel_
 - `T-011` [Friends playtest and release](tasks/T-011-friends-playtest.md) · _release_
-- `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
+- `T-023` [Say why a drop was refused](tasks/T-023-refusal-reasons.md) · _feel_, _onboarding_
+- `T-021` [Tutorial rounds can be lost silently](tasks/T-021-tutorial-silent-loss.md) · _tutorial_, _bug_
+- `T-018` [Rework the tutorial concept](tasks/T-018-rework-tutorial-concept.md) · _tutorial_, _M1_
+- `T-026` [Persist the in-round state](tasks/T-026-persist-in-round-state.md) · _engine_, _mobile_
+- `T-027` [Orientation, viewport and the missing manifest](tasks/T-027-orientation-and-viewport.md) · _mobile_, _bug_
+- `T-030` [Dedicated rainbow chain indicator](tasks/T-030-rainbow-chain-indicator.md) · _visuals_, _feel_
+- `T-008` [Revise the gravity algorithm](tasks/T-008-revise-gravity-algorithm.md) · _engine_
 
 ## Ideas
 

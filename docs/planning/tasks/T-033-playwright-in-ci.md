@@ -2,18 +2,52 @@
 id: T-033
 type: task
 title: Run the Playwright suite in Actions
-status: Deferred
-ordinal: 1400
+status: Todo
+ordinal: 150
 labels: [testing, ci]
 ---
 
 ## Description
 
+**Nothing blocks this. It guards the spine.** Queued second, behind `T-022`,
+because `T-036`, `T-037` and `T-038` all change engine rules that
+`tests/board.spec.ts` verifies and `tsc` cannot see — a gate arriving after
+those cards protects nothing they did.
+
 Put `npm test` behind the same gate as the build, so a pull request cannot merge
-with a broken game — only a broken *compile* is caught today.
+with a broken game — only a broken *compile* is caught today, by the `verify`
+job in `.github/workflows/ci.yaml`.
+
+**It is two gates, not one, and only the second has to be earned.** The suite
+splits along the seam between the engine and the scene, and the two halves have
+nothing in common:
+
+| | What runs | Cost | Flake surface |
+| --- | --- | --- | --- |
+| **Engine specs** | `tests/board.spec.ts`, and the offline half of `tests/match.spec.ts` — pure data in, data out | 68 tests in under two seconds, measured | none: no page, no Phaser, no timing |
+| **Browser specs** | `tests/tutorial.spec.ts`, `tests/visual-system.spec.ts`, `tests/iphone-layout.spec.ts` and the live half of `tests/match.spec.ts` | most of a two-minute run | tweens, polling, layout |
+
+### Gate one — the engine specs, which need nothing earned
+
+The argument below about trustworthiness applies to the browser half only.
+Engine specs have nothing to be flaky about, so they can become a required check
+immediately: no stability campaign, no browser cache, no trace artefacts.
+
+One detail decides whether this is cheap. `playwright.config.ts` starts a
+`webServer` that runs `npm run build` before *any* test, so a naive run pays the
+full build even for tests that never open a page. Setting `DYESTOPIA_URL` skips
+the web server entirely, and the engine specs never navigate — that is what
+makes the measured runtime above real rather than theoretical.
+
+This is also the half that guards the `C-001` spine. `T-036`, `T-037` and
+`T-038` change the engine and are measured by engine code; a rule that quietly
+stops holding is exactly what `tests/board.spec.ts` would catch and a compile
+would not.
+
+### Gate two — the browser specs, which do
 
 The work is not the workflow step. It is making the suite trustworthy enough to
-block a merge, which is why this is deferred rather than queued:
+block a merge:
 
 - **Flakes cost more than the check is worth.** A required check that fails at
   random trains you to merge past red, and then neither check means anything.
@@ -31,17 +65,27 @@ block a merge, which is why this is deferred rather than queued:
 - **Browsers have to be installed and cached**, or the install dominates the
   run.
 
-Only once it is quiet does the check join `verify` in the required list on
-`main`. Adding it before then is the failure mode this card exists to avoid.
+Only once it is quiet does the browser check join `verify` in the required list
+on `main`. Adding it before then is the failure mode this card exists to avoid.
+
+Note that this is one card in Todo rather than two, because nothing external
+blocks the second gate. The stability campaign is work done inside this card —
+run the browser suite over the pull requests the spine produces, watch what the
+retries say, then require it. Gate one ships first and does not wait for it.
 
 ## Acceptance criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 The suite runs on every pull request
-- [ ] #2 Browser binaries are cached, and the install is not the bulk of the run
-- [ ] #3 Traces and the report are uploaded on failure
-- [ ] #4 A pass that needed a retry is reported rather than hidden
-- [ ] #5 Stability is demonstrated over repeated runs before the check is
-      required
-- [ ] #6 The check is added to the required list on `main`
+- [ ] #1 The engine specs run on every pull request, without a build and
+      without a browser
+- [ ] #2 The engine check is in the required list on `main`, and the split
+      between the two halves is expressed in the config rather than in a
+      hand-maintained list of files
+- [ ] #3 The browser specs run on every pull request, with browser binaries
+      cached so the install is not the bulk of the run
+- [ ] #4 Traces and the report are uploaded on failure
+- [ ] #5 A pass that needed a retry is reported rather than hidden
+- [ ] #6 Stability is demonstrated over repeated runs before the browser check
+      is required
+- [ ] #7 The browser check is added to the required list on `main`
 <!-- AC:END -->

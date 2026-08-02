@@ -3,7 +3,7 @@ id: T-032
 type: task
 title: Research the board maths
 status: Done
-ordinal: 300
+ordinal: 500
 labels: [engine, balance, research]
 ---
 

@@ -2,8 +2,8 @@
 id: T-030
 type: task
 title: Dedicated rainbow chain indicator
-status: Todo
-ordinal: 1100
+status: Deferred
+ordinal: 2200
 labels: [visuals, feel]
 ---
 
@@ -21,6 +21,11 @@ Rainbow is the game's biggest payoff and it currently announces itself only
 *after* it has been cashed in, in the score float. Making the peak legible
 before the swap is the difference between the tension existing and the tension
 being felt.
+
+**Deferred while the `C-001` spine runs.** Rainbow is the peak of a multiplier
+whose worth `T-024` is about to change, and whose ceiling `T-035` may decouple
+from the stage palette. The indicator should announce the mechanic that ships,
+not the one under review.
 
 ## Acceptance criteria
 

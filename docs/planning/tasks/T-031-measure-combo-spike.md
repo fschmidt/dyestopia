@@ -9,6 +9,8 @@ labels: [engine, testing]
 
 ## Description
 
+**Blocked on `T-022`. Feeds `T-012`, `T-024` and `T-038`.**
+
 Quantify what the `?combo` flood-fill wave actually does to the game, so that
 `T-012` and `T-024` decide against numbers instead of intuition. Measurement
 only — this card changes no gameplay and ships no decision.
