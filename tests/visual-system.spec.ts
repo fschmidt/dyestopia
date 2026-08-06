@@ -359,11 +359,13 @@ test('a completed chain keeps the one-shot payoff without glow or an outer ring'
   await waitForScene(page, 'Game')
 
   const payoff = await page.evaluate(() => {
+    // `shown` is what the HUD draws from — the replay's position, which lags
+    // the round's own chain on purpose (see GameScene).
     const scene = window.dyestopia!.game.scene.getScene('Game')! as Phaser.Scene & {
-      colorChain: { results: ['orange']; multiplier: number }
+      shown: { chain: { results: string[]; multiplier: number } }
       updateHud(): void
     }
-    scene.colorChain = { results: ['orange'], multiplier: 2 }
+    scene.shown.chain = { results: ['orange'], multiplier: 2 }
     scene.updateHud()
     const block = scene.children.getByName('multiplier-block') as Phaser.GameObjects.Container
     const ring = block.getByName('chain-ring') as Phaser.GameObjects.Container
