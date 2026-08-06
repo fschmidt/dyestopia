@@ -129,6 +129,32 @@ directory. Same shape as the engine seam: the directory is the whole rule, so a
 new spec's cost is decided by where it is put rather than by remembering to
 amend a list. `1x` still runs everything the browser can check.
 
+The run after that change was green on all five checks:
+
+| Check | Result | Time |
+| --- | --- | --- |
+| `verify` | pass | 13s |
+| `engine` | 40 passed | 15s |
+| `browser (1x)` | 100 passed, no retries | 3m41s |
+| `browser (2x)` | 55 passed, 1 flaky | 3m51s |
+| `browser (iphone-15-pro-max)` | 3 passed | 47s |
+
+Longest leg 3m51s, against 16m20s for the single job it replaced, and the three
+browser legs run at once.
+
+### What the campaign is watching now
+
+One green run is not a quiet suite, which is the whole reason AC #6 sits before
+AC #7. The first clean run already named its own next problem:
+
+> `2x › settings.spec.ts › every combination builds a full board (passed on
+> retry 2)`
+
+Two failed attempts behind a green tick — exactly what `retries: 2` would have
+hidden and what the reporter exists to surface. That one, and whatever else the
+warnings turn up over the pull requests the `C-001` spine produces, is the work
+left before the browser checks are required.
+
 ### Gate two — the browser specs, which do
 
 The work is not the workflow step. It is making the suite trustworthy enough to
