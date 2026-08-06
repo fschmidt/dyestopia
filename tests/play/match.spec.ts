@@ -17,6 +17,7 @@ import {
   dragWorld,
   moveOfKind,
   open,
+  settle,
   stageRules,
   startSeededGame,
   toEngine,
@@ -230,8 +231,7 @@ test('a drop that clears nothing is refused and costs nothing', async ({ page })
 
   // The model never changed, so once the refusal plays out the board reports
   // the exact same deal and no score.
-  await page.waitForTimeout(700)
-  const after = await board(page)
+  const after = await settle(page)
   expect(after.score).toBe(0)
   expect(after.cells.map((c) => c.color)).toEqual(report.cells.map((c) => c.color))
 })

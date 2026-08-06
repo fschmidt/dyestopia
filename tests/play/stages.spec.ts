@@ -12,6 +12,7 @@ import {
   moveOfKind,
   open,
   rulesFor,
+  settle,
   startStage,
   toEngine,
   waitForScene,
@@ -284,8 +285,7 @@ test('a legal move spends from the budget; a refused drop does not', async ({ pa
     report.cells.find((c) => c.index === refused![0])!,
     report.cells.find((c) => c.index === refused![1])!,
   )
-  await page.waitForTimeout(700)
-  expect((await board(page)).moves).toBe(budget)
+  expect((await settle(page)).moves).toBe(budget)
 
   await playClearingSwap(page)
   await expect.poll(async () => (await board(page)).moves).toBe(budget - 1)

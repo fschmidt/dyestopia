@@ -120,6 +120,13 @@ export interface BoardReport {
   threshold: number
   /** Moves still in the budget. */
   moves: number
+  /**
+   * Nothing is in flight: no cascade resolving, no tile mid-tween. The board
+   * cannot change again without new input, which is what lets a driver assert
+   * that a refused drop cost nothing without guessing how long the refusal
+   * takes to play out.
+   */
+  settled: boolean
   /** Stage 10 has crossed its target and the player chose unlimited play. */
   endless: boolean
   outcome: 'playing' | 'won' | 'lost'
@@ -396,6 +403,7 @@ export class GameScene extends BaseScene {
       activeTool: this.activeTool,
       threshold: this.stage.threshold,
       moves: this.movesLeft,
+      settled: !this.resolving && this.tiles.every((tile) => !tile?.busy),
       endless: this.endless,
       outcome: this.outcome,
       cells,

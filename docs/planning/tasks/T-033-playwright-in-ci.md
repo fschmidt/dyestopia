@@ -151,9 +151,40 @@ AC #7. The first clean run already named its own next problem:
 > retry 2)`
 
 Two failed attempts behind a green tick — exactly what `retries: 2` would have
-hidden and what the reporter exists to surface. That one, and whatever else the
-warnings turn up over the pull requests the `C-001` spine produces, is the work
-left before the browser checks are required.
+hidden and what the reporter exists to surface.
+
+### Two causes found, both removed
+
+Chasing that warning turned up two things, and neither was slowness.
+
+**A sleep cannot prove a negative.** Four tests waited a fixed 400–700ms and
+then asserted that nothing had changed — that a refused drop cost no move, no
+tool, no score. Polling for that state proves nothing, because it was already
+true before the drag; the sleep was standing in for "long enough that a change
+would have shown up by now", which is a guess, and the guess is what fails on a
+slow machine. `BoardReport.settled` now reports the honest condition — no
+cascade resolving, no tile mid-tween — after which the board cannot change
+without new input. All four sleeps are gone, and `tests/` no longer contains a
+`waitForTimeout`.
+
+**A scene restart is not a true edge.** `goTo` stops every scene and starts one,
+and Phaser processes both in the same pass, so waiting for `isActive('Game')`
+straight after `goTo('Game')` can be satisfied by the scene that was already
+running. The driver then reads the previous round under the same key — which is
+exactly how a settings test that rebuilds the board fifteen times in a loop
+came to fail on two attempts out of three. `leaveGame` bounces off Menu first,
+so the wait that follows is a real transition.
+
+Neither fix makes the suite deterministic. The remaining nondeterminism is time
+and nothing else: the RNG is already one seeded stream per round, and
+`resolveCascade` settles the model synchronously, so only the animation is
+clock-bound. A spike confirmed that `page.clock` fakes the
+`requestAnimationFrame` and `performance` that Phaser's loop runs on — with real
+time passing and no clock advance the game did not move, and two runs produced
+byte-identical boards. Making time an input across ~60 poll sites is its own
+piece of work, not a cheap win, and wants a concept before it wants a card.
+
+What was cheap was removing two ways of being wrong, and that is what this did.
 
 ### Gate two — the browser specs, which do
 

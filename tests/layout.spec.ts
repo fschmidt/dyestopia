@@ -51,7 +51,21 @@ test('different desktop sizes keep exactly the same portrait world', async ({ pa
   expect(before).toEqual({ width: 393 * before.dpr, height: 852 * before.dpr, dpr: before.dpr })
 
   await page.setViewportSize({ width: 1100, height: 700 })
-  await page.waitForTimeout(400)
+
+  // The claim is that the *world* does not change, and it was already true
+  // before the resize — so waiting for it proves nothing. Wait instead for the
+  // resize to have reached Phaser: the canvas is FIT-scaled, and 1100×700 is
+  // shorter than it is narrow for a 393×852 aspect, so the element ends up
+  // exactly as tall as the viewport. Once that has happened, the world size is
+  // a settled fact rather than a race.
+  await expect
+    .poll(async () =>
+      page.evaluate(() =>
+        Math.round(window.dyestopia!.game.canvas.getBoundingClientRect().height),
+      ),
+    )
+    .toBe(700)
+
   expect(await worldSize(page)).toEqual(before)
   expect(await page.evaluate(() => window.dyestopia!.isActive('Menu'))).toBe(true)
 })
