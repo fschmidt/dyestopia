@@ -225,7 +225,7 @@ flaky line, no warning annotation, nothing for the reporter to say.
 
 ### The AC #6 ledger
 
-Four consecutive clean runs so far.
+Five consecutive clean runs so far.
 
 | Run | Branch | Diff | 1x | 2x | iphone | Retries |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -233,18 +233,24 @@ Four consecutive clean runs so far.
 | five | `deterministic-tests-concept` | docs | 104 passed | 60 passed | 3 passed | none |
 | six | `deterministic-tests-concept` | docs | 104 passed | 60 passed | 3 passed | none |
 | seven | `round-as-a-value` | code | 104 passed | 60 passed | 3 passed | none |
+| eight | `round-as-a-value` | docs | 104 passed | 60 passed | 3 passed | none |
 
-The diff column is worth carrying. Five and six were docs-only, so each was a
-fresh execution of an *unchanged* suite on a fresh runner — real evidence about
-the runner, weak evidence about the suite. Seven lifted the round lifecycle out
-of `GameScene`, which is the kind of change that would shake a fragile suite,
-and it went green first time.
+The diff column is worth carrying. The docs-only rows are a fresh execution of
+an *unchanged* suite on a fresh runner — real evidence about the runner, weak
+evidence about the suite. Run seven lifted the round lifecycle out of
+`GameScene`, which is the kind of change that would shake a fragile suite, and
+it went green first time. That row is worth more than the three above it.
 
 The ledger only grows from pull requests: `ci.yaml` runs on `pull_request`, so
 merging to `main` deploys but does not re-test. That is the right shape — the
 samples that count are the ones that would have blocked a merge.
 
-Four is not a quiet suite either, which is exactly why AC #6 sits before AC #7.
+**Recording a run is itself a push, which starts another run.** Run eight is
+the run that recording run seven caused, and writing it down caused a ninth
+that is not in the table. The ledger is not a log of every execution and should
+not try to be; it stops here and picks up again on the next real pull request.
+
+Five is not a quiet suite either, which is exactly why AC #6 sits before AC #7.
 What remains needs pull requests rather than code: keep watching the warnings
 over the runs the `C-001` spine produces, then require the browser checks.
 
