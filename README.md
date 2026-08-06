@@ -197,12 +197,14 @@ npm run test:engine   # the engine half — no browser, no build, about a second
 npm run test:browser  # the browser half
 ```
 
-The suite has two halves, split by directory. [`tests/engine/`](tests/engine/)
-is pure data in, data out: it opens no page, so it needs neither a browser
-binary nor the production build. Everything else in [`tests/`](tests/) drives
-the real game — `npm test` builds, serves `dist/`, and runs those in Chromium at
+Where a spec lives decides what runs it. [`tests/engine/`](tests/engine/) is
+pure data in, data out: it opens no page, so it needs neither a browser binary
+nor the production build. [`tests/play/`](tests/play/) plays a round — the slow
+ones, and what they check has no DPR in it, so they run at 1x only. Everything
+else in [`tests/`](tests/) inspects a rendered screen and runs at
 `deviceScaleFactor` 1 and 2, since the DPR path above is the part most likely to
-break silently. Point at something already running to skip the build:
+break silently. `npm test` builds, serves `dist/`, and drives the lot through
+Chromium. Point at something already running to skip the build:
 
 ```bash
 DYESTOPIA_URL=http://localhost:5173 npx playwright test

@@ -10,6 +10,14 @@ const BASE_URL = `http://localhost:${PORT}`
 const ENGINE_DIR = './tests/engine'
 const ENGINE_SPECS = /[\\/]tests[\\/]engine[\\/]/
 
+// A second seam, and again the directory is the whole rule. `tests/play/` holds
+// the specs that play a round: many drags, each waiting on the animation to
+// settle. They are the slow ones, and their subject — what the round does — has
+// no device pixel ratio in it, so running them at 2x re-proves 1x at four times
+// the pixels. On a runner with no GPU that is twelve minutes and sixteen
+// timeouts; measured, in T-033.
+const PLAY_SPECS = /[\\/]tests[\\/]play[\\/]/
+
 // A run restricted to the engine project must not pay for the production build
 // the browser projects need, so the web server has to know what was selected.
 const selectedProjects = process.argv.flatMap((arg, index) =>
@@ -47,16 +55,19 @@ export default defineConfig({
       testDir: ENGINE_DIR,
     },
 
-    // The DPR handling in config.ts / BaseScene.ts is the part most likely to
-    // break silently, so every test runs at both ratios.
+    // Everything the browser can check, at the ratio most desktops report.
     {
       name: '1x',
       testIgnore: [ENGINE_SPECS, /iphone-layout\.spec\.ts/],
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 1 },
     },
+
+    // The DPR handling in config.ts / BaseScene.ts is the part most likely to
+    // break silently, so the specs that inspect a rendered screen run at both
+    // ratios. The ones that play a round do not — see PLAY_SPECS above.
     {
       name: '2x',
-      testIgnore: [ENGINE_SPECS, /iphone-layout\.spec\.ts/],
+      testIgnore: [ENGINE_SPECS, PLAY_SPECS, /iphone-layout\.spec\.ts/],
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 2 },
     },
     {

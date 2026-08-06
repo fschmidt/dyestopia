@@ -27,7 +27,7 @@ nothing in common:
 | **Engine specs** | everything under `tests/engine/` — pure data in, data out | 40 tests in 0.7s, measured | none: no page, no Phaser, no timing |
 | **Browser specs** | everything else in `tests/` | most of a two-minute run | tweens, polling, layout |
 
-This card originally split `tests/match.spec.ts` down the middle. That was
+This card originally split `tests/play/match.spec.ts` down the middle. That was
 wrong: every test in it drives the live scene, and the offline work inside them
 is a *prediction* the same test then checks the game against — the two cannot be
 separated without losing the check. The seam is whole files, and the two
@@ -103,23 +103,31 @@ with itself.
 Sorting the `2x` run by spec file separates it cleanly, and the split is not the
 one the project's own comment assumes:
 
-| | Specs | Tests | Time | Failures |
+| | Specs | Tests | Passing time | Failures |
 | --- | --- | --- | --- | --- |
-| Plays a round | `stages`, `tutorial`, `sfx`, `match`, `motion` | 76 | 1422s | 16 |
-| Inspects a screen | `visual-system`, `tools`, `settings`, `smoke`, `tiles`, `stage-select-redesign`, `layout`, `site` | 57 | 320s | 0 |
+| Plays a round | `stages`, `tutorial`, `sfx`, `match`, `motion` | 44 | 272s over 28 | 16 |
+| Inspects a screen | `visual-system`, `tools`, `settings`, `smoke`, `tiles`, `stage-select-redesign`, `layout`, `site` | 56 | 320s over 56 | 0 |
 
-(Cumulative across two workers, so wall-clock is about half of each.)
+(Cumulative across two workers, so wall-clock is about half. The failing 16 cost
+a further ~1150s in timed-out attempts, which is where the fifteen minutes went.)
 
-Every failure is in a spec that plays a round — many drags, each waiting on
-animations, while a software rasteriser redraws four times the pixels. Not one
-is in a spec that inspects a screen. Which is to say: the specs that exist to
-catch a DPR regression all pass at 2x and cost 2.7 minutes between them, and the
-twelve minutes that fail are re-verifying round logic that has no DPR in it and
-is already green at `1x`.
+Every failure is in a spec that plays a round — many drags, each waiting on the
+animation to settle, while a software rasteriser redraws four times the pixels.
+Not one is in a spec that inspects a screen. Which is to say: the specs that
+exist to catch a DPR regression all pass at 2x and cost 2.7 minutes between
+them, and everything that fails is re-verifying round logic that has no DPR in
+it and is already green at `1x`.
 
 The `2x` project's premise — *every* test runs at both ratios — was a cheap
 belt-and-braces choice on a fast machine. It is not cheap on a runner, and the
 measurement says the belt is doing all the work.
+
+### What was done about it
+
+`tests/play/` now holds the five specs that play a round, and `2x` ignores that
+directory. Same shape as the engine seam: the directory is the whole rule, so a
+new spec's cost is decided by where it is put rather than by remembering to
+amend a list. `1x` still runs everything the browser can check.
 
 ### Gate two — the browser specs, which do
 

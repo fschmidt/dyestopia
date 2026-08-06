@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { findLegalMove, findMatches, generateBoard, parseMask } from '../src/board'
-import { mulberry32 } from '../src/rng'
-import { stageMaxMultiplier, stageMixes, stagePreset } from '../src/stage'
-import { STAGES } from '../src/stages'
+import { findLegalMove, findMatches, generateBoard, parseMask } from '../../src/board'
+import { mulberry32 } from '../../src/rng'
+import { stageMaxMultiplier, stageMixes, stagePreset } from '../../src/stage'
+import { STAGES } from '../../src/stages'
 import {
   board,
   clickWorld,
@@ -15,7 +15,7 @@ import {
   startStage,
   toEngine,
   waitForScene,
-} from './helpers'
+} from '../helpers'
 
 /**
  * The M4 layer: stages with win conditions, the select screen's linear

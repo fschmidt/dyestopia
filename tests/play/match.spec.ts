@@ -9,9 +9,9 @@ import {
   parseMask,
   resolveCascade,
   resolveMove,
-} from '../src/board'
-import { mulberry32 } from '../src/rng'
-import { FIRST_STAGE } from '../src/stage'
+} from '../../src/board'
+import { mulberry32 } from '../../src/rng'
+import { FIRST_STAGE } from '../../src/stage'
 import {
   board,
   dragWorld,
@@ -20,7 +20,7 @@ import {
   stageRules,
   startSeededGame,
   toEngine,
-} from './helpers'
+} from '../helpers'
 
 /**
  * The match loop, played against the real scene. The engine's rules are

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { STAGES } from '../src/stages'
+import { STAGES } from '../../src/stages'
 import {
   board,
   clickWorld,
@@ -12,7 +12,7 @@ import {
   startStage,
   toEngine,
   waitForScene,
-} from './helpers'
+} from '../helpers'
 
 /**
  * The M5 sound layer, tested without a speaker: `playSfx` records every play

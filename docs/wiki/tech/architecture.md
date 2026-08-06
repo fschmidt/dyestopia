@@ -118,13 +118,20 @@ and visual profile are independent settings; none of them touch the engine.
 
 ## Testing
 
-Playwright only — there is no unit-test runner. The suite has two halves, and
-the directory is the whole rule.
+Playwright only — there is no unit-test runner. Where a spec lives decides what
+runs it, so the directory is the whole rule.
 
 `tests/engine/` is pure data in, data out. It calls the engine modules directly,
 opens no page, and so needs neither a browser binary nor the production build —
 which is what lets it run as its own CI job in about a second.
 
-Everything else in `tests/` drives the real game through the `window.dyestopia`
-debug bridge, which ships in production deliberately. `tests/helpers.ts` holds
-the shared harness.
+`tests/play/` plays a round: many drags, each waiting on the animation to
+settle. These are the slow ones, and what they check has no device pixel ratio
+in it, so they run at 1x only.
+
+Everything else in `tests/` inspects a rendered screen, and runs at both device
+pixel ratios — that path is the one most likely to break silently.
+
+The last two drive the real game through the `window.dyestopia` debug bridge,
+which ships in production deliberately. `tests/helpers.ts` holds the shared
+harness.

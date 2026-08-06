@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 
-import { resolveMove } from '../src/board'
-import { STAGES } from '../src/stages'
-import { stageMixes } from '../src/stage'
-import { TUTORIALS } from '../src/tutorials'
+import { resolveMove } from '../../src/board'
+import { STAGES } from '../../src/stages'
+import { stageMixes } from '../../src/stage'
+import { TUTORIALS } from '../../src/tutorials'
 import {
   board,
   clickWorld,
@@ -14,7 +14,7 @@ import {
   rulesFor,
   toEngine,
   waitForScene,
-} from './helpers'
+} from '../helpers'
 
 async function dismissTutorialExplanation(page: Parameters<typeof hitTarget>[0]): Promise<void> {
   const button = await hitTarget(page, 'Game', 'tutorial-explanation-continue')
