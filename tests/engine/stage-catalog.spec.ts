@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 
-import { STAGE_SECTIONS } from '../src/stage-catalog'
-import { STAGES } from '../src/stages'
-import { TOOL_STAGES } from '../src/tool-stages'
-import { TUTORIALS } from '../src/tutorials'
+import { STAGE_SECTIONS } from '../../src/stage-catalog'
+import { STAGES } from '../../src/stages'
+import { TOOL_STAGES } from '../../src/tool-stages'
+import { TUTORIALS } from '../../src/tutorials'
 
 test('stage catalog models every stage in ordered drill-down sections', () => {
   expect(STAGE_SECTIONS.map(({ id, name }) => ({ id, name }))).toEqual([

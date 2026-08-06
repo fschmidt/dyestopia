@@ -21,9 +21,9 @@ import {
   type ColorChain,
   type Cells,
   type Grid,
-} from '../src/board'
-import { colorValue, mixResult, type ColorId } from '../src/colors'
-import { mulberry32 } from '../src/rng'
+} from '../../src/board'
+import { colorValue, mixResult, type ColorId } from '../../src/colors'
+import { mulberry32 } from '../../src/rng'
 
 /**
  * The match engine is pure data-in data-out, so it gets exercised here

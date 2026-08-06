@@ -192,13 +192,17 @@ handle on the live site is worth more than hiding it.
 ### Automated
 
 ```bash
-npm test
+npm test              # everything
+npm run test:engine   # the engine half — no browser, no build, about a second
+npm run test:browser  # the browser half
 ```
 
-Builds, serves `dist/`, and runs [`tests/`](tests/) against it in Chromium at
-`deviceScaleFactor` 1 and 2 — the DPR path above is the part most likely to
-break silently, so it's covered at both. Point at something already running to
-skip the build:
+The suite has two halves, split by directory. [`tests/engine/`](tests/engine/)
+is pure data in, data out: it opens no page, so it needs neither a browser
+binary nor the production build. Everything else in [`tests/`](tests/) drives
+the real game — `npm test` builds, serves `dist/`, and runs those in Chromium at
+`deviceScaleFactor` 1 and 2, since the DPR path above is the part most likely to
+break silently. Point at something already running to skip the build:
 
 ```bash
 DYESTOPIA_URL=http://localhost:5173 npx playwright test

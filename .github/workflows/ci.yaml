@@ -33,3 +33,26 @@ jobs:
       # `npm run build` is the whole gate: wiki:check, then tsc, then Vite.
       - name: Build
         run: npm run build
+
+  # The engine half of the Playwright suite: pure data in, data out. It opens no
+  # page, so it needs neither a browser binary nor the production build, and it
+  # finishes in about a second. Separate from `verify` because a rule that
+  # quietly stops holding is exactly what a compile cannot see.
+  engine:
+    name: engine
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Engine specs
+        run: npm run test:engine

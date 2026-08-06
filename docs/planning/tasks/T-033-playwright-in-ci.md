@@ -2,7 +2,7 @@
 id: T-033
 type: task
 title: Run the Playwright suite in Actions
-status: Todo
+status: In Progress
 ordinal: 150
 labels: [testing, ci]
 ---
@@ -11,8 +11,8 @@ labels: [testing, ci]
 
 **Nothing blocks this. It guards the spine.** Queued second, behind `T-022`,
 because `T-036`, `T-037` and `T-038` all change engine rules that
-`tests/board.spec.ts` verifies and `tsc` cannot see — a gate arriving after
-those cards protects nothing they did.
+`tests/engine/board.spec.ts` verifies and `tsc` cannot see — a gate arriving
+after those cards protects nothing they did.
 
 Put `npm test` behind the same gate as the build, so a pull request cannot merge
 with a broken game — only a broken *compile* is caught today, by the `verify`
@@ -24,8 +24,14 @@ nothing in common:
 
 | | What runs | Cost | Flake surface |
 | --- | --- | --- | --- |
-| **Engine specs** | `tests/board.spec.ts`, and the offline half of `tests/match.spec.ts` — pure data in, data out | 68 tests in under two seconds, measured | none: no page, no Phaser, no timing |
-| **Browser specs** | `tests/tutorial.spec.ts`, `tests/visual-system.spec.ts`, `tests/iphone-layout.spec.ts` and the live half of `tests/match.spec.ts` | most of a two-minute run | tweens, polling, layout |
+| **Engine specs** | everything under `tests/engine/` — pure data in, data out | 40 tests in 0.7s, measured | none: no page, no Phaser, no timing |
+| **Browser specs** | everything else in `tests/` | most of a two-minute run | tweens, polling, layout |
+
+This card originally split `tests/match.spec.ts` down the middle. That was
+wrong: every test in it drives the live scene, and the offline work inside them
+is a *prediction* the same test then checks the game against — the two cannot be
+separated without losing the check. The seam is whole files, and the two
+genuinely pure ones are `board.spec.ts` and `stage-catalog.spec.ts`.
 
 ### Gate one — the engine specs, which need nothing earned
 
@@ -41,8 +47,18 @@ makes the measured runtime above real rather than theoretical.
 
 This is also the half that guards the `C-001` spine. `T-036`, `T-037` and
 `T-038` change the engine and are measured by engine code; a rule that quietly
-stops holding is exactly what `tests/board.spec.ts` would catch and a compile
-would not.
+stops holding is exactly what `tests/engine/board.spec.ts` would catch and a
+compile would not.
+
+**Where it stands.** Gate one is built. The split is a directory —
+`tests/engine/` — which `playwright.config.ts` turns into a project of its own
+that names no device, so it needs no browser binary; the browser projects ignore
+that directory, and a run restricted to `--project=engine` skips the web server
+rather than paying for the build. `npm run test:engine` and `npm run
+test:browser` are the two halves, and the `engine` job in
+`.github/workflows/ci.yaml` runs the first on every pull request. What remains
+of AC #2 is the repository setting: adding `engine` to the required list on
+`main`.
 
 ### Gate two — the browser specs, which do
 
@@ -76,7 +92,7 @@ retries say, then require it. Gate one ships first and does not wait for it.
 ## Acceptance criteria
 
 <!-- AC:BEGIN -->
-- [ ] #1 The engine specs run on every pull request, without a build and
+- [x] #1 The engine specs run on every pull request, without a build and
       without a browser
 - [ ] #2 The engine check is in the required list on `main`, and the split
       between the two halves is expressed in the config rather than in a
