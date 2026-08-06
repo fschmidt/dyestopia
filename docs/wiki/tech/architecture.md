@@ -30,6 +30,7 @@ to `main`.
 | [`src/palette.ts`](../../../src/palette.ts) | Chrome colours — the page around the game, and text. |
 | [`src/progress.ts`](../../../src/progress.ts) | — |
 | [`src/rng.ts`](../../../src/rng.ts) | Seedable randomness for everything gameplay-visible. |
+| [`src/round.ts`](../../../src/round.ts) | A round as a value. |
 | [`src/scenes/BaseScene.ts`](../../../src/scenes/BaseScene.ts) | — |
 | [`src/scenes/BootScene.ts`](../../../src/scenes/BootScene.ts) | — |
 | [`src/scenes/GameScene.ts`](../../../src/scenes/GameScene.ts) | — |
@@ -85,6 +86,14 @@ generate the game wiki from the real definitions.
 **`src/stage-catalog.ts` is the seam** between those three content sections and
 the UI. It assigns the globally unique stage ids, computes the `lockedBy` chain
 across sections, and is what stage-select and progress actually read.
+
+**The stage frame** is `src/round.ts`, one layer above the engine and equally
+free of Phaser. `startRound` deals a stage from a seed; `playMove` plays one
+drop — dye or swap, cascade, score, chain, and the move budget — and hands back
+a recording; `settleRound` decides what the settled board means, reviving a dead
+board or ending the round. A whole round can therefore be played with nothing
+drawn, which is what the headless harness calls and what `GameScene` animates
+rather than decides.
 
 **Scenes** live in `src/scenes/`, run Boot → Menu → StageSelect → Game/Settings,
 and all extend `BaseScene`. `GameScene` is by far the largest module in the

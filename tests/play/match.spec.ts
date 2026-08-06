@@ -134,20 +134,16 @@ test('a swap cashes in a live chain for one resolution and then resets it', asyn
     report.cells.find((cell) => cell.index === pair![1])!,
   )
   await expect.poll(async () => (await board(page)).multiplier).toBe(2)
-  await expect
-    .poll(async () => {
-      const now = await board(page)
-      const engine = toEngine(now)
-      return (
-        now.resolution === 'normal' &&
-        now.cells.every((cell) => cell.color !== null) &&
-        findMatches(engine.grid, engine.cells).size === 0
-      )
-    })
-    .toBe(true)
 
-  report = await board(page)
+  // Wait for the board to stop moving, not for the model to agree with
+  // itself: `cells` is settled the instant the move is played, so a poll on
+  // "full and match-free" is satisfied while the tiles are still catching up —
+  // and the swap below would then be refused as a drop mid-resolution.
+  report = await settle(page)
+  expect(report.resolution).toBe('normal')
+  expect(report.cells.every((cell) => cell.color !== null)).toBe(true)
   const engine = toEngine(report)
+  expect(findMatches(engine.grid, engine.cells).size).toBe(0)
   const swap = moveOfKind(engine.grid, engine.cells, 'swap')
   expect(swap).not.toBeNull()
   const scoreBefore = report.score

@@ -1,18 +1,8 @@
 import Phaser from 'phaser'
 
 import {
-  advanceColorChain,
-  breakColorChain,
-  comboConversions,
-  findLegalMove,
-  generateBoard,
   isAdjacent,
-  parseMask,
-  reshuffle,
-  resolveCascade,
   resolveMove,
-  scoreResolutionForMerge,
-  scoreResolutionForSwap,
   type Cells,
   type CellMove,
   type ColorChain,
@@ -26,18 +16,19 @@ import { GAME_HEIGHT, GAME_WIDTH } from '../config'
 import type { ColorId } from '../colors'
 import { flags } from '../flags'
 import { recordToolClear, recordTutorialClear, recordWin } from '../progress'
-import { mulberry32, takeSeed, type Rng } from '../rng'
+import { takeSeed } from '../rng'
+import {
+  isWon,
+  playMove,
+  settleRound,
+  startRound,
+  type MoveReport,
+  type Outcome,
+  type RoundState,
+} from '../round'
 import { activeShape, activeTheme } from '../settings'
 import { playSfx } from '../sfx'
-import {
-  FIRST_STAGE,
-  stageMaxMultiplier,
-  stageMix,
-  stageMixes,
-  stagePreset,
-  type Stage,
-  type ToolId,
-} from '../stage'
+import { FIRST_STAGE, stageMixes, type Stage, type ToolId } from '../stage'
 import { STAGES } from '../stages'
 import { TOOL_STAGES } from '../tool-stages'
 import { TUTORIALS, type TutorialGoal, type TutorialVisual } from '../tutorials'
@@ -157,31 +148,52 @@ interface TutorialMoveDemo {
  * both end in an overlay that offers the next step. Wins feed the linear
  * unlock in src/progress.ts.
  *
- * The scene is the animation half of the split with src/board.ts: the model
- * there is authoritative and synchronous, tiles here catch up to it tween by
- * tween, and `resolving` keeps the player out until the two agree again.
+ * The scene is the animation half of the split with src/round.ts: the round
+ * there is authoritative and synchronous — a drop is played out in full, budget
+ * and all, before a tile has moved — and everything here replays the recording
+ * it hands back. `resolving` keeps the player out until the two agree again.
  */
 export class GameScene extends BaseScene {
-  private stage: Stage = FIRST_STAGE
+  /**
+   * The round the scene is drawing. Everything the rules decide lives in here
+   * (src/round.ts); the scene owns only the tiles that catch up to it. The
+   * readers below are the seam — the scene reads freely, and the few places
+   * that write go through `this.round` on purpose, so a write is visible.
+   */
+  private round!: RoundState
   private stageIndex?: number
   private toolStageIndex?: number
   private tutorialIndex?: number
-  private readonly mix: MixRule = (a, b) => stageMix(this.stage, a, b)
 
-  private grid!: Grid
-  private cells!: Cells
   private tiles!: (Tile | undefined)[]
-  private rng!: Rng
 
-  private score = 0
-  private colorChain: ColorChain = { results: [], multiplier: 1 }
-  private maxMultiplier = 1
-  private scoreResolution: ScoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
-  private movesLeft = 0
-  private endless = false
-  private outcome: 'playing' | 'won' | 'lost' = 'playing'
-  /** The threshold moment fires once, however far the score climbs past it. */
-  private thresholdMet = false
+  private get stage(): Stage { return this.round.stage }
+  private get mix(): MixRule { return this.round.mix }
+  private get grid(): Grid { return this.round.grid }
+  private get cells(): Cells { return this.round.cells }
+  private get colorChain(): ColorChain { return this.round.colorChain }
+  private get maxMultiplier(): number { return this.round.maxMultiplier }
+  private get scoreResolution(): ScoreResolution { return this.round.resolution }
+  private get movesLeft(): number { return this.round.movesLeft }
+  private get endless(): boolean { return this.round.endless }
+  private get outcome(): Outcome { return this.round.outcome }
+
+  /**
+   * How far the *replay* has got, which is behind the model on purpose: a move
+   * resolves in full before a tile has moved, so the score arrives all at once
+   * and a swap's chain has already broken. The HUD and the debug bridge read
+   * from here instead, so the player (and a test) still sees the climb and the
+   * chain-breaker window rather than the settled answer.
+   *
+   * `cells` is the exception, and always was — the board has been reported
+   * settled-ahead since `resolveCascade`. `T-039` audits the tests that sample
+   * this window.
+   */
+  private shown: { score: number; chain: ColorChain; resolution: ScoreResolution } = {
+    score: 0,
+    chain: { results: [], multiplier: 1 },
+    resolution: { kind: 'normal', multiplier: 1, rainbow: false },
+  }
 
   /** What the score text shows right now — it ticks up toward `score`. */
   private displayScore = 0
@@ -239,17 +251,16 @@ export class GameScene extends BaseScene {
         : data.stage !== undefined
           ? STAGES[data.stage]
           : FIRST_STAGE
-    this.stage = data.override ? { ...authored, ...data.override } : authored
+    const stage = data.override ? { ...authored, ...data.override } : authored
+    const plantedSeed = takeSeed()
+    const seed =
+      this.tutorialIndex !== undefined
+        ? 0x7a110000 + this.tutorialIndex
+        : plantedSeed ?? Math.floor(Math.random() * 0xffffffff)
+    // Dealt first: everything below reads the stage through the round.
+    this.round = startRound(stage, { seed, combo: flags.combo })
 
-    this.score = 0
-    this.colorChain = { results: [], multiplier: 1 }
-    this.maxMultiplier = stageMaxMultiplier(this.stage)
-    this.scoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
     this.displayScore = 0
-    this.movesLeft = this.stage.moves
-    this.endless = false
-    this.outcome = 'playing'
-    this.thresholdMet = false
     this.chainComplete = false
     this.resolving = false
     this.paused = false
@@ -265,23 +276,13 @@ export class GameScene extends BaseScene {
     this.tutorialDemoOriginals = []
     this.dragged = undefined
     this.shape = activeShape()
-    const plantedSeed = takeSeed()
-    const seed =
-      this.tutorialIndex !== undefined
-        ? 0x7a110000 + this.tutorialIndex
-        : plantedSeed ?? Math.floor(Math.random() * 0xffffffff)
-    this.rng = mulberry32(seed)
-
-    this.grid = parseMask(this.stage.board)
     this.layoutBoard()
-    this.cells = generateBoard(
-      this.grid,
-      this.stage.seed,
-      this.rng,
-      this.mix,
-      stagePreset(this.stage.board, this.grid),
-    )
     this.prepareTutorialChain()
+    this.shown = {
+      score: this.round.score,
+      chain: this.round.colorChain,
+      resolution: this.round.resolution,
+    }
     this.tiles = new Array(this.cells.length).fill(undefined)
     for (let index = 0; index < this.cells.length; index++) {
       const color = this.cells[index]
@@ -346,7 +347,7 @@ export class GameScene extends BaseScene {
         const results = stageMixes(this.stage)
           .map(({ result }) => result)
           .filter((result) => result !== move.result)
-        this.colorChain = { results, multiplier: results.length + 1 }
+        this.round.colorChain = { results, multiplier: results.length + 1 }
         return
       }
     }
@@ -390,12 +391,12 @@ export class GameScene extends BaseScene {
     return {
       cols: this.grid.cols,
       rows: this.grid.rows,
-      score: this.score,
-      multiplier: this.colorChain.multiplier,
+      score: this.shown.score,
+      multiplier: this.shown.chain.multiplier,
       maxMultiplier: this.maxMultiplier,
-      effectiveMultiplier: this.scoreResolution.multiplier,
-      resolution: this.scoreResolution.kind,
-      chainResults: [...this.colorChain.results],
+      effectiveMultiplier: this.shown.resolution.multiplier,
+      resolution: this.shown.resolution.kind,
+      chainResults: [...this.shown.chain.results],
       stage: this.stageIndex ?? null,
       toolStage: this.toolStageIndex ?? null,
       tutorial: this.tutorialIndex ?? null,
@@ -843,13 +844,16 @@ export class GameScene extends BaseScene {
     return this.tutorialIndex === undefined || kind === (this.tutorialWantsSwap() ? 'swap' : 'merge')
   }
 
-  private tutorialGoalMet(goal: TutorialGoal, movedBySwap: boolean, resolution: ScoreResolution): boolean {
-    if (goal === 'swap') return movedBySwap
-    if (goal === 'mix') return !movedBySwap
-    if (goal === 'chain') return this.colorChain.multiplier >= 3
-    if (goal === 'rainbow-chain') return this.colorChain.multiplier >= this.maxMultiplier
-    if (goal === 'chain-breaker') return resolution.kind === 'chain-breaker'
-    return resolution.kind === 'rainbow-chain-breaker'
+  private tutorialGoalMet(goal: TutorialGoal, report: MoveReport): boolean {
+    // The chain as the move left it, before a swap spends it: a swap breaks
+    // the chain inside `playMove`, so the live one is already back to 1.
+    const multiplier = report.chainBreak?.previousMultiplier ?? this.colorChain.multiplier
+    if (goal === 'swap') return report.kind === 'swap'
+    if (goal === 'mix') return report.kind === 'merge'
+    if (goal === 'chain') return multiplier >= 3
+    if (goal === 'rainbow-chain') return multiplier >= this.maxMultiplier
+    if (goal === 'chain-breaker') return report.resolution.kind === 'chain-breaker'
+    return report.resolution.kind === 'rainbow-chain-breaker'
   }
 
   private buildSprayHud(area: ReturnType<typeof boardArea>): void {
@@ -1325,14 +1329,15 @@ export class GameScene extends BaseScene {
 
   private async continueEndless(panel: Phaser.GameObjects.Container): Promise<void> {
     recordWin(STAGES.length - 1)
-    this.endless = true
+    this.round.endless = true
     panel.destroy(true)
     this.pauseDialog = undefined
     this.paused = false
     this.updateHud()
-    if (!findLegalMove(this.grid, this.cells, this.mix)) {
-      await this.animateReshuffle()
-    }
+    // Endless has no threshold and no budget, so settling can only revive a
+    // board the abandoned win condition left dead.
+    const { reshuffled } = settleRound(this.round)
+    if (reshuffled) await this.animateReshuffle(reshuffled)
     this.resolving = false
   }
 
@@ -1438,14 +1443,11 @@ export class GameScene extends BaseScene {
     }
 
     const other = this.tiles[cell]
-    const move = resolveMove(
-      this.grid,
-      this.cells,
-      this.mix,
-      origin,
-      cell,
-      { allowDistant: this.activeTool === 'freeMove' },
-    )
+    const allowDistant = this.activeTool === 'freeMove'
+    // Asked before playing, because both the refusal and the tutorial's veto
+    // have to happen without spending a move. `resolveMove` is a dry run —
+    // it decides on copies — so asking twice costs only the asking.
+    const move = resolveMove(this.grid, this.cells, this.mix, origin, cell, { allowDistant })
 
     if (move.kind === 'illegal') {
       // A real attempt the rules refuse: both tiles say no, so the legality
@@ -1470,81 +1472,63 @@ export class GameScene extends BaseScene {
       this.activeTool = null
       this.repaintTools()
     }
-    this.spendMove()
 
-    if (move.kind === 'merge') {
+    // The move is played out in full here — cells dyed or swapped, cascade
+    // resolved to a standstill, budget spent — and comes back as a recording.
+    // Everything below is the replay.
+    const report = playMove(this.round, origin, cell, { allowDistant })!
+    // A merge's chain has already climbed and a swap's has already broken, so
+    // the replay carries the multiplier the move was actually worth.
+    this.shown.resolution = report.resolution
+    if (!report.chainBreak) this.shown.chain = this.colorChain
+    this.showMoveSpent()
+
+    if (report.kind === 'merge') {
       // Both tiles stay on their cells and come out dyed the result colour;
       // the dragged one glides home while the pair pulses. The pulse hands
       // off into the destruction, so mix → burst reads as cause and effect.
       playSfx('merge')
-      const previousMultiplier = this.colorChain.multiplier
-      // This merge clears at the chain it arrived with. Its result raises the
-      // persistent chain only for later moves.
-      this.scoreResolution = scoreResolutionForMerge(this.colorChain, this.maxMultiplier)
-      this.colorChain = advanceColorChain(this.colorChain, move.result, this.maxMultiplier)
-      this.animateMultiplier(previousMultiplier)
-      this.cells[origin] = this.cells[cell] = move.result
+      this.animateMultiplier(report.previousMultiplier)
       // The combo prototype: the fresh colour absorbs adjacent groups of its
-      // own ingredients. Model-wise it happens now, in full; the animation
+      // own ingredients. It already happened in the model; the animation
       // replays it as a travelling wave between the pulse and the burst.
-      const conversions = flags.combo
-        ? comboConversions(this.grid, this.cells, [origin, cell])
-        : []
-      const dye = themedDye(activeTheme(), move.result)
+      const dye = themedDye(activeTheme(), report.result!)
       void Promise.all([
         new Promise<void>((done) => tile.mergeReturn(home.x, home.y, origin, dye, done)),
         new Promise<void>((done) => other.mix(dye, done)),
       ])
-        .then(() => this.animateCombo(conversions))
-        .then(() => this.resolve(this.scoreResolution))
+        .then(() => this.animateCombo(report.conversions))
+        .then(() => this.resolve(report))
       return
     }
 
-    const previousMultiplier = this.colorChain.multiplier
-    this.scoreResolution = scoreResolutionForSwap(this.colorChain, this.maxMultiplier)
-    this.animateChainBreaker(previousMultiplier)
-    ;[this.cells[origin], this.cells[cell]] = [this.cells[cell], this.cells[origin]]
+    this.animateChainBreaker(report.previousMultiplier)
     this.tiles[origin] = other
     this.tiles[cell] = tile
     const target = this.cellCenter(cell)
     void Promise.all([
       new Promise<void>((done) => tile.swapTo(target.x, target.y, cell, 'active', done)),
       new Promise<void>((done) => other.swapTo(home.x, home.y, origin, 'passive', done)),
-    ]).then(() => this.resolve(this.scoreResolution, true))
+    ]).then(() => this.resolve(report))
   }
 
   /**
-   * Settle the board after a move: clear, fall, refill, repeat while new
-   * lines keep forming — the cascade loop. Waves cost no move and inherit the
-   * multiplier established by the player's move without increasing it. Ends
-   * by settling the stage's fate: threshold reached wins, an exhausted budget
-   * loses, and anything else revives a dead board if it must and hands input
-   * back.
+   * Play the move's recording back: clear, fall, refill, wave after wave, with
+   * the score climbing a wave at a time even though the model reached the
+   * total before the first tile moved. Ends by settling the stage's fate —
+   * threshold reached wins, an exhausted budget loses, and anything else
+   * revives a dead board if it must and hands input back.
    */
-  private async resolve(resolution: ScoreResolution, resetChainAfter = false): Promise<void> {
+  private async resolve(report: MoveReport): Promise<void> {
     this.resolving = true
 
-    // The rules run to a standstill before anything is drawn, so `cells` is
-    // already settled by the time the first tile clears. The waves are the
-    // recording the tiles catch up to.
-    const waves = resolveCascade(
-      this.grid,
-      this.cells,
-      resolution.multiplier,
-      this.stage.seed,
-      this.rng,
-    )
-
-    for (const [wave, { matched, points, falls, spawns }] of waves.entries()) {
-      this.score += points
+    for (const [wave, { matched, points, falls, spawns }] of report.waves.entries()) {
+      this.shown.score += points
       // Cascades still climb in pitch, but no longer grow the score multiplier.
       playSfx('match', wave + 1)
-      this.floatScore(points, resolution, matched)
-      this.updateHud(resolution.multiplier)
-      if (!this.thresholdMet && this.score >= this.stage.threshold) {
-        this.thresholdMet = true
-        this.celebrateThreshold()
-      }
+      this.floatScore(points, report.resolution, matched)
+      this.updateHud(report.resolution.multiplier)
+      if (wave === report.thresholdWave) this.celebrateThreshold()
       await Promise.all(
         matched.map(
           (index) =>
@@ -1559,15 +1543,17 @@ export class GameScene extends BaseScene {
       await this.animateDescent(falls, spawns)
     }
 
+    // Asked before the chain break is revealed, because that is when it was
+    // asked when the scene owned the loop — a `chain` goal reads the
+    // multiplier the move was worth, not the one it left behind.
     const tutorialComplete =
       this.tutorialIndex !== undefined &&
-      this.tutorialGoalMet(TUTORIALS[this.tutorialIndex].goal, resetChainAfter, resolution)
+      this.tutorialGoalMet(TUTORIALS[this.tutorialIndex].goal, report)
 
-    if (resetChainAfter) {
-      const previousMultiplier = this.colorChain.multiplier
-      this.colorChain = breakColorChain(this.colorChain)
-      this.scoreResolution = { kind: 'normal', multiplier: 1, rainbow: false }
-      this.animateMultiplier(previousMultiplier)
+    if (report.chainBreak) {
+      this.shown.chain = this.colorChain
+      this.shown.resolution = this.scoreResolution
+      this.animateMultiplier(report.chainBreak.previousMultiplier)
     }
 
     if (tutorialComplete) {
@@ -1575,20 +1561,27 @@ export class GameScene extends BaseScene {
       return
     }
 
-    if (this.score >= this.stage.threshold && !this.endless) {
-      if (this.stageIndex === STAGES.length - 1) {
-        this.openEndlessChoice()
-        return
-      }
+    // The last stage offers unlimited play rather than a win screen, and the
+    // offer stands while the round is still officially being played — so ask
+    // before settling commits the win.
+    if (isWon(this.round) && this.stageIndex === STAGES.length - 1) {
+      this.openEndlessChoice()
+      return
+    }
+
+    // The stage frame gets its say only now: a tutorial that has just been
+    // cleared returns above, and settling would draw from `rng` for a
+    // reshuffle nobody will see.
+    const { reshuffled, outcome } = settleRound(this.round)
+
+    if (outcome === 'won') {
       await this.win()
       return
     }
 
-    if (!findLegalMove(this.grid, this.cells, this.mix)) {
-      await this.animateReshuffle()
-    }
+    if (reshuffled) await this.animateReshuffle(reshuffled)
 
-    if (!this.endless && this.movesLeft <= 0) {
+    if (outcome === 'lost') {
       this.lose()
       return
     }
@@ -1601,7 +1594,7 @@ export class GameScene extends BaseScene {
     const index = this.tutorialIndex!
     const tutorial = TUTORIALS[index]
     const final = index === TUTORIALS.length - 1
-    this.outcome = 'won'
+    this.round.outcome = 'won'
     recordTutorialClear(index)
     playSfx('win')
     this.buildOverlay(
@@ -1630,10 +1623,9 @@ export class GameScene extends BaseScene {
     )
   }
 
-  /** A legal move leaves the budget; the last few leave it loudly. */
-  private spendMove(): void {
+  /** The budget has already gone down in `playMove`; the last few say so loudly. */
+  private showMoveSpent(): void {
     if (this.endless) return
-    this.movesLeft--
     this.hintText.setAlpha(0.42)
     this.updateHud()
     if (this.movesLeft <= LOW_MOVES) {
@@ -1670,28 +1662,28 @@ export class GameScene extends BaseScene {
             ? visual.colors.warning
             : visual.colors.primaryInk,
       ))
-    const atMax = this.maxMultiplier > 1 && this.colorChain.multiplier >= this.maxMultiplier
-    const reacting = this.scoreResolution.kind !== 'normal'
+    const atMax = this.maxMultiplier > 1 && this.shown.chain.multiplier >= this.maxMultiplier
+    const reacting = this.shown.resolution.kind !== 'normal'
     const multiplierSize = 20
     this.multiplierText
       .setFontSize(reacting ? (this.sprayHud ? 10 : 11) : multiplierSize)
       .setColor(ink(
-        atMax || this.scoreResolution.rainbow
+        atMax || this.shown.resolution.rainbow
           ? visual.colors.primaryInk
           : visual.colors.accent,
       ))
       .setText(
         reacting
-        ? this.scoreResolution.kind === 'rainbow-chain-breaker'
-          ? `RAINBOW CHAIN BREAKER ×${this.scoreResolution.multiplier}`
-          : `CHAIN BREAKER ×${this.scoreResolution.multiplier}`
-        : `×${this.colorChain.multiplier}`,
+        ? this.shown.resolution.kind === 'rainbow-chain-breaker'
+          ? `RAINBOW CHAIN BREAKER ×${this.shown.resolution.multiplier}`
+          : `CHAIN BREAKER ×${this.shown.resolution.multiplier}`
+        : `×${this.shown.chain.multiplier}`,
       )
-    this.renderChainRing(atMax || this.scoreResolution.rainbow)
+    this.renderChainRing(atMax || this.shown.resolution.rainbow)
 
     this.scoreTween?.remove()
     const from = this.displayScore
-    const to = this.score
+    const to = this.shown.score
     if (from === to) {
       this.renderScore()
     } else {
@@ -1996,7 +1988,7 @@ export class GameScene extends BaseScene {
    * tally up over an overlay that offers the next stage.
    */
   private async win(): Promise<void> {
-    this.outcome = 'won'
+    this.round.outcome = 'won'
     playSfx('win')
     const opened = this.toolStageIndex !== undefined
       ? recordToolClear(this.toolStageIndex)
@@ -2054,11 +2046,11 @@ export class GameScene extends BaseScene {
 
     this.tweens.addCounter({
       from: 0,
-      to: this.score,
+      to: this.round.score,
       duration: 700,
       ease: 'Cubic.easeOut',
       onUpdate: (tween) => tally.setText(`Score: ${Math.round(tween.getValue() ?? 0)}`),
-      onComplete: () => tally.setText(`Score: ${this.score}`),
+      onComplete: () => tally.setText(`Score: ${this.round.score}`),
     })
   }
 
@@ -2069,7 +2061,7 @@ export class GameScene extends BaseScene {
    */
   private lose(): void {
     const visual = resolveVisualProfile()
-    this.outcome = 'lost'
+    this.round.outcome = 'lost'
     playSfx('lose')
 
     const dim = this.add
@@ -2080,7 +2072,7 @@ export class GameScene extends BaseScene {
 
     this.buildOverlay(
       'Out of moves',
-      [`Score ${this.score} of ${this.stage.threshold}`, 'Retries are free.'],
+      [`Score ${this.round.score} of ${this.stage.threshold}`, 'Retries are free.'],
       [
         {
           label: 'Retry',
@@ -2275,11 +2267,8 @@ export class GameScene extends BaseScene {
    * new cell in a stagger, so it reads as the board reshuffling itself rather
    * than teleporting.
    */
-  private animateReshuffle(): Promise<unknown> {
+  private animateReshuffle(moves: CellMove[]): Promise<unknown> {
     playSfx('reshuffle')
-    const { cells, moves } = reshuffle(this.grid, this.cells, this.rng, this.mix)
-    this.cells = cells
-
     const next = this.tiles.slice()
     const arrivals: Promise<void>[] = []
     moves.forEach(({ from, to }, i) => {

@@ -38,10 +38,32 @@ same call can play a round with no screen attached — AC #1 is done.
 the live game should land, which was precisely the drift warned about above; it
 now calls `resolveCascade`, so the prediction and the game cannot diverge.
 
-What remains is the script itself and everything it reports. Note that the round
-lifecycle below the cascade — win, loss, reshuffle, the move budget — still lives
-in the scene, so the harness needs that much lifted before it can play a whole
-round rather than a single move.
+**The round lifecycle is lifted too.** `src/round.ts` is the layer above the
+cascade and equally Phaser-free: `startRound` deals a stage from a seed,
+`playMove` plays one drop in full — dye or swap, cascade, score, chain, budget —
+and returns a recording, and `settleRound` decides what the settled board means.
+`GameScene` now animates that recording instead of deciding anything, so a whole
+round can be played with no screen attached. That is the last thing the harness
+was waiting on; what remains is the script itself and everything it reports.
+
+Three things the lift turned up, all worth keeping:
+
+- **The scene needs its own replay position.** The model reaches the final score
+  before a tile has moved, and a swap's chain has already broken by then. The
+  HUD and the debug bridge read a small `shown` snapshot that lags on purpose,
+  so the score still climbs a wave at a time and the chain-breaker window is
+  still visible. `cells` was always reported settled-ahead; now the reason is
+  written down beside it.
+- **Winning and settling had to come apart.** The last stage offers unlimited
+  play instead of a win screen, and the offer stands while the round is still
+  being played — so `isWon` asks without committing and `settleRound` commits.
+  A tutorial ends the moment its goal is met, before the stage frame gets a say,
+  which is why settling is a second call rather than the tail of `playMove`.
+- **One test was synchronising on the model, not the board.** A poll in
+  `tests/play/match.spec.ts` waited for "full and match-free", which the lift
+  makes true instantly, and then dragged the next move into a board that was
+  still animating. It waits for `settled` now. That is `T-039`'s thesis showing
+  up on its own before `T-039` has been picked up.
 
 The stage targets are currently documented as the output of a simulation that is
 not in the repo, so this also restores a claim the codebase already makes about
