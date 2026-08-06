@@ -225,16 +225,21 @@ flaky line, no warning annotation, nothing for the reporter to say.
 
 ### The AC #6 ledger
 
-Two consecutive clean runs so far, the second on the `C-004` branch — a
-docs-only diff, so a genuine second sample of the same suite rather than a
-re-run of the same one.
+Three consecutive clean runs so far. Runs five and six are on the `C-004`
+branch — docs-only diffs, so each is a fresh execution of an unchanged suite on
+a fresh runner rather than a re-run of the same one.
 
-| Run | 1x | 2x | iphone | Retries |
-| --- | --- | --- | --- | --- |
-| four | 104 passed | 60 passed | 3 passed | none |
-| five | 104 passed | 60 passed | 3 passed | none |
+| Run | Branch | 1x | 2x | iphone | Retries |
+| --- | --- | --- | --- | --- | --- |
+| four | `playwright-in-ci` | 104 passed | 60 passed | 3 passed | none |
+| five | `deterministic-tests-concept` | 104 passed | 60 passed | 3 passed | none |
+| six | `deterministic-tests-concept` | 104 passed | 60 passed | 3 passed | none |
 
-Two is not a quiet suite either, which is exactly why AC #6 sits before AC #7.
+The ledger only grows from pull requests: `ci.yaml` runs on `pull_request`, so
+merging to `main` deploys but does not re-test. That is the right shape — the
+samples that count are the ones that would have blocked a merge.
+
+Three is not a quiet suite either, which is exactly why AC #6 sits before AC #7.
 What remains needs pull requests rather than code: keep watching the warnings
 over the runs the `C-001` spine produces, then require the browser checks.
 
