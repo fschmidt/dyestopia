@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { clickWorld, hitTarget, open, waitForScene } from './helpers'
+import { clickWorld, hitTarget, open, startingScene, waitForScene } from './helpers'
 
 /** Texture key and tint of every tile on the board. */
 async function boardLook(page: Page): Promise<{ texture: string; tint: number }[]> {
@@ -19,11 +19,12 @@ async function openBoardWith(page: Page, patch: Record<string, string>): Promise
   await page.evaluate((p) => window.dyestopia!.setSettings(p), patch)
   // Same seed, same deal: the cross-build comparisons below (same tints in a
   // different skin) only mean something when every build deals the same board.
-  await page.evaluate(() => {
-    window.dyestopia!.seedRng(999)
-    window.dyestopia!.goTo('Game')
-  })
-  await waitForScene(page, 'Game')
+  await startingScene(page, 'Game', () =>
+    page.evaluate(() => {
+      window.dyestopia!.seedRng(999)
+      window.dyestopia!.goTo('Game')
+    }),
+  )
 }
 
 test('shape and theme are independent axes', async ({ page }) => {
@@ -49,10 +50,15 @@ test('shape and theme are independent axes', async ({ page }) => {
   expect(mosaicNeon.map((t) => t.tint)).toEqual(blobNeon.map((t) => t.tint))
 })
 
-test('every combination builds a full board', async ({ page }) => {
-  await open(page)
+// One test per shape rather than one test over all fifteen combinations. Each
+// pass rebuilds the board and bakes a fresh set of tile artwork, which at 2x on
+// a machine with no GPU is real work — fifteen of them in a single test ran the
+// default 30s budget out on CI. Split, they fit comfortably, they run in
+// parallel, and a failure names the shape that broke without reading the label.
+for (const shape of ['splash', 'rim-splash', 'soft-splash', 'blob', 'mosaic']) {
+  test(`every theme builds a full board of ${shape} tiles`, async ({ page }) => {
+    await open(page)
 
-  for (const shape of ['splash', 'rim-splash', 'soft-splash', 'blob', 'mosaic']) {
     for (const theme of ['dyestopia', 'neon', 'dusk']) {
       await openBoardWith(page, { shape, theme })
       const tiles = await boardLook(page)
@@ -61,8 +67,8 @@ test('every combination builds a full board', async ({ page }) => {
       expect(cellCount).toBeGreaterThan(0)
       expect(tiles.every((t) => t.texture === `tile-${shape}-base`)).toBe(true)
     }
-  }
-})
+  })
+}
 
 test('only shapes that ask for grout get it', async ({ page }) => {
   await open(page)

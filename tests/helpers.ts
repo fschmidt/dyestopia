@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 
 import { isAdjacent, resolveMove, type Cells, type Grid, type MixRule } from '../src/board'
 // Pulls in the `window.dyestopia` global declaration.
@@ -17,6 +17,31 @@ export async function open(page: Page): Promise<void> {
 
 export async function waitForScene(page: Page, key: string): Promise<void> {
   await page.waitForFunction((k) => window.dyestopia?.isActive(k) === true, key)
+}
+
+/**
+ * Run something that starts a scene, and wait for *that* scene rather than one
+ * that happens to share its key.
+ *
+ * `goTo` stops every scene and starts one, and Phaser processes both in the
+ * same pass — so waiting for `isActive('Game')` after `goTo('Game')` can be
+ * satisfied by the scene that was already there, and the driver goes on to read
+ * the previous round. The generation counter makes the restart observable: it
+ * ticks on every scene start, so a key that is active *and* a generation that
+ * has moved is a real transition.
+ */
+export async function startingScene(
+  page: Page,
+  key: string,
+  act: () => Promise<unknown>,
+): Promise<void> {
+  const before = await page.evaluate(() => window.dyestopia!.generation())
+  await act()
+  await page.waitForFunction(
+    (arg) =>
+      window.dyestopia?.isActive(arg.key) === true && window.dyestopia.generation() > arg.before,
+    { key, before },
+  )
 }
 
 /**
@@ -70,14 +95,15 @@ export async function startStage(
   data: GameStartData,
   seed?: number,
 ): Promise<BoardReport> {
-  await page.evaluate(
-    (arg) => {
-      if (arg.seed !== undefined) window.dyestopia!.seedRng(arg.seed)
-      window.dyestopia!.goTo('Game', arg.data)
-    },
-    { data, seed },
+  await startingScene(page, 'Game', () =>
+    page.evaluate(
+      (arg) => {
+        if (arg.seed !== undefined) window.dyestopia!.seedRng(arg.seed)
+        window.dyestopia!.goTo('Game', arg.data)
+      },
+      { data, seed },
+    ),
   )
-  await waitForScene(page, 'Game')
   return board(page)
 }
 
@@ -86,17 +112,33 @@ export async function startStage(
  * the next build's RNG, so the same seed always deals the same cells.
  */
 export async function startSeededGame(page: Page, seed: number): Promise<BoardReport> {
-  await page.evaluate((s) => {
-    window.dyestopia!.seedRng(s)
-    window.dyestopia!.goTo('Game')
-  }, seed)
-  await waitForScene(page, 'Game')
+  await startingScene(page, 'Game', () =>
+    page.evaluate((s) => {
+      window.dyestopia!.seedRng(s)
+      window.dyestopia!.goTo('Game')
+    }, seed),
+  )
   return board(page)
 }
 
 /** The Game scene's board — cells, colours, score — as the debug bridge reports it. */
 export function board(page: Page): Promise<BoardReport> {
   return page.evaluate(() => window.dyestopia!.board())
+}
+
+/**
+ * Wait until nothing is in flight: no cascade resolving, no tile mid-tween.
+ *
+ * This is what a test asserting that *nothing happened* needs. A refused drop
+ * leaves the model untouched, so polling for the state proves nothing — it was
+ * already true before the drag. The only honest wait is for the refusal to have
+ * finished playing out, after which the board cannot change again without new
+ * input. Sleeping for "long enough" is the same claim with a guess in it, and
+ * the guess is what fails on a slow machine.
+ */
+export async function settle(page: Page): Promise<BoardReport> {
+  await expect.poll(async () => (await board(page)).settled).toBe(true)
+  return board(page)
 }
 
 /**

@@ -192,13 +192,19 @@ handle on the live site is worth more than hiding it.
 ### Automated
 
 ```bash
-npm test
+npm test              # everything
+npm run test:engine   # the engine half — no browser, no build, about a second
+npm run test:browser  # the browser half
 ```
 
-Builds, serves `dist/`, and runs [`tests/`](tests/) against it in Chromium at
-`deviceScaleFactor` 1 and 2 — the DPR path above is the part most likely to
-break silently, so it's covered at both. Point at something already running to
-skip the build:
+Where a spec lives decides what runs it. [`tests/engine/`](tests/engine/) is
+pure data in, data out: it opens no page, so it needs neither a browser binary
+nor the production build. [`tests/play/`](tests/play/) plays a round — the slow
+ones, and what they check has no DPR in it, so they run at 1x only. Everything
+else in [`tests/`](tests/) inspects a rendered screen and runs at
+`deviceScaleFactor` 1 and 2, since the DPR path above is the part most likely to
+break silently. `npm test` builds, serves `dist/`, and drives the lot through
+Chromium. Point at something already running to skip the build:
 
 ```bash
 DYESTOPIA_URL=http://localhost:5173 npx playwright test

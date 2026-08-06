@@ -9,20 +9,18 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
-| `T-033` Run the Playwright suite in Actions | `T-022` Headless playout harness |   | `T-014` Free Move tool MVP |
-| `T-031` Measure the combo spike |   |   | `T-009` Architecture rules |
-| `T-036` Measure a mix that does not clear |   |   | `T-015` Consistent stage-select design |
-| `T-037` Measure the cascade and scoring-order levers |   |   | `T-016` iPhone 15 viewport |
-| `T-034` The board maths as formulas |   |   | `T-032` Research the board maths |
-| `T-035` Name the board parameter set |   |   |   |
+| `T-031` Measure the combo spike | `T-022` Headless playout harness |   | `T-014` Free Move tool MVP |
+| `T-036` Measure a mix that does not clear | `T-033` Run the Playwright suite in Actions |   | `T-009` Architecture rules |
+| `T-037` Measure the cascade and scoring-order levers |   |   | `T-015` Consistent stage-select design |
+| `T-034` The board maths as formulas |   |   | `T-016` iPhone 15 viewport |
+| `T-035` Name the board parameter set |   |   | `T-032` Research the board maths |
 | `T-012` Resolve the combo spike |   |   |   |
 | `T-024` Make the multiplier necessary |   |   |   |
 | `T-038` Choose the supply mechanism |   |   |   |
 | `T-025` Ramp the stage sequence |   |   |   |
 
-### Todo (10/15)
+### Todo (9/15)
 
-- `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
 - `T-031` [Measure the combo spike](tasks/T-031-measure-combo-spike.md) · _engine_, _testing_
 - `T-036` [Measure a mix that does not clear](tasks/T-036-mix-legality-variant.md) · _engine_, _testing_, _balance_
 - `T-037` [Measure the cascade and scoring-order levers](tasks/T-037-cascade-and-scoring-order-levers.md) · _engine_, _testing_, _balance_
@@ -33,9 +31,10 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 - `T-038` [Choose the supply mechanism](tasks/T-038-choose-the-supply-mechanism.md) · _engine_, _balance_, _decision_
 - `T-025` [Ramp the stage sequence](tasks/T-025-ramp-the-stage-sequence.md) · _stages_, _balance_
 
-### In Progress (1)
+### In Progress (2)
 
 - `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
+- `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
 
 ### In Review (0)
 

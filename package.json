@@ -14,6 +14,8 @@
     "board": "tsx scripts/board.ts",
     "board:host": "tsx scripts/board.ts --host",
     "test": "playwright test",
+    "test:engine": "playwright test --project=engine",
+    "test:browser": "playwright test --project=1x --project=2x --project=iphone-15-pro-max",
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "shots": "node scripts/screenshot.mjs",

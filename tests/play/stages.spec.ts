@@ -1,9 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { findLegalMove, findMatches, generateBoard, parseMask } from '../src/board'
-import { mulberry32 } from '../src/rng'
-import { stageMaxMultiplier, stageMixes, stagePreset } from '../src/stage'
-import { STAGES } from '../src/stages'
+import { findLegalMove, findMatches, generateBoard, parseMask } from '../../src/board'
+import { mulberry32 } from '../../src/rng'
+import { stageMaxMultiplier, stageMixes, stagePreset } from '../../src/stage'
+import { STAGES } from '../../src/stages'
 import {
   board,
   clickWorld,
@@ -12,10 +12,11 @@ import {
   moveOfKind,
   open,
   rulesFor,
+  settle,
   startStage,
   toEngine,
   waitForScene,
-} from './helpers'
+} from '../helpers'
 
 /**
  * The M4 layer: stages with win conditions, the select screen's linear
@@ -284,8 +285,7 @@ test('a legal move spends from the budget; a refused drop does not', async ({ pa
     report.cells.find((c) => c.index === refused![0])!,
     report.cells.find((c) => c.index === refused![1])!,
   )
-  await page.waitForTimeout(700)
-  expect((await board(page)).moves).toBe(budget)
+  expect((await settle(page)).moves).toBe(budget)
 
   await playClearingSwap(page)
   await expect.poll(async () => (await board(page)).moves).toBe(budget - 1)

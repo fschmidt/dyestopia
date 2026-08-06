@@ -34,7 +34,7 @@ move's cascade to a standstill and returns it as a list of waves, and `GameScene
 replays them to catch the tiles up. Nothing in the loop waits on a tween, so the
 same call can play a round with no screen attached — AC #1 is done.
 
-`tests/match.spec.ts` had kept a hand-copied replay of the loop to predict where
+`tests/play/match.spec.ts` had kept a hand-copied replay of the loop to predict where
 the live game should land, which was precisely the drift warned about above; it
 now calls `resolveCascade`, so the prediction and the game cannot diverge.
 

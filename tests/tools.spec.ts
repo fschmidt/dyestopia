@@ -9,6 +9,7 @@ import {
   hitTarget,
   open,
   rulesFor,
+  settle,
   startStage,
   toEngine,
   waitForScene,
@@ -97,9 +98,9 @@ test('free move toggles and an illegal attempt consumes nothing', async ({ page 
     initial.cells.find(({ index }) => index === refused![0])!,
     initial.cells.find(({ index }) => index === refused![1])!,
   )
-  await page.waitForTimeout(700)
-  expect((await board(page)).tools.freeMove).toBe(count)
-  expect((await board(page)).activeTool).toBe('freeMove')
+  const refusedState = await settle(page)
+  expect(refusedState.tools.freeMove).toBe(count)
+  expect(refusedState.activeTool).toBe('freeMove')
 
   await clickWorld(page, 'Game', button.x, button.y)
   expect((await board(page)).activeTool).toBeNull()

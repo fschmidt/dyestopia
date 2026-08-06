@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { board, dragWorld, moveOfKind, open, startGame, startSeededGame, toEngine } from './helpers'
+import { board, dragWorld, moveOfKind, open, startGame, startSeededGame, toEngine } from '../helpers'
 
 /**
  * The feel layer: poses and travel, on top of the match loop that

@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 
 import { backgroundTexture } from '../backgrounds'
 import { DPR, GAME_HEIGHT, GAME_WIDTH } from '../config'
+import { countSceneStart } from '../debug'
 import { activeBackground } from '../settings'
 import { resolveVisualProfile } from '../ui/visual-system'
 
@@ -18,6 +19,7 @@ import { resolveVisualProfile } from '../ui/visual-system'
  */
 export class BaseScene extends Phaser.Scene {
   init(): void {
+    countSceneStart()
     const camera = this.cameras.main
     camera.setZoom(DPR)
     camera.centerOn(GAME_WIDTH / 2, GAME_HEIGHT / 2)

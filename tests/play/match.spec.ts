@@ -9,18 +9,19 @@ import {
   parseMask,
   resolveCascade,
   resolveMove,
-} from '../src/board'
-import { mulberry32 } from '../src/rng'
-import { FIRST_STAGE } from '../src/stage'
+} from '../../src/board'
+import { mulberry32 } from '../../src/rng'
+import { FIRST_STAGE } from '../../src/stage'
 import {
   board,
   dragWorld,
   moveOfKind,
   open,
+  settle,
   stageRules,
   startSeededGame,
   toEngine,
-} from './helpers'
+} from '../helpers'
 
 /**
  * The match loop, played against the real scene. The engine's rules are
@@ -230,8 +231,7 @@ test('a drop that clears nothing is refused and costs nothing', async ({ page })
 
   // The model never changed, so once the refusal plays out the board reports
   // the exact same deal and no score.
-  await page.waitForTimeout(700)
-  const after = await board(page)
+  const after = await settle(page)
   expect(after.score).toBe(0)
   expect(after.cells.map((c) => c.color)).toEqual(report.cells.map((c) => c.color))
 })
