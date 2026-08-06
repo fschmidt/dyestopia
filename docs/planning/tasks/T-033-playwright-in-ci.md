@@ -223,11 +223,20 @@ flaky line, no warning annotation, nothing for the reporter to say.
 | `browser (2x)` | 60 passed, no retries | 3m23s |
 | `browser (iphone-15-pro-max)` | 3 passed, no retries | 47s |
 
-### What is left
+### The AC #6 ledger
 
-One clean run is not a quiet suite, which is exactly why AC #6 sits before AC
-#7. What remains needs pull requests rather than code: watch the warnings over
-the runs the `C-001` spine produces, then require the browser checks.
+Two consecutive clean runs so far, the second on the `C-004` branch — a
+docs-only diff, so a genuine second sample of the same suite rather than a
+re-run of the same one.
+
+| Run | 1x | 2x | iphone | Retries |
+| --- | --- | --- | --- | --- |
+| four | 104 passed | 60 passed | 3 passed | none |
+| five | 104 passed | 60 passed | 3 passed | none |
+
+Two is not a quiet suite either, which is exactly why AC #6 sits before AC #7.
+What remains needs pull requests rather than code: keep watching the warnings
+over the runs the `C-001` spine produces, then require the browser checks.
 
 And none of this makes the suite *deterministic*. The remaining nondeterminism
 is time and nothing else — the RNG is already one seeded stream per round, and
