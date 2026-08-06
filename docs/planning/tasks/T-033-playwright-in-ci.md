@@ -60,6 +60,14 @@ test:browser` are the two halves, and the `engine` job in
 of AC #2 is the repository setting: adding `engine` to the required list on
 `main`.
 
+The browser job is built too, but only as far as *running* — Chromium restored
+from cache, the report and traces uploaded on failure, and
+`scripts/flaky-reporter.ts` writing every pass-on-retry into the job summary as
+a warning. It is deliberately not required yet. That is the campaign, and it has
+already turned up its first datum: `tests/stages.spec.ts:155` failed once in a
+full local run and then passed three times out of three in isolation, so the
+flake is in the suite's parallelism rather than in the test.
+
 ### Gate two — the browser specs, which do
 
 The work is not the workflow step. It is making the suite trustworthy enough to
@@ -97,10 +105,10 @@ retries say, then require it. Gate one ships first and does not wait for it.
 - [ ] #2 The engine check is in the required list on `main`, and the split
       between the two halves is expressed in the config rather than in a
       hand-maintained list of files
-- [ ] #3 The browser specs run on every pull request, with browser binaries
+- [x] #3 The browser specs run on every pull request, with browser binaries
       cached so the install is not the bulk of the run
-- [ ] #4 Traces and the report are uploaded on failure
-- [ ] #5 A pass that needed a retry is reported rather than hidden
+- [x] #4 Traces and the report are uploaded on failure
+- [x] #5 A pass that needed a retry is reported rather than hidden
 - [ ] #6 Stability is demonstrated over repeated runs before the browser check
       is required
 - [ ] #7 The browser check is added to the required list on `main`

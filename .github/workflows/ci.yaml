@@ -56,3 +56,59 @@ jobs:
 
       - name: Engine specs
         run: npm run test:engine
+
+  # The browser half: the real game, built and served, driven through Chromium.
+  # It runs on every pull request so the suite can be watched, but it is not a
+  # required check yet — see T-033. A check that fails at random teaches you to
+  # merge past red, and then neither check means anything.
+  browser:
+    name: browser
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Chromium is ~170 MB and does not change between runs; downloading it
+      # every time would be a fair share of the whole job.
+      - name: Restore browser cache
+        id: browser-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium
+        if: steps.browser-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # The binary is cached; the system libraries it links against are not.
+      - name: Install Chromium system dependencies
+        if: steps.browser-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      # `playwright.config.ts` builds and serves `dist/` — the tests run against
+      # what actually deploys, not the dev server.
+      - name: Browser specs
+        run: npm run test:browser
+
+      # Traces are written on the first retry, so a failure that reproduced at
+      # all leaves one behind. Uploaded on failure only: a green run's report is
+      # noise, and the flaky reporter already puts the retries in the summary.
+      - name: Upload report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

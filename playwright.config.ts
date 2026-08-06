@@ -24,7 +24,13 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  // Under CI the HTML report and the traces beside it are the whole diagnosis —
+  // without them every red run becomes a local reproduction attempt. The flaky
+  // reporter is there because `retries` above would otherwise hide a pass that
+  // needed two goes behind a green tick.
+  reporter: process.env.CI
+    ? [['github'], ['./scripts/flaky-reporter.ts'], ['html', { open: 'never' }]]
+    : 'list',
 
   use: {
     baseURL: process.env.DYESTOPIA_URL ?? BASE_URL,
