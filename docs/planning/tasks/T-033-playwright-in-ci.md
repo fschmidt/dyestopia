@@ -142,10 +142,28 @@ The run after that change was green on all five checks:
 Longest leg 3m51s, against 16m20s for the single job it replaced, and the three
 browser legs run at once.
 
-### What the campaign is watching now
+### Where the campaign stands
 
-One green run is not a quiet suite, which is the whole reason AC #6 sits before
-AC #7. The first clean run already named its own next problem:
+With the three causes gone, the next run was green on all five checks and — for
+the first time — needed **no retries at all**: no flaky line, no warning
+annotation, nothing for the reporter to say.
+
+| Check | Result | Time |
+| --- | --- | --- |
+| `verify` | pass | 19s |
+| `engine` | 40 passed | 18s |
+| `browser (1x)` | 104 passed, no retries | 4m0s |
+| `browser (2x)` | 60 passed, no retries | 3m23s |
+| `browser (iphone-15-pro-max)` | 3 passed, no retries | 47s |
+
+One clean run is still not a quiet suite, and AC #6 asks for repeated ones. But
+it is the first run where the suite had nothing to hide, which is the point the
+campaign was trying to reach before it could start counting.
+
+### What the campaign was watching
+
+The first green run named its own next problem, which is what the reporter is
+for:
 
 > `2x › settings.spec.ts › every combination builds a full board (passed on
 > retry 2)`
