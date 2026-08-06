@@ -14,6 +14,10 @@ cards; the thinking itself lives here, and outlives them.
 - `C-002` [Why the player moves on](C-002-why-the-player-moves-on.md)
 - `C-003` [The modes and how the game should feel](C-003-the-modes-and-the-feel.md)
 
+### Review (1)
+
+- `C-004` [Deterministic tests](C-004-deterministic-tests.md) · `T-039`, `T-040`, `T-041`
+
 ### Accepted (1)
 
 - `C-001` [The board maths](C-001-board-maths.md) · `T-032`, `T-034`, `T-035`, `T-036`, `T-037`, `T-038`

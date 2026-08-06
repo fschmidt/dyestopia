@@ -18,8 +18,11 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | `T-024` Make the multiplier necessary |   |   |   |
 | `T-038` Choose the supply mechanism |   |   |   |
 | `T-025` Ramp the stage sequence |   |   |   |
+| `T-039` Audit the polls that can miss what they wait for |   |   |   |
+| `T-040` Make time an input to the browser specs |   |   |   |
+| `T-041` Turn the retries off |   |   |   |
 
-### Todo (9/15)
+### Todo (12/15)
 
 - `T-031` [Measure the combo spike](tasks/T-031-measure-combo-spike.md) · _engine_, _testing_
 - `T-036` [Measure a mix that does not clear](tasks/T-036-mix-legality-variant.md) · _engine_, _testing_, _balance_
@@ -30,6 +33,9 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 - `T-024` [Make the multiplier necessary](tasks/T-024-multiplier-must-matter.md) · _engine_, _decision_
 - `T-038` [Choose the supply mechanism](tasks/T-038-choose-the-supply-mechanism.md) · _engine_, _balance_, _decision_
 - `T-025` [Ramp the stage sequence](tasks/T-025-ramp-the-stage-sequence.md) · _stages_, _balance_
+- `T-039` [Audit the polls that can miss what they wait for](tasks/T-039-polls-that-miss.md) · _testing_
+- `T-040` [Make time an input to the browser specs](tasks/T-040-time-as-an-input.md) · _testing_
+- `T-041` [Turn the retries off](tasks/T-041-no-retries.md) · _testing_, _ci_
 
 ### In Progress (2)
 
