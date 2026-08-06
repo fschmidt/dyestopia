@@ -88,6 +88,39 @@ separately in the checks list, and each can be required as it settles.
 Roughly half of the 15.7 minutes was failure, not work: fourteen tests × three
 attempts × timeouts that mostly ran to the full thirty seconds.
 
+### The matrix run, which ruled out contention
+
+Giving each project its own runner fixed two of the three and did not touch the
+third. `iphone-15-pro-max` passed in 57s, `1x` passed 100 out of 100 in 3.1
+minutes, and `2x` failed 16 of 100 in 15.2 minutes. Both browser legs reported
+four cores and two workers, so the two runs differ in exactly one variable:
+`deviceScaleFactor`. Cross-project starvation was not the cause, and isolating
+`2x` made it slightly worse rather than better — it now shares a machine only
+with itself.
+
+### Where the cost actually sits
+
+Sorting the `2x` run by spec file separates it cleanly, and the split is not the
+one the project's own comment assumes:
+
+| | Specs | Tests | Time | Failures |
+| --- | --- | --- | --- | --- |
+| Plays a round | `stages`, `tutorial`, `sfx`, `match`, `motion` | 76 | 1422s | 16 |
+| Inspects a screen | `visual-system`, `tools`, `settings`, `smoke`, `tiles`, `stage-select-redesign`, `layout`, `site` | 57 | 320s | 0 |
+
+(Cumulative across two workers, so wall-clock is about half of each.)
+
+Every failure is in a spec that plays a round — many drags, each waiting on
+animations, while a software rasteriser redraws four times the pixels. Not one
+is in a spec that inspects a screen. Which is to say: the specs that exist to
+catch a DPR regression all pass at 2x and cost 2.7 minutes between them, and the
+twelve minutes that fail are re-verifying round logic that has no DPR in it and
+is already green at `1x`.
+
+The `2x` project's premise — *every* test runs at both ratios — was a cheap
+belt-and-braces choice on a fast machine. It is not cheap on a runner, and the
+measurement says the belt is doing all the work.
+
 ### Gate two — the browser specs, which do
 
 The work is not the workflow step. It is making the suite trustworthy enough to
