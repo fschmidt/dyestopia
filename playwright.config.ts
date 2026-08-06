@@ -28,8 +28,10 @@ export default defineConfig({
   // without them every red run becomes a local reproduction attempt. The flaky
   // reporter is there because `retries` above would otherwise hide a pass that
   // needed two goes behind a green tick.
+  // `list` is in there for the worker count and the per-test timings it prints:
+  // on a two-core runner with no GPU those numbers are the whole diagnosis.
   reporter: process.env.CI
-    ? [['github'], ['./scripts/flaky-reporter.ts'], ['html', { open: 'never' }]]
+    ? [['github'], ['list'], ['./scripts/flaky-reporter.ts'], ['html', { open: 'never' }]]
     : 'list',
 
   use: {

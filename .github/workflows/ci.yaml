@@ -61,9 +61,20 @@ jobs:
   # It runs on every pull request so the suite can be watched, but it is not a
   # required check yet — see T-033. A check that fails at random teaches you to
   # merge past red, and then neither check means anything.
+  #
+  # One runner per project, rather than one runner running all three. A hosted
+  # runner has two cores and no GPU, so Phaser's WebGL lands on a software
+  # rasteriser; two projects sharing that machine starve each other, and the 2x
+  # project — four times the pixels of 1x for the same work — starves first. The
+  # matrix also names each project in the checks list, so they can be required
+  # one at a time as each settles.
   browser:
-    name: browser
+    name: browser (${{ matrix.project }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [1x, 2x, iphone-15-pro-max]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,7 +109,9 @@ jobs:
       # `playwright.config.ts` builds and serves `dist/` — the tests run against
       # what actually deploys, not the dev server.
       - name: Browser specs
-        run: npm run test:browser
+        run: |
+          echo "cores: $(nproc)"
+          npx playwright test --project=${{ matrix.project }}
 
       # Traces are written on the first retry, so a failure that reproduced at
       # all leaves one behind. Uploaded on failure only: a green run's report is
@@ -107,7 +120,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.project }}
           path: |
             playwright-report/
             test-results/

@@ -56,17 +56,37 @@ that names no device, so it needs no browser binary; the browser projects ignore
 that directory, and a run restricted to `--project=engine` skips the web server
 rather than paying for the build. `npm run test:engine` and `npm run
 test:browser` are the two halves, and the `engine` job in
-`.github/workflows/ci.yaml` runs the first on every pull request. What remains
-of AC #2 is the repository setting: adding `engine` to the required list on
-`main`.
+`.github/workflows/ci.yaml` runs the first on every pull request. It is in the
+required list on `main` alongside `verify`, which completes AC #2.
 
 The browser job is built too, but only as far as *running* — Chromium restored
 from cache, the report and traces uploaded on failure, and
 `scripts/flaky-reporter.ts` writing every pass-on-retry into the job summary as
-a warning. It is deliberately not required yet. That is the campaign, and it has
-already turned up its first datum: `tests/stages.spec.ts:155` failed once in a
-full local run and then passed three times out of three in isolation, so the
-flake is in the suite's parallelism rather than in the test.
+a warning. It is deliberately not required yet. That is the campaign, and the
+first CI run made the reason concrete.
+
+### What the first browser run measured
+
+One runner, all three projects: **14 failed, 1 flaky, 188 passed, 15.7 minutes.**
+Locally the same tree is 242 passed, 1 failed, 2.5 minutes.
+
+The distribution is the finding. Every one of the fourteen failures was in the
+`2x` project. `1x` passed 100 out of 100, one of them on a retry. Same code,
+same tests, same machine — so this is not a flaky suite in the usual sense, it
+is a starved one. A hosted runner has two cores and no GPU, so Phaser's WebGL
+falls to a software rasteriser, and `deviceScaleFactor: 2` asks it for four
+times the pixels of `1x` for identical work. The failures read the way starving
+reads: `Test timeout of 30000ms exceeded`, `mouse.move: Test timeout`, polls
+expiring on animations that never finish.
+
+That also answers, with a measured runtime in hand, the question this card
+raised about which projects run: the cost is not spread evenly across the three,
+so the decision is per project rather than all-or-nothing. Hence the matrix —
+one runner each, so a project cannot starve its neighbour, each is named
+separately in the checks list, and each can be required as it settles.
+
+Roughly half of the 15.7 minutes was failure, not work: fourteen tests × three
+attempts × timeouts that mostly ran to the full thirty seconds.
 
 ### Gate two — the browser specs, which do
 
@@ -102,7 +122,7 @@ retries say, then require it. Gate one ships first and does not wait for it.
 <!-- AC:BEGIN -->
 - [x] #1 The engine specs run on every pull request, without a build and
       without a browser
-- [ ] #2 The engine check is in the required list on `main`, and the split
+- [x] #2 The engine check is in the required list on `main`, and the split
       between the two halves is expressed in the config rather than in a
       hand-maintained list of files
 - [x] #3 The browser specs run on every pull request, with browser binaries
