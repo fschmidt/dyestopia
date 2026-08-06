@@ -20,19 +20,28 @@ export async function waitForScene(page: Page, key: string): Promise<void> {
 }
 
 /**
- * Leave the Game scene, if it is running, before starting it again.
+ * Run something that starts a scene, and wait for *that* scene rather than one
+ * that happens to share its key.
  *
  * `goTo` stops every scene and starts one, and Phaser processes both in the
  * same pass — so waiting for `isActive('Game')` after `goTo('Game')` can be
- * satisfied by the scene that was already there. The driver then reads the
- * *old* round: same key, previous board. Bouncing off Menu first makes the next
- * wait a true edge, because Game is genuinely inactive when it begins.
+ * satisfied by the scene that was already there, and the driver goes on to read
+ * the previous round. The generation counter makes the restart observable: it
+ * ticks on every scene start, so a key that is active *and* a generation that
+ * has moved is a real transition.
  */
-export async function leaveGame(page: Page): Promise<void> {
-  const running = await page.evaluate(() => window.dyestopia!.isActive('Game'))
-  if (!running) return
-  await page.evaluate(() => window.dyestopia!.goTo('Menu'))
-  await waitForScene(page, 'Menu')
+export async function startingScene(
+  page: Page,
+  key: string,
+  act: () => Promise<unknown>,
+): Promise<void> {
+  const before = await page.evaluate(() => window.dyestopia!.generation())
+  await act()
+  await page.waitForFunction(
+    (arg) =>
+      window.dyestopia?.isActive(arg.key) === true && window.dyestopia.generation() > arg.before,
+    { key, before },
+  )
 }
 
 /**
@@ -86,15 +95,15 @@ export async function startStage(
   data: GameStartData,
   seed?: number,
 ): Promise<BoardReport> {
-  await leaveGame(page)
-  await page.evaluate(
-    (arg) => {
-      if (arg.seed !== undefined) window.dyestopia!.seedRng(arg.seed)
-      window.dyestopia!.goTo('Game', arg.data)
-    },
-    { data, seed },
+  await startingScene(page, 'Game', () =>
+    page.evaluate(
+      (arg) => {
+        if (arg.seed !== undefined) window.dyestopia!.seedRng(arg.seed)
+        window.dyestopia!.goTo('Game', arg.data)
+      },
+      { data, seed },
+    ),
   )
-  await waitForScene(page, 'Game')
   return board(page)
 }
 
@@ -103,12 +112,12 @@ export async function startStage(
  * the next build's RNG, so the same seed always deals the same cells.
  */
 export async function startSeededGame(page: Page, seed: number): Promise<BoardReport> {
-  await leaveGame(page)
-  await page.evaluate((s) => {
-    window.dyestopia!.seedRng(s)
-    window.dyestopia!.goTo('Game')
-  }, seed)
-  await waitForScene(page, 'Game')
+  await startingScene(page, 'Game', () =>
+    page.evaluate((s) => {
+      window.dyestopia!.seedRng(s)
+      window.dyestopia!.goTo('Game')
+    }, seed),
+  )
   return board(page)
 }
 

@@ -171,9 +171,17 @@ without new input. All four sleeps are gone, and `tests/` no longer contains a
 and Phaser processes both in the same pass, so waiting for `isActive('Game')`
 straight after `goTo('Game')` can be satisfied by the scene that was already
 running. The driver then reads the previous round under the same key — which is
-exactly how a settings test that rebuilds the board fifteen times in a loop
-came to fail on two attempts out of three. `leaveGame` bounces off Menu first,
-so the wait that follows is a real transition.
+exactly how a settings test that rebuilds the board fifteen times in a loop came
+to fail on two attempts out of three.
+
+The first fix for this was to bounce off Menu, so that Game was genuinely
+inactive before being started again. It was correct and it was too expensive:
+rebuilding Menu fifteen times inside that loop pushed the test past the 30s
+budget at 2x, and a green leg went red. The counter is the cheaper statement of
+the same idea — `BaseScene` ticks `generation` on every scene start, so *active
+under this key **and** a generation that has moved* is a real transition, with
+no extra scene to build. Worth recording as the lesson: a correct wait that
+costs a scene rebuild per iteration is its own kind of flake.
 
 Neither fix makes the suite deterministic. The remaining nondeterminism is time
 and nothing else: the RNG is already one seeded stream per round, and

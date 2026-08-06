@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { clickWorld, hitTarget, leaveGame, open, waitForScene } from './helpers'
+import { clickWorld, hitTarget, open, startingScene, waitForScene } from './helpers'
 
 /** Texture key and tint of every tile on the board. */
 async function boardLook(page: Page): Promise<{ texture: string; tint: number }[]> {
@@ -19,12 +19,12 @@ async function openBoardWith(page: Page, patch: Record<string, string>): Promise
   await page.evaluate((p) => window.dyestopia!.setSettings(p), patch)
   // Same seed, same deal: the cross-build comparisons below (same tints in a
   // different skin) only mean something when every build deals the same board.
-  await leaveGame(page)
-  await page.evaluate(() => {
-    window.dyestopia!.seedRng(999)
-    window.dyestopia!.goTo('Game')
-  })
-  await waitForScene(page, 'Game')
+  await startingScene(page, 'Game', () =>
+    page.evaluate(() => {
+      window.dyestopia!.seedRng(999)
+      window.dyestopia!.goTo('Game')
+    }),
+  )
 }
 
 test('shape and theme are independent axes', async ({ page }) => {

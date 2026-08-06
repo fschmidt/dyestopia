@@ -84,6 +84,16 @@ export interface DyestopiaDebug {
   progressState(): ProgressState
   resetProgress(): void
   /**
+   * How many scenes have started this page load.
+   *
+   * `goTo` stops every scene and starts one, and Phaser processes both in the
+   * same pass — so a driver waiting for `isActive('Game')` right after
+   * `goTo('Game')` can be satisfied by the scene that was already running, and
+   * go on to read the previous round. Comparing this across the call makes the
+   * transition observable instead of assumed.
+   */
+  generation(): number
+  /**
    * Toggle the combo-mixing prototype (roadmap M3): after a legal mix, the
    * result colour absorbs adjacent groups of its own ingredients. Pure
    * effect — legality is the target-anchored rule either way. Takes effect
@@ -97,6 +107,13 @@ declare global {
   interface Window {
     dyestopia?: DyestopiaDebug
   }
+}
+
+// Bumped by BaseScene on every scene start — see `generation` above.
+let sceneGeneration = 0
+
+export function countSceneStart(): void {
+  sceneGeneration++
 }
 
 /** GameObject with a position — the base class doesn't declare one. */
@@ -129,6 +146,8 @@ export function exposeDebugApi(game: Phaser.Game): void {
     activeScenes: () => game.scene.getScenes(true).map((scene) => scene.scene.key),
 
     isActive: (key) => game.scene.isActive(key),
+
+    generation: () => sceneGeneration,
 
     texts: (key) =>
       // Flattened for the same reason as hitTargets: the end-of-round overlay
