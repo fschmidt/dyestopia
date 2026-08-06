@@ -19,7 +19,8 @@
     "test:headed": "playwright test --headed",
     "test:ui": "playwright test --ui",
     "shots": "node scripts/screenshot.mjs",
-    "shots:matrix": "node scripts/visual-matrix.mjs"
+    "shots:matrix": "node scripts/visual-matrix.mjs",
+    "playout": "tsx scripts/playout.ts"
   },
   "dependencies": {
     "phaser": "^4.2.1"
