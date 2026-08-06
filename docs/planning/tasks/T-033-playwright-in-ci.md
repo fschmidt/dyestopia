@@ -183,6 +183,18 @@ under this key **and** a generation that has moved* is a real transition, with
 no extra scene to build. Worth recording as the lesson: a correct wait that
 costs a scene rebuild per iteration is its own kind of flake.
 
+**And the test was simply too big.** With both races gone it still failed at 2x,
+on the same 30s budget. That test walked all fifteen shape × theme
+combinations in one body, and every pass rebuilds the board and bakes a fresh
+set of tile artwork — real work at double density on a machine with no GPU. It
+is now one test per shape: five bodies of three themes each, which fit
+comfortably, run in parallel, and name the shape that broke without reading a
+label. Raising the timeout would have hidden the same fact.
+
+That the original was the first flake the reporter caught is not a coincidence.
+It was the longest test in the suite, so it was the one closest to the edge —
+which is what a budget measured in wall-clock does to a test that grew.
+
 Neither fix makes the suite deterministic. The remaining nondeterminism is time
 and nothing else: the RNG is already one seeded stream per round, and
 `resolveCascade` settles the model synchronously, so only the animation is
