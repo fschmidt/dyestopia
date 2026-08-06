@@ -24,7 +24,7 @@ nothing in common:
 
 | | What runs | Cost | Flake surface |
 | --- | --- | --- | --- |
-| **Engine specs** | everything under `tests/engine/` — pure data in, data out | 40 tests in 0.7s, measured | none: no page, no Phaser, no timing |
+| **Engine specs** | everything under `tests/engine/` — pure data in, data out | 47 tests in 7s, measured | none: no page, no Phaser, no timing |
 | **Browser specs** | everything else in `tests/` | most of a two-minute run | tweens, polling, layout |
 
 This card originally split `tests/play/match.spec.ts` down the middle. That was

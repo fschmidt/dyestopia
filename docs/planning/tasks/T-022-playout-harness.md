@@ -2,7 +2,7 @@
 id: T-022
 type: task
 title: Headless playout harness
-status: In Progress
+status: In Review
 ordinal: 100
 labels: [engine, testing]
 ---
@@ -43,8 +43,8 @@ cascade and equally Phaser-free: `startRound` deals a stage from a seed,
 `playMove` plays one drop in full — dye or swap, cascade, score, chain, budget —
 and returns a recording, and `settleRound` decides what the settled board means.
 `GameScene` now animates that recording instead of deciding anything, so a whole
-round can be played with no screen attached. That is the last thing the harness
-was waiting on; what remains is the script itself and everything it reports.
+round can be played with no screen attached. That was the last thing the harness
+was waiting on.
 
 Three things the lift turned up, all worth keeping:
 
@@ -85,17 +85,70 @@ one fixed policy is a relative claim and holds. Predicting how hard a stage feel
 does not. The report has to say so, or the first person to read a win rate off it
 will believe the wrong thing.
 
+## The harness
+
+`src/playout.ts` is the simulator and `scripts/playout.ts` (`npm run playout`)
+is the command line and the report. Every move goes through `playMove`, so the
+two cannot drift; `legalMoves` in `src/board.ts` is the only rule this card
+added, and it is `findLegalMove`'s walk without the early return.
+
+Two policies, both greedy and deliberately so. `points` takes the highest
+immediate clear. `chain` prefers a merge whose result the chain does not already
+hold, cashes the chain in with a swap once it is at the ceiling, and falls back
+to points otherwise — the game as designed to be played.
+
+Cascades are not simulated when *evaluating* a move, only when playing it: a
+cascade needs the `rng`, and drawing from it to weigh an option would change the
+round the bot is in. So both bots are shallow by construction, which is the
+honest version of what they are.
+
+`tests/engine/playout.spec.ts` keeps the claims from rotting — reproducibility
+move-for-move, that policies actually differ, and the supply argument below.
+
+## What it found
+
+200 playouts per row, seeds 1–200, over the ten core stages.
+
+**Every stage falls to a greedy bot.** Win rates run 85–100%, the worst being
+`Full Spectrum` and `The Hourglass` under `points`. Nothing in the sequence
+resists a bot that cannot plan, which is the first real evidence for `T-025`.
+
+**The move budget is nowhere near binding.** `Full Spectrum` allows 18 and is
+won in 5.8 under `chain`; `First Splash` allows 8 and is won in 2.9. Rounds end
+by crossing the threshold, not by running out — so the budget is currently a
+formality rather than a constraint, and tightening it is a lever `T-025` has
+that nobody has spent.
+
+**Chain-building strictly dominates.** `chain` beats `points` on score and on
+moves in every row, most starkly on `Full Spectrum` — 99.5% against 85%, 8643
+against 6228 mean, 5.8 moves against 13.6. Useful for `T-024` in an awkward
+direction: the multiplier is already the better strategy, so what that card is
+really about is that ignoring it still wins 85% of the time.
+
+**No dead boards.** Zero reshuffles across all 4,000 playouts.
+
+**`C-001`'s supply argument holds.** The standing non-seed pool never grew, in
+any playout, on any stage, under either policy — the net column is negative
+everywhere except `First Splash`, which authors no secondaries and so sits at
+zero throughout. That is the arithmetic `C-001` argued and this card was asked
+to settle; it is now an engine test rather than a paragraph, and `T-038` can
+treat the shrinking pool as measured rather than assumed.
+
+The caveat the report prints with every run, and the reason AC #7 exists: these
+compare configurations under a fixed policy. They do not predict human
+difficulty, and a win rate here is not a claim about how hard a stage feels.
+
 ## Acceptance criteria
 
 <!-- AC:BEGIN -->
 - [x] #1 The cascade resolves in one place, used by both the game and the harness
-- [ ] #2 Runs from the command line over N seeded playouts of any stage
-- [ ] #3 At least two policies — one points-chasing, one chain-building
-- [ ] #4 Reports win rate and score distribution per stage
-- [ ] #5 Reproducible: same seeds in, same numbers out
-- [ ] #6 Reports the standing non-seed tile count per move, so the supply
+- [x] #2 Runs from the command line over N seeded playouts of any stage
+- [x] #3 At least two policies — one points-chasing, one chain-building
+- [x] #4 Reports win rate and score distribution per stage
+- [x] #5 Reproducible: same seeds in, same numbers out
+- [x] #6 Reports the standing non-seed tile count per move, so the supply
       economy can be measured rather than argued
-- [ ] #7 The report states what its numbers do and do not support —
+- [x] #7 The report states what its numbers do and do not support —
       comparisons between configurations under a fixed policy, not predictions
       of human difficulty
 <!-- AC:END -->
