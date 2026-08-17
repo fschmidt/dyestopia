@@ -9,8 +9,8 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
-| `T-031` Measure the combo spike | `T-022` Headless playout harness |   | `T-014` Free Move tool MVP |
-| `T-036` Measure a mix that does not clear | `T-033` Run the Playwright suite in Actions |   | `T-009` Architecture rules |
+| `T-031` Measure the combo spike | `T-033` Run the Playwright suite in Actions | `T-022` Headless playout harness | `T-014` Free Move tool MVP |
+| `T-036` Measure a mix that does not clear |   |   | `T-009` Architecture rules |
 | `T-037` Measure the cascade and scoring-order levers |   |   | `T-015` Consistent stage-select design |
 | `T-034` The board maths as formulas |   |   | `T-016` iPhone 15 viewport |
 | `T-035` Name the board parameter set |   |   | `T-032` Research the board maths |
@@ -37,14 +37,13 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 - `T-040` [Make time an input to the browser specs](tasks/T-040-time-as-an-input.md) · _testing_
 - `T-041` [Turn the retries off](tasks/T-041-no-retries.md) · _testing_, _ci_
 
-### In Progress (2)
+### In Progress (1)
 
-- `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
 - `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
 
-### In Review (0)
+### In Review (1)
 
-_Empty._
+- `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
 
 ### Done (5)
 

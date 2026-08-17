@@ -254,6 +254,35 @@ export function findLegalMove(
   return null
 }
 
+/** A legal drop, with what it resolves to. */
+export interface LegalMove {
+  from: number
+  to: number
+  move: Move
+}
+
+/**
+ * Every legal move on the board, in scan order — the same walk as
+ * `findLegalMove` without the early return. That one stays separate because
+ * dead-board detection runs after every move and only ever needs the first
+ * answer; this one is for a bot choosing between them.
+ *
+ * Adjacent pairs are tried both ways round, since mixes are directional.
+ */
+export function legalMoves(grid: Grid, cells: Cells, mix: MixRule = NO_MIX): LegalMove[] {
+  const out: LegalMove[] = []
+  for (let index = 0; index < grid.mask.length; index++) {
+    if (!grid.mask[index]) continue
+    for (const other of [index + 1, index + grid.cols]) {
+      for (const [from, to] of [[index, other], [other, index]] as const) {
+        const move = resolveMove(grid, cells, mix, from, to)
+        if (move.kind !== 'illegal') out.push({ from, to, move })
+      }
+    }
+  }
+  return out
+}
+
 /** One tile taking a new colour in a combo wave, `step` hops from the merge. */
 export interface Conversion {
   index: number

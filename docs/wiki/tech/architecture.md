@@ -28,6 +28,7 @@ to `main`.
 | [`src/flags.ts`](../../../src/flags.ts) | Prototype toggles — switches for mechanics on trial, reachable from the console (`dyestopia.combo(true)`) or the URL (`?combo`, for phones without a console). |
 | [`src/main.ts`](../../../src/main.ts) | — |
 | [`src/palette.ts`](../../../src/palette.ts) | Chrome colours — the page around the game, and text. |
+| [`src/playout.ts`](../../../src/playout.ts) | Playing a stage with no screen attached. |
 | [`src/progress.ts`](../../../src/progress.ts) | — |
 | [`src/rng.ts`](../../../src/rng.ts) | Seedable randomness for everything gameplay-visible. |
 | [`src/round.ts`](../../../src/round.ts) | A round as a value. |
@@ -61,7 +62,7 @@ to `main`.
 
 ## The shape of it
 
-<!-- pin:src/board.ts sha=155aa2c095ad -->
+<!-- pin:src/board.ts sha=79fe98cae8f5 -->
 
 **The engine** is `src/board.ts`. It is pure: grids, masks, matches, gravity,
 refills, cascades, reshuffles and chain bookkeeping, with no Phaser import and no
@@ -70,9 +71,13 @@ rendering. Everything about how the game plays is decided here.
 It has two entry points. `resolveMove` decides what a move *is*, and it tries
 *mix before swap*. `resolveCascade` then plays that move's cascade to a
 standstill and returns it as a list of waves — what matched, what it paid, what
-fell and what spawned. The board settles before anything is drawn; `GameScene`
-replays the waves to catch the tiles up. Nothing in the loop waits on a tween,
-so the same call can play a round with no screen attached at all.
+fell and what spawned. The board settles before anything is drawn, and nothing
+in the loop waits on a tween.
+
+Two more answer questions *about* a board rather than changing one:
+`findLegalMove` stops at the first move it finds, which is all dead-board
+detection needs after every move, and `legalMoves` does the same walk without
+the early return, for a bot choosing between them.
 
 <!-- pin:src/colors.ts sha=8b0cfc592ac7 -->
 
@@ -94,6 +99,14 @@ a recording; `settleRound` decides what the settled board means, reviving a dead
 board or ending the round. A whole round can therefore be played with nothing
 drawn, which is what the headless harness calls and what `GameScene` animates
 rather than decides.
+
+**The harness** is `src/playout.ts`, driven by `npm run playout`
+(`scripts/playout.ts`). A policy picks among the legal moves, a playout runs one
+seeded round to its end, and many of them fold into a distribution: win rate,
+score spread, moves used, and the standing count of non-seed tiles. Every move
+goes through `playMove`, so the simulator cannot drift from the game. Its
+numbers compare configurations under a fixed policy; they are not predictions of
+human difficulty, and the report says so on every run.
 
 **Scenes** live in `src/scenes/`, run Boot → Menu → StageSelect → Game/Settings,
 and all extend `BaseScene`. `GameScene` is by far the largest module in the
@@ -123,6 +136,7 @@ and visual profile are independent settings; none of them touch the engine.
 | `npm run test:ui` | `playwright test --ui` |
 | `npm run shots` | `node scripts/screenshot.mjs` |
 | `npm run shots:matrix` | `node scripts/visual-matrix.mjs` |
+| `npm run playout` | `tsx scripts/playout.ts` |
 <!-- /generated:scripts -->
 
 ## Testing
