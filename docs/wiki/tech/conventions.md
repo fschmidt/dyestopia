@@ -46,14 +46,10 @@ the wiki generator runs under `tsx` rather than Node's native type stripping.
 `<!-- generated:name -->` and `<!-- /generated:name -->` is overwritten by
 `npm run wiki`. Change the source data or the generator, never the block.
 
-**`docs/planning/BOARD.md` is generated in full.** Move a card by editing its
-file in `docs/planning/tasks/`, never by editing the board. `npm run board`
-writes the same two fields as a drag and regenerates `BOARD.md` after every
-drop — so the board file is only ever an output, whichever way you move a card.
-It drags within the pipeline only; deferring a card or promoting an idea stays
-an edit, because each is a rewrite rather than a change of lane. Clicking a card
-opens it in a panel — reading one is a glance, and the board keeps its place
-underneath. The panel is read-only, like everything else the viewer serves.
+**`docs/planning/BOARD.md` is generated in full** from cards in
+`docs/planning/tasks/`. This repo caps Todo at 15 cards. Run `npm run board` for
+the board, or `npm run board:host` to reach it from a phone. The mechanical
+rules live in the `planning-board` dependency's bundled `planning-board` skill.
 
 **The wiki never speculates.** It describes what is true *now* — that is why it
 is pinned to source hashes and why its paths are checked. A proposal belongs in

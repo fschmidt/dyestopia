@@ -1,0 +1,34 @@
+{
+  "title": "Dyestopia board",
+  "tasks": "docs/planning/tasks",
+  "board": "docs/planning/BOARD.md",
+  "todoLimit": 15,
+  "docs": "docs",
+  "rootDocs": ["AGENTS.md", "CLAUDE.md", "README.md"],
+  "postWrite": "npm run wiki",
+  "records": {
+    "concept": {
+      "dir": "docs/concepts",
+      "blurb": [
+        "Design worked out before it is built. A concept **proposes**; the wiki describes",
+        "what is true *now*. Never put a proposal in the wiki, and never treat a concept as",
+        "the documentation.",
+        "",
+        "A concept is not work and carries no lane. Its research and its implementation are",
+        "cards; the thinking itself lives here, and outlives them."
+      ]
+    },
+    "decision": {
+      "dir": "docs/decisions",
+      "blurb": [
+        "One choice each, in the ADR tradition: context, the call, the alternatives, the",
+        "consequences. **Accepted decisions are immutable** — a later decision supersedes an",
+        "earlier one rather than editing it, because the value is in being able to see what",
+        "was believed at the time.",
+        "",
+        "Concepts emit decisions. A decision can also stand alone, and a card labelled",
+        "`decision` should land as one."
+      ]
+    }
+  }
+}

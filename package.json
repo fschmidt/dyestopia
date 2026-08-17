@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit",
     "wiki": "tsx scripts/wiki.ts",
     "wiki:check": "tsx scripts/wiki.ts --check",
-    "board": "tsx scripts/board.ts",
-    "board:host": "tsx scripts/board.ts --host",
+    "board": "board serve",
+    "board:host": "board serve --host",
     "test": "playwright test",
     "test:engine": "playwright test --project=engine",
     "test:browser": "playwright test --project=1x --project=2x --project=iphone-15-pro-max",
@@ -29,6 +29,7 @@
     "@playwright/test": "^1.62.0",
     "@types/node": "^26.1.1",
     "marked": "^18.0.7",
+    "planning-board": "github:fschmidt/planning-board",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2",
     "vite": "^8.1.5"
