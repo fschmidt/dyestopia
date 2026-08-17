@@ -10,12 +10,12 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 | Todo | In Progress | In Review | Done |
 | --- | --- | --- | --- |
 | `T-031` Measure the combo spike | `T-033` Run the Playwright suite in Actions | `T-022` Headless playout harness | `T-014` Free Move tool MVP |
-| `T-036` Measure a mix that does not clear |   | `T-042` Move the board onto the extracted package | `T-009` Architecture rules |
-| `T-037` Measure the cascade and scoring-order levers |   | `T-043` Let the skill own the board rules | `T-015` Consistent stage-select design |
+| `T-036` Measure a mix that does not clear |   |   | `T-009` Architecture rules |
+| `T-037` Measure the cascade and scoring-order levers |   |   | `T-015` Consistent stage-select design |
 | `T-034` The board maths as formulas |   |   | `T-016` iPhone 15 viewport |
 | `T-035` Name the board parameter set |   |   | `T-032` Research the board maths |
-| `T-012` Resolve the combo spike |   |   |   |
-| `T-024` Make the multiplier necessary |   |   |   |
+| `T-012` Resolve the combo spike |   |   | `T-042` Move the board onto the extracted package |
+| `T-024` Make the multiplier necessary |   |   | `T-043` Let the skill own the board rules |
 | `T-038` Choose the supply mechanism |   |   |   |
 | `T-025` Ramp the stage sequence |   |   |   |
 | `T-039` Audit the polls that can miss what they wait for |   |   |   |
@@ -41,19 +41,19 @@ To move a card, edit its file — never this one. Lower ordinal = higher priorit
 
 - `T-033` [Run the Playwright suite in Actions](tasks/T-033-playwright-in-ci.md) · _testing_, _ci_
 
-### In Review (3)
+### In Review (1)
 
 - `T-022` [Headless playout harness](tasks/T-022-playout-harness.md) · _engine_, _testing_
-- `T-042` [Move the board onto the extracted package](tasks/T-042-board-onto-the-package.md) · _tooling_
-- `T-043` [Let the skill own the board rules](tasks/T-043-board-rules-live-in-the-skill.md) · _docs_, _tooling_
 
-### Done (5)
+### Done (7)
 
 - `T-014` [Free Move tool MVP](tasks/T-014-free-move-tool.md) · _tools_, _M2_
 - `T-009` [Architecture rules](tasks/T-009-architecture-rules.md) · _docs_
 - `T-015` [Consistent stage-select design](tasks/T-015-stage-select-design.md) · _visuals_
 - `T-016` [iPhone 15 viewport](tasks/T-016-iphone-viewport.md) · _mobile_
 - `T-032` [Research the board maths](tasks/T-032-research-the-board-maths.md) · _engine_, _balance_, _research_
+- `T-042` [Move the board onto the extracted package](tasks/T-042-board-onto-the-package.md) · _tooling_
+- `T-043` [Let the skill own the board rules](tasks/T-043-board-rules-live-in-the-skill.md) · _docs_, _tooling_
 
 ## Deferred
 
