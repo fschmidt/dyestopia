@@ -225,7 +225,7 @@ flaky line, no warning annotation, nothing for the reporter to say.
 
 ### The AC #6 ledger
 
-Five consecutive clean runs so far.
+Seven consecutive clean runs so far.
 
 | Run | Branch | Diff | 1x | 2x | iphone | Retries |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -234,12 +234,24 @@ Five consecutive clean runs so far.
 | six | `deterministic-tests-concept` | docs | 104 passed | 60 passed | 3 passed | none |
 | seven | `round-as-a-value` | code | 104 passed | 60 passed | 3 passed | none |
 | eight | `round-as-a-value` | docs | 104 passed | 60 passed | 3 passed | none |
+| nine | `measure-combo-spike` | code | 104 passed | 60 passed | 3 passed | none |
+| ten | `remove-combo-spike` | code | 103 passed | 60 passed | 3 passed | none |
 
 The diff column is worth carrying. The docs-only rows are a fresh execution of
 an *unchanged* suite on a fresh runner — real evidence about the runner, weak
 evidence about the suite. Run seven lifted the round lifecycle out of
 `GameScene`, which is the kind of change that would shake a fragile suite, and
 it went green first time. That row is worth more than the three above it.
+
+Runs nine and ten are the two strongest rows in the table for the same reason,
+and they arrive as a pair worth reading together. Nine added a rule axis through
+`playMove` and the report; ten deleted a whole mechanic out of the engine, the
+round, the scene and the tile — including an animation the suite had a test for.
+Both went green first time with nothing to report. Ten's `1x` count is one lower
+because the combo test went with the wave; it lived in `tests/play/`, which `2x`
+ignores, so only the one project moves. A count that changed for a reason the
+diff explains is the ledger working — an unexplained drop would be the thing to
+chase.
 
 The ledger only grows from pull requests: `ci.yaml` runs on `pull_request`, so
 merging to `main` deploys but does not re-test. That is the right shape — the
