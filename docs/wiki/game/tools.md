@@ -28,6 +28,9 @@ duty: it teaches the tool, and it is the focused proving ground where the tool's
 interactions with scoring, chains, cascades, legal-move detection, reshuffles
 and stage reset get tested.
 
-Candidate tools not yet built — recolour, reposition, destroy, palette swap,
-colour bomb, defy gravity — sit in the Ideas section of the
-[board](../../planning/BOARD.md) until one earns a lane.
+Candidate tools not yet built live as idea cards: [recolour](../../planning/tasks/I-001-recolour-tool.md),
+[reposition](../../planning/tasks/I-002-reposition-tool.md),
+[destroy](../../planning/tasks/I-003-destroy-tile-tool.md),
+[palette swap](../../planning/tasks/I-004-palette-swap.md),
+[colour bomb](../../planning/tasks/I-006-colour-bomb.md) and
+[defy gravity](../../planning/tasks/I-009-defy-gravity.md).

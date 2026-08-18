@@ -8,27 +8,25 @@
  * Everything derivable is generated rather than asserted: the colour wheel, the
  * stage table, the tutorial list, the npm scripts and the `src/` file map all
  * come from the code, so they cannot disagree with it. What can't be generated
- * is checked instead — dead paths, board integrity, and source hash pins.
+ * is checked instead — dead paths, planning protocol, and source hash pins.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
-
-import { generate, loadConfig } from 'planning-board'
+import { join, resolve } from 'node:path'
 
 import { COLORS, colorTier, colorValue } from '../src/colors'
 import { STAGE_SECTIONS } from '../src/stage-catalog'
 import { stageMaxMultiplier, stageMixes, type Stage } from '../src/stage'
+import { checkPlanningProtocol, recordIndexes } from './planning-protocol'
 const CHECK = process.argv.includes('--check')
-const config = loadConfig()
-const ROOT = config.root
+const ROOT = resolve(process.cwd())
 
 /** Below this, a generator has silently stopped matching and must fail loudly. */
 const MIN_ROWS = 3
 
-const board = generate(config, { check: CHECK })
-const problems = board.problems
-const stale = board.stale
+const planning = checkPlanningProtocol(ROOT)
+const problems = planning.problems
+const stale: string[] = []
 
 function fail(message: string) {
   problems.push(message)
@@ -328,6 +326,7 @@ function write(file: string, next: string): void {
 
 // -------------------------------------------------------------------- main
 
+for (const index of recordIndexes(planning.records)) write(index.file, index.source)
 applyBlocks()
 applyPins()
 checkPaths()
@@ -346,6 +345,6 @@ if (problems.length || stale.length) {
 }
 console.log(
   CHECK
-    ? `Wiki is current (${board.tasks.length} cards, ${board.records.length} records).`
-    : `Wiki updated (${board.tasks.length} cards, ${board.records.length} records, ${BLOCKS.length} blocks).`,
+    ? `Wiki is current (${planning.tasks.length} cards, ${planning.records.length} records).`
+    : `Wiki updated (${planning.tasks.length} cards, ${planning.records.length} records, ${BLOCKS.length} blocks).`,
 )

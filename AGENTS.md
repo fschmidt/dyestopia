@@ -11,9 +11,6 @@ Playwright. Deployed to GitHub Pages on push to `main`.
 - `npm run typecheck` — types only.
 - `npm test` — Playwright. There is no unit-test runner.
 - `npm run wiki` — regenerate the wiki. `npm run wiki:check` to verify it.
-- `npm run board` — drag-and-drop board on :5174. Click a card to read it in a
-  side panel; the side menu holds a read-only wiki viewer. `board:host` to reach
-  it from a phone.
 
 ## Invariants
 
@@ -39,7 +36,6 @@ Full rules in `docs/wiki/tech/conventions.md` — read it before changing docs.
 - **Never edit between `<!-- generated:name -->` and `<!-- /generated:name -->`.**
   Those blocks come from source data via `scripts/wiki.ts`. Change the data or
   the generator.
-- **`docs/planning/BOARD.md` is generated in full.**
 - **A `<!-- pin:path sha=… -->` marker** means the prose below it describes that
   file. If the check reports the pin is stale, re-read the section against the
   file, correct it if it is now wrong, then run `npm run wiki` to re-pin.
@@ -63,14 +59,14 @@ wiki and neither of them a lane. Full reasoning in `D-001`.
   ones that do not fit.
 - Nothing here is ever deleted. A rejected record stops the idea coming back.
 
-## Editing the board
+## Editing tasks
 
-Cards live in `docs/planning/tasks/`, one file each. `docs/planning/BOARD.md` is
-a generated view of them. Todo holds at most 15 cards. Run `npm run board` for
-the drag-and-drop board, or `npm run board:host` to reach it from a phone.
-
-The card, board, concept and decision rules live in the `planning-board`
-dependency named in `package.json`, under its bundled `planning-board` skill.
+Cards live in `docs/planning/tasks/`, one Markdown file each. Tasks use a
+`T-nnn` id, `type: task`, one of the statuses Todo, In Progress, In Review,
+Done or Deferred, and a numeric `ordinal`. Ideas use an `I-nnn` id,
+`type: idea`, no status and a numeric `ordinal`. Every card needs a title, its
+filename must start with its id, ids are never reused, and Todo holds at most 15
+tasks. `npm run wiki:check` enforces the protocol.
 
 ## Conventions
 

@@ -46,10 +46,10 @@ the wiki generator runs under `tsx` rather than Node's native type stripping.
 `<!-- generated:name -->` and `<!-- /generated:name -->` is overwritten by
 `npm run wiki`. Change the source data or the generator, never the block.
 
-**`docs/planning/BOARD.md` is generated in full** from cards in
-`docs/planning/tasks/`. This repo caps Todo at 15 cards. Run `npm run board` for
-the board, or `npm run board:host` to reach it from a phone. The mechanical
-rules live in the `planning-board` dependency's bundled `planning-board` skill.
+**Task files follow one checked protocol.** Cards live in
+`docs/planning/tasks/`; their ids, filenames, types, statuses and ordinals are
+validated by `npm run wiki:check`, along with the 15-task Todo limit and links
+between cards, concepts and decisions.
 
 **The wiki never speculates.** It describes what is true *now* — that is why it
 is pinned to source hashes and why its paths are checked. A proposal belongs in
