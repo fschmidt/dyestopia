@@ -1,7 +1,14 @@
 import { expect, test } from '@playwright/test'
 
 import { legalMoves, parseMask } from '../../src/board'
-import { CHAIN_POLICY, POINTS_POLICY, POLICIES, playOut, runStage } from '../../src/playout'
+import {
+  CHAIN_POLICY,
+  POINTS_POLICY,
+  POLICIES,
+  playOut,
+  policyGap,
+  runStage,
+} from '../../src/playout'
 import { startRound } from '../../src/round'
 import { STAGES } from '../../src/stages'
 
@@ -85,4 +92,31 @@ test('a stage with no authored secondaries never grows one from refills', () => 
   for (const playout of playouts) {
     for (const move of playout.moves) expect(move.nonSeed).toBe(0)
   }
+})
+
+/**
+ * The two figures the balance cards have to cite (`T-031`). Both outlived the
+ * combo wave they were built to weigh, because `T-036` and `T-037` measure
+ * their variants the same way.
+ */
+
+test('mixes per run are counted, since the supply question is about them', () => {
+  const { playouts, summary } = runStage(STAGES[9], CHAIN_POLICY, 12, 300)
+  const counted = playouts.map(
+    (playout) => playout.moves.filter((move) => move.kind === 'merge').length,
+  )
+  expect(summary.mixes.mean).toBeCloseTo(
+    counted.reduce((sum, count) => sum + count, 0) / counted.length,
+  )
+  expect(summary.mixes.max).toBe(Math.max(...counted))
+})
+
+test('the greedy-versus-chain gap is chain minus points, and it is its own figure', () => {
+  const points = runStage(STAGES[9], POINTS_POLICY, 12, 88).summary
+  const chain = runStage(STAGES[9], CHAIN_POLICY, 12, 88).summary
+  const gap = policyGap(points, chain)
+  expect(gap.stage).toBe(STAGES[9].name)
+  expect(gap.winRate).toBeCloseTo(chain.winRate - points.winRate)
+  expect(gap.score).toBeCloseTo(chain.score.mean - points.score.mean)
+  expect(gap.movesUsed).toBeCloseTo(chain.movesUsed.mean - points.movesUsed.mean)
 })

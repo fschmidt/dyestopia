@@ -3,7 +3,7 @@ id: T-016
 type: task
 title: iPhone 15 viewport
 status: Done
-ordinal: 400
+ordinal: 600
 labels: [mobile]
 ---
 

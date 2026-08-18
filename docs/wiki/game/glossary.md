@@ -46,5 +46,3 @@ the rest of this wiki assumes.
 **Reshuffle** — A free rearrangement when no legal move remains.
 
 **Tool** — A limited per-run ability, granted by a stage.
-
-**Combo wave** *(prototype)* — A mixed colour absorbs connected tiles matching its ingredients. Off by default.

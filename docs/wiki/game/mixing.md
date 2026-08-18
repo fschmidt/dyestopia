@@ -67,9 +67,3 @@ column is a direct consequence: it is ×1 plus one step per available recipe.
 
 Stages absent from this table have no mixable recipes at all — they are pure
 match-3, and every move there is a swap.
-
-## The combo wave (prototype, off by default)
-
-Behind the `?combo` URL flag, a mixed colour also absorbs connected groups of the
-tiles it was made from. It is an undecided experiment, not part of the game as
-played; its open questions live in [T-012](../../planning/tasks/T-012-resolve-combo-spike.md).

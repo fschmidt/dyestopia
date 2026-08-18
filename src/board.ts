@@ -1,4 +1,4 @@
-import { colorValue, mixComponents, type ColorId } from './colors'
+import { colorValue, type ColorId } from './colors'
 import { rngPick, rngShuffle, type Rng } from './rng'
 
 /**
@@ -170,9 +170,9 @@ export function swapClears(grid: Grid, cells: Cells, a: number, b: number): bool
  * and deliberately *narrower* than the mix's actual effect: only the target
  * converts here, so a mix is legal exactly when the dyed target completes a
  * line with two result-coloured tiles already in place. The dragged tile
- * (which also converts when the mix goes ahead) supplies nothing to legality,
- * and neither does the combo wave — mixes are earned by setup, not conjured
- * by the pair itself. This is what makes drops directional: dragging yellow
+ * (which also converts when the mix goes ahead) supplies nothing to legality —
+ * mixes are earned by setup, not conjured by the pair itself. This is what
+ * makes drops directional: dragging yellow
  * onto a red beside two oranges mixes; dragging that red onto the yellow
  * does not.
  */
@@ -279,104 +279,6 @@ export function legalMoves(grid: Grid, cells: Cells, mix: MixRule = NO_MIX): Leg
         if (move.kind !== 'illegal') out.push({ from, to, move })
       }
     }
-  }
-  return out
-}
-
-/**
- * How far a combo wave travels. `off` is the game as it ships and the baseline
- * every measurement is read against; `full` is the flood-fill prototype; and
- * `contact` is the bounded variant `T-031` exists to weigh against it — only
- * ingredients already touching the merge convert, so the wave is one tile deep
- * and cannot chain. The bound is geometric rather than a cap, so nothing here
- * is a number anyone has to justify.
- */
-export type ComboRule = 'off' | 'full' | 'contact'
-
-export const COMBO_RULES: readonly ComboRule[] = ['off', 'full', 'contact']
-
-/** One tile taking a new colour in a combo wave, `step` hops from the merge. */
-export interface Conversion {
-  index: number
-  color: ColorId
-  /** BFS distance from the triggering change — the ripple's stagger. */
-  step: number
-}
-
-/** The four masked orthogonal neighbours (fewer at edges and gaps). */
-function maskedNeighbours(grid: Grid, index: number): number[] {
-  const out: number[] = []
-  for (const n of [index - grid.cols, index - 1, index + 1, index + grid.cols]) {
-    if (n >= 0 && n < grid.mask.length && isAdjacent(grid, index, n)) out.push(n)
-  }
-  return out
-}
-
-/**
- * The combo prototype (roadmap M3, behind `flags.combo`): a freshly mixed
- * colour *absorbs its own ingredients*. When a tile's colour changes, any
- * adjacent group of either component colour converts to the new colour —
- * an orange merge soaks up neighbouring reds and yellows, flood-fill style —
- * and freshly absorbed tiles keep the wave rolling. Each cell converts at
- * most once, which bounds the whole affair.
- *
- * The wave only ever spreads the merge's result, which is stage-gated by
- * merge legality already — so it never litters the board with colours the
- * stage doesn't play.
- *
- * `rule` picks how far it travels — see `ComboRule`. Under `contact` the
- * group flood and the chaining are both skipped, so what converts is exactly
- * the ingredients the merge already touches.
- *
- * Mutates `cells`; the returned list carries each conversion's BFS distance
- * from the trigger so the scene can play the recolour as a travelling
- * ripple.
- */
-export function comboConversions(
-  grid: Grid,
-  cells: Cells,
-  changed: number[],
-  rule: ComboRule = 'full',
-): Conversion[] {
-  if (rule === 'off') return []
-
-  const out: Conversion[] = []
-  const locked = new Set(changed)
-  let frontier = changed.map((index) => ({ index, step: 0 }))
-
-  while (frontier.length > 0) {
-    const next: { index: number; step: number }[] = []
-    for (const { index, step } of frontier) {
-      const colour = cells[index]
-      if (colour === null) continue
-      const ingredients = mixComponents(colour)
-      if (!ingredients) continue
-      for (const contact of maskedNeighbours(grid, index)) {
-        if (locked.has(contact)) continue
-        const other = cells[contact]
-        if (other === null || !ingredients.includes(other)) continue
-
-        // Flood the connected `other`-coloured group from the contact point,
-        // converting as it goes — the wave rolls outward through the group,
-        // not to colour twins elsewhere on the board.
-        const queue = [{ index: contact, step: step + 1 }]
-        locked.add(contact)
-        while (queue.length > 0) {
-          const tile = queue.shift()!
-          cells[tile.index] = colour
-          out.push({ index: tile.index, color: colour, step: tile.step })
-          if (rule === 'contact') continue
-          next.push(tile)
-          for (const beyond of maskedNeighbours(grid, tile.index)) {
-            if (!locked.has(beyond) && cells[beyond] === other) {
-              locked.add(beyond)
-              queue.push({ index: beyond, step: tile.step + 1 })
-            }
-          }
-        }
-      }
-    }
-    frontier = next
   }
   return out
 }

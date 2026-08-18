@@ -25,7 +25,6 @@ to `main`.
 | [`src/colors.ts`](../../../src/colors.ts) | Colour identity and mixing rules — the game-logic half of a colour. |
 | [`src/config.ts`](../../../src/config.ts) | — |
 | [`src/debug.ts`](../../../src/debug.ts) | — |
-| [`src/flags.ts`](../../../src/flags.ts) | Prototype toggles — switches for mechanics on trial, reachable from the console (`dyestopia.combo(true)`) or the URL (`?combo`, for phones without a console). |
 | [`src/main.ts`](../../../src/main.ts) | — |
 | [`src/palette.ts`](../../../src/palette.ts) | Chrome colours — the page around the game, and text. |
 | [`src/playout.ts`](../../../src/playout.ts) | Playing a stage with no screen attached. |
@@ -62,7 +61,7 @@ to `main`.
 
 ## The shape of it
 
-<!-- pin:src/board.ts sha=fe9facbec014 -->
+<!-- pin:src/board.ts sha=8f7583136143 -->
 
 **The engine** is `src/board.ts`. It is pure: grids, masks, matches, gravity,
 refills, cascades, reshuffles and chain bookkeeping, with no Phaser import and no

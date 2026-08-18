@@ -3,7 +3,7 @@ id: T-022
 type: task
 title: Headless playout harness
 status: In Review
-ordinal: 100
+ordinal: 200
 labels: [engine, testing]
 ---
 
@@ -37,6 +37,8 @@ same call can play a round with no screen attached — AC #1 is done.
 `tests/play/match.spec.ts` had kept a hand-copied replay of the loop to predict where
 the live game should land, which was precisely the drift warned about above; it
 now calls `resolveCascade`, so the prediction and the game cannot diverge.
+(That call lived in the combo test, which `D-004` removed along with the wave —
+the loss is recorded there and is worth restoring on a non-combo move.)
 
 **The round lifecycle is lifted too.** `src/round.ts` is the layer above the
 cascade and equally Phaser-free: `startRound` deals a stage from a seed,

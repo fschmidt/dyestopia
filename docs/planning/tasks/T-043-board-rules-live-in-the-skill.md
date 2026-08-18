@@ -3,7 +3,7 @@ id: T-043
 type: task
 title: Let the skill own the board rules
 status: Done
-ordinal: 1500
+ordinal: 900
 labels: [docs, tooling]
 ---
 

@@ -14,7 +14,8 @@ Concepts emit decisions. A decision can also stand alone, and a card labelled
 
 - `D-003` [Progression is per mode, and mode access is the only thing shared](D-003-progression-is-per-mode.md)
 
-### Accepted (2)
+### Accepted (3)
 
 - `D-001` [Concepts and decisions live outside the wiki](D-001-concepts-and-decisions.md)
 - `D-002` [Result-tile supply is a flow, not a stock](D-002-supply-is-a-flow.md)
+- `D-004` [The combo wave is removed](D-004-the-combo-wave-is-removed.md) · `T-012`

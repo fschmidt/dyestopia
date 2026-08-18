@@ -17,7 +17,7 @@
  * easier or harder than it was", never as "this stage is 60% winnable".
  */
 
-import { clearScore, findMatches, legalMoves, scoreResolutionForMerge, scoreResolutionForSwap, type Cells, type ComboRule, type LegalMove } from './board'
+import { clearScore, findMatches, legalMoves, scoreResolutionForMerge, scoreResolutionForSwap, type Cells, type LegalMove } from './board'
 import type { ColorId } from './colors'
 import { playMove, settleRound, startRound, type Outcome, type RoundState } from './round'
 import type { Stage } from './stage'
@@ -138,9 +138,6 @@ export interface Playout {
 }
 
 export interface PlayoutOptions {
-  /** The combo wave's reach. `off` is the default, and the baseline every
-   * variant is read against. */
-  combo?: ComboRule
   /**
    * Stops a bottomless stage (the dev board's budget is effectively infinite)
    * from running forever. A playout that hits it is reported, never counted as
@@ -166,7 +163,7 @@ export function playOut(
   options: PlayoutOptions = {},
 ): Playout {
   const maxMoves = options.maxMoves ?? DEFAULT_MAX_MOVES
-  const round = startRound(stage, { seed, combo: options.combo })
+  const round = startRound(stage, { seed })
   const moves: MoveRecord[] = []
   let truncated = false
 
