@@ -3,7 +3,7 @@ id: T-025
 type: task
 title: Ramp the stage sequence
 status: Todo
-ordinal: 1000
+ordinal: 100
 labels: [stages, balance]
 ---
 

@@ -3,7 +3,7 @@ id: T-037
 type: task
 title: Measure the cascade and scoring-order levers
 status: Todo
-ordinal: 400
+ordinal: 200
 labels: [engine, testing, balance]
 ---
 

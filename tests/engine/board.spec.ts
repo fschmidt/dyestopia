@@ -8,6 +8,7 @@ import {
   findLegalMove,
   findMatches,
   generateBoard,
+  legalMoves,
   mergeClears,
   parseMask,
   refill,
@@ -313,6 +314,61 @@ test.describe('merge resolution', () => {
     expect(resolveMove(row, cells, mixResult, 0, 4, { allowDistant: true })).toEqual({
       kind: 'illegal',
     })
+  })
+})
+
+/**
+ * The `T-036` variant. `C-001` §4 names mix legality the largest single
+ * influence on how available chain play is, and the one lever no parameter can
+ * reach — it is a branch, so the only way to weigh it is to build the second
+ * form and play both.
+ */
+test.describe('mix legality as a variant', () => {
+  const anyMix = { mixLegality: 'any-mix' } as const
+  const row = parseMask(['####'])
+
+  test('a mix that clears nothing is legal under any-mix and refused under the baseline', () => {
+    // r+y mix into orange, but no orange line exists in either direction —
+    // the pair alone is exactly what the baseline refuses.
+    const cells = cellsOf(row, ['ryrb'])
+    expect(resolveMove(row, cells, mixResult, 0, 1)).toEqual({ kind: 'illegal' })
+    expect(resolveMove(row, cells, mixResult, 0, 1, { rules: anyMix })).toEqual({
+      kind: 'merge',
+      result: 'orange',
+    })
+  })
+
+  test('the baseline is a strict subset — no drop resolves differently', () => {
+    // A clearing merge stays a merge, and the direction whose mix cannot clear
+    // still falls through to the swap rather than being taken by a dry merge.
+    // That precedence is what keeps the variant additive: it speaks only where
+    // the baseline refused, so it can never take an option away.
+    const grid = parseMask(['####', '####', '####'])
+    const cells = cellsOf(grid, ['ryoo', 'yrgb', 'ybgg'])
+    for (const [from, to] of [[0, 1], [1, 0]] as const) {
+      expect(resolveMove(grid, cells, mixResult, from, to, { rules: anyMix })).toEqual(
+        resolveMove(grid, cells, mixResult, from, to),
+      )
+    }
+  })
+
+  test('a board dead under the baseline can be alive under any-mix', () => {
+    // No swap and no clearing mix — but red and yellow still mix, so the
+    // variant has a move where the baseline has none. Which is also why the
+    // deal is held at the baseline: a variant that accepted boards the game
+    // would call dead would not be dealing the same opening.
+    const cells = cellsOf(row, ['ryrb'])
+    expect(findLegalMove(row, cells, mixResult)).toBeNull()
+    expect(findLegalMove(row, cells, mixResult, anyMix)).toEqual([0, 1])
+  })
+
+  test('every legal move survives the variant, and more join them', () => {
+    const grid = parseMask(['####', '####', '####'])
+    const cells = cellsOf(grid, ['ryoo', 'yrgb', 'ybgg'])
+    const baseline = legalMoves(grid, cells, mixResult)
+    const relaxed = legalMoves(grid, cells, mixResult, anyMix)
+    expect(relaxed.length).toBeGreaterThan(baseline.length)
+    for (const move of baseline) expect(relaxed).toContainEqual(move)
   })
 })
 

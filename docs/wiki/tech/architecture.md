@@ -56,12 +56,13 @@ to `main`.
 | [`src/tutorials.ts`](../../../src/tutorials.ts) | — |
 | [`src/ui/components.ts`](../../../src/ui/components.ts) | — |
 | [`src/ui/visual-system.ts`](../../../src/ui/visual-system.ts) | — |
+| [`src/variants.ts`](../../../src/variants.ts) | Rule variants the harness can select. |
 | [`src/vite-env.d.ts`](../../../src/vite-env.d.ts) | — |
 <!-- /generated:filemap -->
 
 ## The shape of it
 
-<!-- pin:src/board.ts sha=8f7583136143 -->
+<!-- pin:src/board.ts sha=ad9c5a81e5be -->
 
 **The engine** is `src/board.ts`. It is pure: grids, masks, matches, gravity,
 refills, cascades, reshuffles and chain bookkeeping, with no Phaser import and no
@@ -106,6 +107,15 @@ score spread, moves used, and the standing count of non-seed tiles. Every move
 goes through `playMove`, so the simulator cannot drift from the game. Its
 numbers compare configurations under a fixed policy; they are not predictions of
 human difficulty, and the report says so on every run.
+
+**Rule variants** are `src/variants.ts`. Some of the levers worth weighing are
+branches rather than values — mix legality is the largest — so no parameter
+reaches them and the only way to measure one is to build a second form of the
+rule and play both. A `RuleSet` says which form a round uses; it rides on
+`RoundState` and reaches the engine through `resolveMove`. Nothing a player can
+reach selects one: `GameScene` asks for no rule set, so the game is the baseline
+by construction, and a variant that turns out to be worth shipping stops being a
+variant.
 
 **Scenes** live in `src/scenes/`, run Boot → Menu → StageSelect → Game/Settings,
 and all extend `BaseScene`. `GameScene` is by far the largest module in the

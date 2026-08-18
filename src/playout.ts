@@ -18,9 +18,10 @@
  */
 
 import { clearScore, findMatches, legalMoves, scoreResolutionForMerge, scoreResolutionForSwap, type Cells, type LegalMove } from './board'
-import type { ColorId } from './colors'
+import { colorTier, type ColorId } from './colors'
 import { playMove, settleRound, startRound, type Outcome, type RoundState } from './round'
 import type { Stage } from './stage'
+import { BASELINE_RULES, type RuleSet } from './variants'
 
 /**
  * How a bot picks its move. Given the settled board and every legal drop on
@@ -107,7 +108,37 @@ export const CHAIN_POLICY: Policy = {
   },
 }
 
-export const POLICIES: Policy[] = [POINTS_POLICY, CHAIN_POLICY]
+/**
+ * Mix at every opportunity and cash in only when there is nothing left to mix.
+ *
+ * Under the baseline this is barely distinguishable from `chain` — every merge
+ * clears, so hoarding mixes and spending them are the same act, which is
+ * `C-001`'s point about the two being welded together. Under `any-mix` it is
+ * the question `C-001` leaves open made into a bot: if a merge can resolve
+ * without clearing, what stops a player mixing the whole board before cashing
+ * in once? This one tries, and the move budget is the only thing in its way
+ * (`T-036` AC #3).
+ */
+export const HOARD_POLICY: Policy = {
+  id: 'hoard',
+  label: 'mixes while it can',
+  choose: (round, options) => {
+    const merges = options.filter((option) => option.move.kind === 'merge')
+    if (merges.length === 0) return best(round, options)
+
+    // Prefer a mix that grows the chain; failing that, any mix at all. Score is
+    // deliberately not the tie-break — a hoarder that fell back to points would
+    // stop being a test of hoarding.
+    const growers = merges.filter(
+      (option) =>
+        option.move.kind === 'merge' && !round.colorChain.results.includes(option.move.result),
+    )
+    const pool = growers.length > 0 ? growers : merges
+    return pool.reduce((choice, option) => (option.from < choice.from ? option : choice), pool[0])
+  },
+}
+
+export const POLICIES: Policy[] = [POINTS_POLICY, CHAIN_POLICY, HOARD_POLICY]
 
 /** One move as the harness saw it. */
 export interface MoveRecord {
@@ -123,6 +154,19 @@ export interface MoveRecord {
    * drop seeds only. This is the count that settles it.
    */
   nonSeed: number
+  /**
+   * Tiles this move cleared, cascades included. Zero on a merge is a *dry
+   * mix* — impossible under the baseline, where a merge is only legal if it
+   * clears, and the whole point of the `any-mix` variant.
+   */
+  cleared: number
+  /**
+   * Tier-2 tiles among them. `T-036` treats this as the variant's real test:
+   * no tertiary clear has ever been observed in play, so a rule that raises
+   * the win rate without producing one has not solved the problem it was cut
+   * for, whatever else it moved.
+   */
+  tertiaries: number
   /** The board was dead after this move and had to be rearranged. */
   reshuffled: boolean
 }
@@ -144,6 +188,11 @@ export interface PlayoutOptions {
    * a loss.
    */
   maxMoves?: number
+  /**
+   * Which form of each branching rule to play under. Defaults to the baseline,
+   * so a caller that does not care about variants gets the game as it ships.
+   */
+  rules?: RuleSet
 }
 
 const DEFAULT_MAX_MOVES = 500
@@ -163,7 +212,8 @@ export function playOut(
   options: PlayoutOptions = {},
 ): Playout {
   const maxMoves = options.maxMoves ?? DEFAULT_MAX_MOVES
-  const round = startRound(stage, { seed })
+  const rules = options.rules ?? BASELINE_RULES
+  const round = startRound(stage, { seed, rules })
   const moves: MoveRecord[] = []
   let truncated = false
 
@@ -172,7 +222,7 @@ export function playOut(
       truncated = true
       break
     }
-    const options_ = legalMoves(round.grid, round.cells, round.mix)
+    const options_ = legalMoves(round.grid, round.cells, round.mix, rules)
     // The board is reshuffled while it still has moves left, so an empty list
     // means the rules have run out of answers rather than the bot having.
     if (options_.length === 0) break
@@ -183,12 +233,15 @@ export function playOut(
     if (!report) throw new Error(`Policy "${policy.id}" chose a move the rules refuse`)
     const settlement = settleRound(round)
 
+    const cleared = report.waves.flatMap((wave) => wave.colors)
     moves.push({
       kind: report.kind,
       points: round.score - before,
       waves: report.waves.length,
       multiplier: report.resolution.multiplier,
       nonSeed: nonSeedCount(round.cells, stage.seed),
+      cleared: cleared.length,
+      tertiaries: cleared.filter((color) => colorTier(color) === 2).length,
       reshuffled: settlement.reshuffled !== null,
     })
   }
@@ -240,6 +293,14 @@ export interface Summary {
    * chain play any more available, it has only paid better for the same play.
    */
   mixes: Spread
+  /**
+   * Merges that cleared nothing, per run. Always zero under the baseline —
+   * a non-zero column is the `any-mix` variant doing the thing it exists to
+   * do, and the number to read the supply figures against.
+   */
+  dryMixes: Spread
+  /** Tier-2 tiles cleared per run. See `MoveRecord.tertiaries`. */
+  tertiaries: Spread
   reshuffles: Spread
 }
 
@@ -264,6 +325,17 @@ export function summarise(stage: Stage, policy: Policy, playouts: Playout[]): Su
     },
     mixes: spread(
       playouts.map((playout) => playout.moves.filter((move) => move.kind === 'merge').length),
+    ),
+    dryMixes: spread(
+      playouts.map(
+        (playout) =>
+          playout.moves.filter((move) => move.kind === 'merge' && move.cleared === 0).length,
+      ),
+    ),
+    tertiaries: spread(
+      playouts.map((playout) =>
+        playout.moves.reduce((sum, move) => sum + move.tertiaries, 0),
+      ),
     ),
     reshuffles: spread(
       playouts.map((playout) => playout.moves.filter((move) => move.reshuffled).length),

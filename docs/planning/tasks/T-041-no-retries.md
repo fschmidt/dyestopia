@@ -3,7 +3,7 @@ id: T-041
 type: task
 title: Turn the retries off
 status: Todo
-ordinal: 1300
+ordinal: 900
 labels: [testing, ci]
 ---
 

@@ -1,5 +1,6 @@
 import { colorValue, type ColorId } from './colors'
 import { rngPick, rngShuffle, type Rng } from './rng'
+import { BASELINE_RULES, type RuleSet } from './variants'
 
 /**
  * The match engine: everything about the board that is true regardless of how
@@ -206,6 +207,16 @@ export type Move = { kind: 'merge'; result: ColorId } | { kind: 'swap' } | { kin
  * Ordinary play requires adjacency. A one-use tool may set `allowDistant`;
  * that removes only the geometry constraint, leaving every other legality
  * rule—including the requirement to make an immediate match—unchanged.
+ *
+ * Under `any-mix` (`T-036`) a **fourth** step goes in front of the refusal: a
+ * pair that mixes resolves as a merge even though nothing clears. It is put
+ * last rather than folded into step 1 deliberately. Letting a dry merge
+ * outrank a clearing swap would take options *away* from a player — every
+ * mixable pair that clears by swapping would stop being able to — and a
+ * variant that both adds and removes moves cannot be read off a win rate. Here
+ * the baseline is a strict subset: every drop legal under `must-clear`
+ * resolves identically, and the variant only speaks where the drop was
+ * refused.
  */
 export function resolveMove(
   grid: Grid,
@@ -213,7 +224,7 @@ export function resolveMove(
   mix: MixRule,
   from: number,
   to: number,
-  options: { allowDistant?: boolean } = {},
+  options: { allowDistant?: boolean; rules?: RuleSet } = {},
 ): Move {
   const dragged = cells[from]
   const target = cells[to]
@@ -226,6 +237,8 @@ export function resolveMove(
   const result = mix(dragged, target)
   if (result && mergeClears(grid, cells, to, result)) return { kind: 'merge', result }
   if (swapClears(grid, cells, from, to)) return { kind: 'swap' }
+  const rules = options.rules ?? BASELINE_RULES
+  if (result && rules.mixLegality === 'any-mix') return { kind: 'merge', result }
   return { kind: 'illegal' }
 }
 
@@ -239,14 +252,15 @@ export function findLegalMove(
   grid: Grid,
   cells: Cells,
   mix: MixRule = NO_MIX,
+  rules: RuleSet = BASELINE_RULES,
 ): [number, number] | null {
   for (let index = 0; index < grid.mask.length; index++) {
     if (!grid.mask[index]) continue
     for (const other of [index + 1, index + grid.cols]) {
-      if (resolveMove(grid, cells, mix, index, other).kind !== 'illegal') {
+      if (resolveMove(grid, cells, mix, index, other, { rules }).kind !== 'illegal') {
         return [index, other]
       }
-      if (resolveMove(grid, cells, mix, other, index).kind !== 'illegal') {
+      if (resolveMove(grid, cells, mix, other, index, { rules }).kind !== 'illegal') {
         return [other, index]
       }
     }
@@ -269,13 +283,18 @@ export interface LegalMove {
  *
  * Adjacent pairs are tried both ways round, since mixes are directional.
  */
-export function legalMoves(grid: Grid, cells: Cells, mix: MixRule = NO_MIX): LegalMove[] {
+export function legalMoves(
+  grid: Grid,
+  cells: Cells,
+  mix: MixRule = NO_MIX,
+  rules: RuleSet = BASELINE_RULES,
+): LegalMove[] {
   const out: LegalMove[] = []
   for (let index = 0; index < grid.mask.length; index++) {
     if (!grid.mask[index]) continue
     for (const other of [index + 1, index + grid.cols]) {
       for (const [from, to] of [[index, other], [other, index]] as const) {
-        const move = resolveMove(grid, cells, mix, from, to)
+        const move = resolveMove(grid, cells, mix, from, to, { rules })
         if (move.kind !== 'illegal') out.push({ from, to, move })
       }
     }
@@ -291,6 +310,15 @@ export function legalMoves(grid: Grid, cells: Cells, mix: MixRule = NO_MIX): Leg
  * how stages start a primaries-seeded board with a few secondaries already
  * placed. Preset cells survive the deal untouched; three of them in a line
  * is an authoring error, not something the deal can fix, so it throws.
+ *
+ * **The deal takes no `RuleSet`, on purpose.** Its legality check is what
+ * decides whether a board is rerolled, and a reroll draws from `rng` — so a
+ * variant that made boards easier to accept would deal a *different opening*
+ * from the same seed, and every row after it would compare two different games
+ * rather than two rules. Holding the deal at the baseline hands both rules the
+ * same board and leaves the variant to be measured on what a player may do
+ * with it. It is also the stricter of the two guarantees, so no variant is
+ * ever dealt a board it would call dead.
  */
 export function generateBoard(
   grid: Grid,
@@ -346,6 +374,7 @@ export function reshuffle(
   cells: Cells,
   rng: Rng,
   mix: MixRule = NO_MIX,
+  rules: RuleSet = BASELINE_RULES,
 ): { cells: Cells; moves: CellMove[] } {
   const occupied: number[] = []
   for (let index = 0; index < grid.mask.length; index++) {
@@ -366,7 +395,7 @@ export function reshuffle(
   let fallback: { cells: Cells; moves: CellMove[] } | null = null
   let attempt = arrange()
   for (let tries = 0; tries < 120; tries++) {
-    const live = findLegalMove(grid, attempt.cells, mix) !== null
+    const live = findLegalMove(grid, attempt.cells, mix, rules) !== null
     if (live && findMatches(grid, attempt.cells).size === 0) return attempt
     if (live && !fallback) fallback = attempt
     attempt = arrange()
