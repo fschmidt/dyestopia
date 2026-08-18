@@ -19,7 +19,6 @@
 import {
   advanceColorChain,
   breakColorChain,
-  comboConversions,
   findLegalMove,
   generateBoard,
   parseMask,
@@ -32,8 +31,6 @@ import {
   type Cells,
   type CellMove,
   type ColorChain,
-  type ComboRule,
-  type Conversion,
   type Grid,
   type MixRule,
   type ScoreResolution,
@@ -55,13 +52,6 @@ export interface RoundState {
   readonly mix: MixRule
   /** The chain multiplier this stage's recipes can build up to. */
   readonly maxMultiplier: number
-  /**
-   * The M3 combo spike, passed in rather than read from `flags` — that module
-   * reads `window`. A rule rather than a switch so `T-031` can weigh the
-   * bounded variant against the full wave; the game only ever asks for `off`
-   * or `full`.
-   */
-  readonly combo: ComboRule
 
   cells: Cells
   rng: Rng
@@ -80,7 +70,6 @@ export interface RoundState {
 export interface RoundOptions {
   /** Seeds the round's one `mulberry32` stream. Same seed in, same round out. */
   seed?: number
-  combo?: ComboRule
 }
 
 /**
@@ -97,7 +86,6 @@ export function startRound(stage: Stage, options: RoundOptions = {}): RoundState
     grid,
     mix,
     maxMultiplier: stageMaxMultiplier(stage),
-    combo: options.combo ?? 'off',
     cells: generateBoard(grid, stage.seed, rng, mix, stagePreset(stage.board, grid)),
     rng,
     score: 0,
@@ -119,8 +107,6 @@ export interface MoveReport {
   previousMultiplier: number
   /** The resolution this move's clears scored at, cascades included. */
   resolution: ScoreResolution
-  /** Combo conversions, already applied to `cells`. Empty unless `combo` is on. */
-  conversions: Conversion[]
   waves: CascadeWave[]
   /** The score before the cascade — add wave points to replay the climb. */
   scoreBefore: number
@@ -162,14 +148,12 @@ export function playMove(
   const previousMultiplier = round.colorChain.multiplier
   if (!round.endless) round.movesLeft--
 
-  let conversions: Conversion[] = []
   if (move.kind === 'merge') {
     // The merge clears at the chain it arrived with; its result raises the
     // chain only for later moves.
     round.resolution = scoreResolutionForMerge(round.colorChain, round.maxMultiplier)
     round.colorChain = advanceColorChain(round.colorChain, move.result, round.maxMultiplier)
     round.cells[from] = round.cells[to] = move.result
-    conversions = comboConversions(round.grid, round.cells, [from, to], round.combo)
   } else {
     round.resolution = scoreResolutionForSwap(round.colorChain, round.maxMultiplier)
     ;[round.cells[from], round.cells[to]] = [round.cells[to], round.cells[from]]
@@ -206,7 +190,6 @@ export function playMove(
     result: move.kind === 'merge' ? move.result : undefined,
     previousMultiplier,
     resolution,
-    conversions,
     waves,
     scoreBefore,
     thresholdWave,

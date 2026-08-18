@@ -526,44 +526,6 @@ export class Tile extends Phaser.GameObjects.Container {
     this.mixPulse(from, onDone)
   }
 
-  /**
-   * Take a combo conversion — one beat of the prototype's ripple. A lighter,
-   * quicker cousin of the merge pulse, its numbers derived from the merge
-   * block: a mechanic on trial doesn't earn its own parameters until it
-   * survives playtesting.
-   */
-  convert(result: Dye, onDone?: () => void): void {
-    const m = this.shape.motion
-    const from = this._dye.value
-    this._dye = result
-    this.updateColorTier()
-    this.killMotion()
-    this.moving = true
-
-    this.base.anims.timeScale = m.merge.agitation
-    this.scene.tweens.add({ targets: this.base.anims, timeScale: 1, duration: 300 })
-    this.scene.tweens.chain({
-      targets: this,
-      tweens: [
-        {
-          scale: 1 + (m.merge.swell - 1) * 0.55,
-          duration: m.merge.rise * 0.7,
-          ease: 'Quad.easeOut',
-        },
-        { scale: 1, duration: m.merge.settle * 0.7, ease: m.merge.settleEase },
-      ],
-      onComplete: () => {
-        this.moving = false
-        this.glint()
-        onDone?.()
-      },
-    })
-
-    const peak = lighten(result.value, 0.35)
-    this.tintTo(from, peak, m.merge.tint * 0.3, () =>
-      this.tintTo(peak, result.value, m.merge.tint * 0.4),
-    )
-  }
 
   /**
    * The mixing pulse: swell, settle, idle-loop thrash-and-calm, and the tint

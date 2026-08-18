@@ -1,6 +1,5 @@
 import type Phaser from 'phaser'
 
-import { flags } from './flags'
 import { progressState, resetProgress, unlockedCount, type ProgressState } from './progress'
 import { plantSeed } from './rng'
 import type { BoardReport } from './scenes/GameScene'
@@ -93,14 +92,6 @@ export interface DyestopiaDebug {
    * transition observable instead of assumed.
    */
   generation(): number
-  /**
-   * Toggle the combo-mixing prototype (roadmap M3): after a legal mix, the
-   * result colour absorbs adjacent groups of its own ingredients. Pure
-   * effect — legality is the target-anchored rule either way. Takes effect
-   * on the next drop — mid-round is fine. Also on via `?combo` in the URL,
-   * for phones. Returns the current state.
-   */
-  combo(on?: boolean): boolean
 }
 
 declare global {
@@ -210,11 +201,6 @@ export function exposeDebugApi(game: Phaser.Game): void {
     sfxLog: () => sfxLog(),
 
     resetProgress: () => resetProgress(),
-
-    combo: (on) => {
-      if (on !== undefined) flags.combo = on
-      return flags.combo
-    },
 
     board: () => {
       const scene = requireScene(game, 'Game') as unknown as { boardState?: () => BoardReport }

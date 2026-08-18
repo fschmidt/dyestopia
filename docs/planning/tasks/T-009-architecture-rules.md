@@ -3,7 +3,7 @@ id: T-009
 type: task
 title: Architecture rules
 status: Done
-ordinal: 200
+ordinal: 300
 labels: [docs]
 ---
 

@@ -3,7 +3,7 @@ id: T-015
 type: task
 title: Consistent stage-select design
 status: Done
-ordinal: 300
+ordinal: 500
 labels: [visuals]
 ---
 

@@ -5,7 +5,6 @@ import {
   advanceColorChain,
   breakColorChain,
   clearScore,
-  comboConversions,
   findLegalMove,
   findMatches,
   generateBoard,
@@ -314,39 +313,6 @@ test.describe('merge resolution', () => {
     expect(resolveMove(row, cells, mixResult, 0, 4, { allowDistant: true })).toEqual({
       kind: 'illegal',
     })
-  })
-})
-
-test.describe('combo conversions (M3 prototype)', () => {
-  test('the fresh colour absorbs adjacent ingredient groups, and the wave chains', () => {
-    const grid = parseMask(['#####'])
-    // The orange at 0 just changed. It soaks up the red group, the absorbed
-    // tiles reach the yellow, and that reaches the last red — the whole row
-    // rolls orange, one step at a time.
-    const cells = cellsOf(grid, ['orryr'])
-    expect(comboConversions(grid, cells, [0])).toEqual([
-      { index: 1, color: 'orange', step: 1 },
-      { index: 2, color: 'orange', step: 2 },
-      { index: 3, color: 'orange', step: 3 },
-      { index: 4, color: 'orange', step: 4 },
-    ])
-    expect(cells).toEqual(new Array(5).fill('orange'))
-  })
-
-  test('non-ingredient colours stop the wave — twins beyond stay put', () => {
-    const grid = parseMask(['#####'])
-    // Green absorbs blue and yellow only; the red wall shields the far blue.
-    const cells = cellsOf(grid, ['gbbrb'])
-    expect(comboConversions(grid, cells, [0])).toEqual([
-      { index: 1, color: 'green', step: 1 },
-      { index: 2, color: 'green', step: 2 },
-    ])
-    expect(cells).toEqual(['green', 'green', 'green', 'red', 'blue'])
-  })
-
-  test('primaries absorb nothing — only mixed colours have ingredients', () => {
-    const grid = parseMask(['###'])
-    expect(comboConversions(grid, cellsOf(grid, ['ryb']), [0])).toEqual([])
   })
 })
 

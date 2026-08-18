@@ -116,7 +116,7 @@ bounding the floor reads as fair while placing the useful tile does not.
 | **Legality without clearing** — a merge is legal, costs a move, and leaves two result tiles standing | −2 becomes +2, and mixing becomes investment | The largest change on the table; removes "earned by setup", and the move budget becomes the only brake |
 | **Cascade-earned supply** — a wave seeds a result tile | Rate, tied to skilful play rather than a timer | Cascades currently have no second role, so this invents one |
 | **Pity floor on mixable material** — seed-only until the board has offered no legal mix for N moves, then one drop | Rate, with a floor and no steering | A new counter in the engine; N is a parameter nobody has measured |
-| **Combo wave** (`T-012`) | Genuine +N | Pays on every mix regardless of setup, which is the "too easy" half of the problem |
+| ~~**Combo wave**~~ — **rejected, `D-004`** | Genuine +N, and measured as such | Pays on every mix regardless of setup. `T-031` found it lifts the greedy line as fast as the chain line, which is the "too easy" half of the problem confirmed rather than feared |
 | **Richer opening deals** | Still a stock | Does not change the shape; postpones the same wall |
 
 A **tool** that relieves the scarcity is deliberately absent from this table. A
@@ -248,16 +248,6 @@ not conclusions — the contested ones are collected under
 | `board` | mask plus preset letters | [src/stages.ts](../../src/stages.ts) | Content |
 | `tools` | free-move counts | [src/stage.ts](../../src/stage.ts) | Content |
 
-#### The combo prototype, behind `flags.combo`
-
-| Thing | Value today | Where | Call |
-| --- | --- | --- | --- |
-| Wave shape | flood-fill through connected groups of either ingredient colour | `comboConversions`, [src/board.ts](../../src/board.ts) | Prototype |
-| Wave reach | `off`, `full` or `contact` — `contact` is the bounded variant, one tile deep and unable to chain | `ComboRule`, [src/board.ts](../../src/board.ts) | Measured by `T-031`; the game only ever asks for `off` or `full` |
-| Convert-once | each cell converts at most once per wave | `comboConversions`, [src/board.ts](../../src/board.ts) | Rule — the only thing bounding it |
-| Colour gating | the wave only ever spreads the merge result, which merge legality has already stage-gated | `comboConversions`, [src/board.ts](../../src/board.ts) | Rule |
-| Effect on legality | none — legality is decided before the wave runs | `mergeClears`, [src/board.ts](../../src/board.ts) | Rule |
-
 #### What the inventory turned up
 
 Three things worth stating outright, because they were not obvious before the
@@ -323,18 +313,17 @@ tuning:
   chain a player builds only pays out on *later* moves. Whether the result should
   count toward its own clear is a rule, and it bears directly on `T-024`.
 
-The combo wave is a fourth, and it is the one that has been measured. `T-031`
-ran all ten stages under three reaches — off, the full flood fill, and a variant
-bounded to the ingredients the merge already touches — and the result is worth
-carrying into the levers above, because it is a negative one. Combo does what
-this concept predicted for supply: mixes per move rise and the non-seed pool
-stops draining. It does nothing whatever for the multiplier problem — the
-greedy-versus-chain win gap is flat or narrower on nine stages of ten, and
-rounds shorten by around 40% where the wave fires. Manufacturing result tiles
-was the obvious answer to [the conflict underneath](#the-conflict-underneath)
-and it turns out to pay whoever was already winning. The numbers are in `T-031`;
-the reason to read them here is that they are the argument for spending the
-remaining effort on mix legality rather than on more supply.
+A fourth lever was measured and then removed, and the result is the reason to
+take the three above seriously. The combo wave manufactured result tiles: `T-031`
+ran all ten stages under three reaches and found it did exactly what this concept
+predicted for supply — mixes per move rise, the non-seed pool stops draining —
+and nothing whatever for the multiplier problem. The greedy-versus-chain win gap
+was flat or narrower on nine stages of ten, and rounds shortened by around 40%
+where the wave fired. Manufacturing result tiles was the obvious answer to
+[the conflict underneath](#the-conflict-underneath), and it turned out to pay
+whoever was already winning, sooner. The wave is gone (`D-004`); the finding is
+the argument for spending what is left on mix legality rather than on more
+supply.
 
 ### 5. How it gets tested
 
@@ -527,10 +516,10 @@ The distinction that rescues it is between **absolute** and **relative** claims:
   simulation-derived thresholds already documented in
   [src/stages.ts](../../src/stages.ts) are exactly this kind of claim and should
   be treated as provisional.
-- Comparing two configurations under a fixed policy — combo off versus on, the
+- Comparing two configurations under a fixed policy — a wave off versus on, the
   greedy line versus the chain line — is a relative claim, and a weak but
-  *consistent* policy supports it. This is what `T-031` actually asks for, so
-  `T-031` is sound as written.
+  *consistent* policy supports it. That is what `T-031` asked for, and it is why
+  a greedy bot could settle `D-004`.
 
 Two adjustments follow. `T-022` should report **win rate as its headline metric**
 rather than score distribution, because that is the unit everything else in the
@@ -587,12 +576,16 @@ draw table by context, and we vary ours not at all.
   existing at all. Owed by `T-035`.
 - **The refill model** — the live candidate is a pity counter over mixable
   supply, not a bag and not the Tetris lineage. Depends on `T-031`. Owed by
-  `T-038`, which chooses between it and the other candidates.
+  `T-038`, which chooses between it and the other candidates. One candidate is
+  already out: the combo wave was measured and removed as **`D-004`**, and the
+  reason generalises — a mechanism that only manufactures supply pays the greedy
+  player as much as the builder.
 - **The treatment of mix legality**, plus the two further rule-shaped levers the
   inventory found (wave multiplier inheritance, merge scoring order). The
   legality lever moves supply and the multiplier together, so it should not be
   decided before both are measured. Measured by `T-036` and `T-037`; decided by
-  `T-024`, `T-012` and `T-038` on their numbers.
+  `T-024` and `T-038` on their numbers. `T-012` decided its own lever and is
+  closed — see `D-004`.
 
 ## Open questions
 

@@ -3,7 +3,7 @@ id: T-042
 type: task
 title: Move the board onto the extracted package
 status: Done
-ordinal: 1400
+ordinal: 800
 labels: [tooling]
 ---
 
