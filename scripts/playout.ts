@@ -102,6 +102,15 @@ const padLeft = (text: string, width: number) => text.padStart(width)
 const round1 = (value: number) => value.toFixed(1)
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`
 
+/**
+ * A per-move rate, as a ratio of the two means. Round length is itself one of
+ * the things a combo rule changes, so a count per *run* moves for two reasons
+ * at once and a reader cannot tell them apart — mixes fall under the full wave
+ * while mixing becomes more available, because the round ends sooner. The rate
+ * separates them.
+ */
+const rate = (value: number, moves: number) => (moves === 0 ? '—' : (value / moves).toFixed(2))
+
 const signed = (value: number, digits = 1) =>
   `${value > 0 ? '+' : value < 0 ? '−' : '±'}${Math.abs(value).toFixed(digits)}`
 const signedPercent = (value: number) =>
@@ -135,9 +144,11 @@ function reportTable(rows: Row[], rules: ComboRule[]): void {
     ['max', ({ summary }) => `${summary.score.max}`],
     ['Moves', ({ summary }) => round1(summary.movesUsed.mean)],
     ['Mixes', ({ summary }) => round1(summary.mixes.mean)],
+    ['per move', ({ summary }) => rate(summary.mixes.mean, summary.movesUsed.mean)],
     ['Non-seed open', ({ summary }) => round1(summary.nonSeed.opening)],
     ['close', ({ summary }) => round1(summary.nonSeed.closing)],
     ['net', ({ summary }) => round1(summary.nonSeed.net.mean)],
+    ['drain', ({ summary }) => rate(summary.nonSeed.net.mean, summary.movesUsed.mean)],
     ['Reshuffles', ({ summary }) => round1(summary.reshuffles.mean)],
   ]
   table(rows, columns, rules.length > 1 ? 3 : 2)
@@ -274,8 +285,8 @@ rather than argue.
 
 The combo rules are three answers to that scarcity: off is the game as it ships,
 full is the flood-fill prototype, and contact is the same idea bounded to the
-tiles the merge already touches. Read them on the mixes column and the gap table
-rather than on the win rate — a rule that raises every win rate has made the game
+tiles the merge already touches. Read them on the two per-move columns and the
+gap table rather than on the win rate — a rule that raises every win rate has made the game
 easier, which is not what the wave was cut for. A rule that widens the gap has
 made building pay; a rule that leaves the gap where it found it has not, however
 much it moved the score.

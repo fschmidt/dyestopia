@@ -62,7 +62,7 @@ to `main`.
 
 ## The shape of it
 
-<!-- pin:src/board.ts sha=79fe98cae8f5 -->
+<!-- pin:src/board.ts sha=fe9facbec014 -->
 
 **The engine** is `src/board.ts`. It is pure: grids, masks, matches, gravity,
 refills, cascades, reshuffles and chain bookkeeping, with no Phaser import and no
