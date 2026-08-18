@@ -3,7 +3,7 @@ id: T-040
 type: task
 title: Make time an input to the browser specs
 status: Todo
-ordinal: 1200
+ordinal: 800
 labels: [testing]
 ---
 

@@ -3,7 +3,7 @@ id: T-038
 type: task
 title: Choose the supply mechanism
 status: Todo
-ordinal: 900
+ordinal: 600
 labels: [engine, balance, decision]
 ---
 

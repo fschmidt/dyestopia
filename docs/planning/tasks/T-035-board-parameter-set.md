@@ -3,7 +3,7 @@ id: T-035
 type: task
 title: Name the board parameter set
 status: Todo
-ordinal: 600
+ordinal: 400
 labels: [engine, balance, decision]
 ---
 

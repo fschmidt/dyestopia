@@ -3,7 +3,7 @@ id: T-034
 type: task
 title: The board maths as formulas
 status: Todo
-ordinal: 500
+ordinal: 300
 labels: [engine, balance, docs]
 ---
 

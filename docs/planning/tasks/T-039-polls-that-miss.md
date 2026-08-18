@@ -3,7 +3,7 @@ id: T-039
 type: task
 title: Audit the polls that can miss what they wait for
 status: Todo
-ordinal: 1100
+ordinal: 700
 labels: [testing]
 ---
 
