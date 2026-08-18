@@ -3,7 +3,7 @@ id: T-031
 type: task
 title: Measure the combo spike
 status: Done
-ordinal: 200
+ordinal: 400
 labels: [engine, testing]
 ---
 
