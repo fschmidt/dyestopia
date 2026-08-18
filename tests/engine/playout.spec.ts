@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test'
 import { legalMoves, parseMask } from '../../src/board'
 import {
   CHAIN_POLICY,
+  HOARD_POLICY,
   POINTS_POLICY,
   POLICIES,
   playOut,
@@ -11,6 +12,7 @@ import {
 } from '../../src/playout'
 import { startRound } from '../../src/round'
 import { STAGES } from '../../src/stages'
+import { BASELINE_RULES, VARIANTS } from '../../src/variants'
 
 /**
  * The headless harness (`T-022`). These run with no page and no Phaser — the
@@ -119,4 +121,66 @@ test('the greedy-versus-chain gap is chain minus points, and it is its own figur
   expect(gap.winRate).toBeCloseTo(chain.winRate - points.winRate)
   expect(gap.score).toBeCloseTo(chain.score.mean - points.score.mean)
   expect(gap.movesUsed).toBeCloseTo(chain.movesUsed.mean - points.movesUsed.mean)
+})
+
+/**
+ * The `T-036` variant, measured rather than argued. Everything here is a
+ * comparison against the baseline, which is what makes the card's numbers a
+ * relative claim that holds.
+ */
+
+test('the baseline is the default — asking for it changes nothing', () => {
+  for (const policy of POLICIES) {
+    const implied = playOut(STAGES[9], 77, policy)
+    const asked = playOut(STAGES[9], 77, policy, { rules: BASELINE_RULES })
+    expect(asked.outcome).toBe(implied.outcome)
+    expect(asked.score).toBe(implied.score)
+    expect(asked.moves).toEqual(implied.moves)
+  }
+})
+
+test('no merge clears nothing under the baseline, on any stage or policy', () => {
+  for (const stage of STAGES) {
+    for (const policy of POLICIES) {
+      const { summary } = runStage(stage, policy, 10, 900)
+      expect(summary.dryMixes.max).toBe(0)
+    }
+  }
+})
+
+/**
+ * The variant's whole reason for existing: a merge that clears nothing spends
+ * a move and leaves *two* result-coloured tiles standing, which turns the merge
+ * arithmetic from −2 into +2 and breaks the one invariant `C-001` says the
+ * supply economy cannot escape.
+ */
+test('a dry mix is what lets the non-seed pool grow', () => {
+  const anyMix = VARIANTS.find((variant) => variant.id === 'any-mix')!
+  const { playouts, summary } = runStage(STAGES[9], HOARD_POLICY, 20, 4200, {
+    rules: anyMix.rules,
+  })
+  expect(summary.dryMixes.mean).toBeGreaterThan(0)
+
+  const grew = playouts.filter((playout) => {
+    if (playout.moves.length === 0) return false
+    const opening = playout.moves[0].nonSeed
+    return playout.moves.some((move) => move.nonSeed > opening)
+  })
+  expect(grew.length).toBeGreaterThan(0)
+
+  // And every one of those runs got there through a merge that cleared nothing.
+  for (const playout of grew) {
+    expect(playout.moves.some((move) => move.kind === 'merge' && move.cleared === 0)).toBe(true)
+  }
+})
+
+test('tertiary clears are counted, since they are the variant\'s real test', () => {
+  const { playouts, summary } = runStage(STAGES[9], CHAIN_POLICY, 12, 640)
+  const counted = playouts.map((playout) =>
+    playout.moves.reduce((sum, move) => sum + move.tertiaries, 0),
+  )
+  expect(summary.tertiaries.mean).toBeCloseTo(
+    counted.reduce((sum, count) => sum + count, 0) / counted.length,
+  )
+  expect(summary.tertiaries.max).toBe(Math.max(...counted))
 })

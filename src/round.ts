@@ -38,6 +38,7 @@ import {
 import type { ColorId } from './colors'
 import { mulberry32, type Rng } from './rng'
 import { stageMaxMultiplier, stageMix, stagePreset, type Stage } from './stage'
+import { BASELINE_RULES, type RuleSet } from './variants'
 
 /** Where a round stands: still being played, or over and which way. */
 export type Outcome = 'playing' | 'won' | 'lost'
@@ -52,6 +53,12 @@ export interface RoundState {
   readonly mix: MixRule
   /** The chain multiplier this stage's recipes can build up to. */
   readonly maxMultiplier: number
+  /**
+   * Which form of each branching rule this round is played under. The game
+   * only ever asks for the baseline; a round played under anything else is a
+   * measurement (`src/variants.ts`), never something a player reached.
+   */
+  readonly rules: RuleSet
 
   cells: Cells
   rng: Rng
@@ -70,6 +77,8 @@ export interface RoundState {
 export interface RoundOptions {
   /** Seeds the round's one `mulberry32` stream. Same seed in, same round out. */
   seed?: number
+  /** Defaults to the baseline — see `RoundState.rules`. */
+  rules?: RuleSet
 }
 
 /**
@@ -86,6 +95,7 @@ export function startRound(stage: Stage, options: RoundOptions = {}): RoundState
     grid,
     mix,
     maxMultiplier: stageMaxMultiplier(stage),
+    rules: options.rules ?? BASELINE_RULES,
     cells: generateBoard(grid, stage.seed, rng, mix, stagePreset(stage.board, grid)),
     rng,
     score: 0,
@@ -142,6 +152,7 @@ export function playMove(
 ): MoveReport | null {
   const move = resolveMove(round.grid, round.cells, round.mix, from, to, {
     allowDistant: options.allowDistant,
+    rules: round.rules,
   })
   if (move.kind === 'illegal') return null
 
@@ -229,8 +240,8 @@ export function settleRound(round: RoundState): Settlement {
   }
 
   let reshuffled: CellMove[] | null = null
-  if (!findLegalMove(round.grid, round.cells, round.mix)) {
-    const shuffled = reshuffle(round.grid, round.cells, round.rng, round.mix)
+  if (!findLegalMove(round.grid, round.cells, round.mix, round.rules)) {
+    const shuffled = reshuffle(round.grid, round.cells, round.rng, round.mix, round.rules)
     round.cells = shuffled.cells
     reshuffled = shuffled.moves
   }

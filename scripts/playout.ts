@@ -11,6 +11,14 @@
  *   npm run playout -- --stage=3 --runs=500
  *   npm run playout -- --policy=chain --seed=1000
  *   npm run playout -- --moves                 per-move detail for one playout
+ *
+ * The branching rules `C-001` §4 names are axes rather than switches, so an A/B
+ * is one run: `--variant=all` plays every stage under each rule set and prints
+ * them against each other, with the baseline — the game as it ships — first and
+ * every delta measured from it.
+ *
+ *   npm run playout -- --variant=all           baseline vs every variant
+ *   npm run playout -- --variant=any-mix       one variant, on its own
  */
 
 import {
@@ -18,24 +26,47 @@ import {
   playOut,
   policyGap,
   runStage,
-  type Gap,
   type Policy,
   type Summary,
 } from '../src/playout'
 import { STAGES } from '../src/stages'
 import { FIRST_STAGE, type Stage } from '../src/stage'
+import { BASELINE, VARIANTS, type Variant } from '../src/variants'
 
 interface Options {
   stages: Stage[]
   policies: Policy[]
+  variants: Variant[]
   runs: number
   seed: number
   moves: boolean
 }
 
+/** A summary and the rule set it was played under — the table's unit. */
+interface Row {
+  variant: Variant
+  summary: Summary
+}
+
 function flag(name: string): string | undefined {
   const match = process.argv.find((arg) => arg.startsWith(`--${name}=`))
   return match?.slice(name.length + 3)
+}
+
+function parseVariants(): Variant[] {
+  const arg = flag('variant')
+  if (arg === undefined) return [BASELINE]
+  if (arg === 'all') return [...VARIANTS]
+
+  return arg.split(',').map((name) => {
+    const found = VARIANTS.find((variant) => variant.id === name.trim())
+    if (!found) {
+      throw new Error(
+        `Unknown variant "${name.trim()}" — try ${VARIANTS.map((v) => v.id).join(', ')}, or all`,
+      )
+    }
+    return found
+  })
 }
 
 function parseOptions(): Options {
@@ -60,6 +91,7 @@ function parseOptions(): Options {
   return {
     stages,
     policies,
+    variants: parseVariants(),
     runs: Number(flag('runs') ?? 200),
     seed: Number(flag('seed') ?? 1),
     moves: process.argv.includes('--moves'),
@@ -102,66 +134,103 @@ function table<T>(rows: T[], columns: [string, (row: T) => string][], labels: nu
   }
 }
 
-function reportTable(summaries: Summary[]): void {
-  const columns: [string, (s: Summary) => string][] = [
-    ['Stage', (s) => s.stage],
-    ['Policy', (s) => s.policy],
-    ['Win', (s) => percent(s.winRate)],
-    ['Score min', (s) => `${s.score.min}`],
-    ['median', (s) => `${s.score.median}`],
-    ['mean', (s) => round1(s.score.mean)],
-    ['max', (s) => `${s.score.max}`],
-    ['Moves', (s) => round1(s.movesUsed.mean)],
-    ['Mixes', (s) => round1(s.mixes.mean)],
-    ['per move', (s) => rate(s.mixes.mean, s.movesUsed.mean)],
-    ['Non-seed open', (s) => round1(s.nonSeed.opening)],
-    ['close', (s) => round1(s.nonSeed.closing)],
-    ['net', (s) => round1(s.nonSeed.net.mean)],
-    ['drain', (s) => rate(s.nonSeed.net.mean, s.movesUsed.mean)],
-    ['Reshuffles', (s) => round1(s.reshuffles.mean)],
+function reportTable(rows: Row[], variants: Variant[]): void {
+  const many = variants.length > 1
+  const columns: [string, (row: Row) => string][] = [
+    ['Stage', ({ summary }) => summary.stage],
+    ...(many ? ([['Variant', ({ variant }) => variant.id]] as [string, (row: Row) => string][]) : []),
+    ['Policy', ({ summary }) => summary.policy],
+    ['Win', ({ summary }) => percent(summary.winRate)],
+    ['Score min', ({ summary }) => `${summary.score.min}`],
+    ['median', ({ summary }) => `${summary.score.median}`],
+    ['mean', ({ summary }) => round1(summary.score.mean)],
+    ['max', ({ summary }) => `${summary.score.max}`],
+    ['Moves', ({ summary }) => round1(summary.movesUsed.mean)],
+    ['Mixes', ({ summary }) => round1(summary.mixes.mean)],
+    ['per move', ({ summary }) => rate(summary.mixes.mean, summary.movesUsed.mean)],
+    ['Dry', ({ summary }) => round1(summary.dryMixes.mean)],
+    ['Tertiaries', ({ summary }) => round1(summary.tertiaries.mean)],
+    ['Non-seed open', ({ summary }) => round1(summary.nonSeed.opening)],
+    ['close', ({ summary }) => round1(summary.nonSeed.closing)],
+    ['net', ({ summary }) => round1(summary.nonSeed.net.mean)],
+    ['drain', ({ summary }) => rate(summary.nonSeed.net.mean, summary.movesUsed.mean)],
+    ['Reshuffles', ({ summary }) => round1(summary.reshuffles.mean)],
   ]
-  table(summaries, columns, 2)
+  table(rows, columns, many ? 3 : 2)
 }
 
 /**
- * The gap table, which is the one `T-024` has to read: the greedy-versus-chain
- * gap per stage, stated on its own rather than left to be read off two rows of
- * win rates by eye. A variant that lifts both policies equally moves every win
- * rate and leaves this table where it found it, which is the distinction the
- * measurement cards exist to draw — `T-031` found exactly that and it is the
+ * The gap table, which is the one `T-024` has to read: each variant's
+ * greedy-versus-chain gap stated on its own rather than left to be read off two
+ * rows of win rates by eye, and — where there is a baseline to compare against —
+ * what the variant did to that gap. A rule that lifts both policies equally
+ * moves every win rate and scores a `±0.0` here, which is the distinction the
+ * measurement cards exist to draw: `T-031` found exactly that and it is the
  * reason the combo wave is gone.
  */
-function reportGaps(summaries: Summary[], policies: Policy[]): void {
+function reportGaps(rows: Row[], variants: Variant[], policies: Policy[]): void {
   if (!policies.some((p) => p.id === 'points') || !policies.some((p) => p.id === 'chain')) return
+  const many = variants.length > 1
 
-  const find = (stage: string, policy: string) =>
-    summaries.find((summary) => summary.stage === stage && summary.policy === policy)
+  const find = (stage: string, variant: Variant, policy: string) =>
+    rows.find(
+      (row) =>
+        row.summary.stage === stage && row.variant === variant && row.summary.policy === policy,
+    )?.summary
 
-  const gaps = [...new Set(summaries.map((summary) => summary.stage))].flatMap((stage) => {
-    const greedy = find(stage, 'points')
-    const builder = find(stage, 'chain')
-    return greedy && builder ? [policyGap(greedy, builder)] : []
-  })
+  const gaps = [...new Set(rows.map((row) => row.summary.stage))].flatMap((stage) =>
+    variants.flatMap((variant) => {
+      const greedy = find(stage, variant, 'points')
+      const builder = find(stage, variant, 'chain')
+      if (!greedy || !builder) return []
+      const baseGreedy = variant === variants[0] ? undefined : find(stage, variants[0], 'points')
+      const baseBuilder = variant === variants[0] ? undefined : find(stage, variants[0], 'chain')
+      return [
+        {
+          variant,
+          gap: policyGap(greedy, builder),
+          against: baseGreedy && baseBuilder ? policyGap(baseGreedy, baseBuilder) : undefined,
+        },
+      ]
+    }),
+  )
   if (gaps.length === 0) return
 
-  console.log('\nThe greedy-versus-chain gap — chain minus points\n')
-  table<Gap>(
-    gaps,
-    [
-      ['Stage', (gap) => gap.stage],
-      ['Win gap', (gap) => signedPercent(gap.winRate)],
-      ['Score gap', (gap) => signed(gap.score)],
-      ['Move gap', (gap) => signed(gap.movesUsed)],
-    ],
-    1,
+  console.log(
+    `\nThe greedy-versus-chain gap — chain minus points${
+      many ? `, and what each variant did to it against ${variants[0].id}` : ''
+    }\n`,
   )
+  type Gapped = (typeof gaps)[number]
+  const columns: [string, (row: Gapped) => string][] = [
+    ['Stage', ({ gap }) => gap.stage],
+    ...(many
+      ? ([['Variant', ({ variant }) => variant.id]] as [string, (row: Gapped) => string][])
+      : []),
+    ['Win gap', ({ gap }) => signedPercent(gap.winRate)],
+    ['Score gap', ({ gap }) => signed(gap.score)],
+    ['Move gap', ({ gap }) => signed(gap.movesUsed)],
+    ...(many
+      ? ([
+          [
+            'Δ win gap',
+            ({ gap, against }) => (against ? signedPercent(gap.winRate - against.winRate) : '—'),
+          ],
+          ['Δ score gap', ({ gap, against }) => (against ? signed(gap.score - against.score) : '—')],
+        ] as [string, (row: Gapped) => string][])
+      : []),
+  ]
+  table(gaps, columns, many ? 2 : 1)
 }
 
-function reportMoves(stage: Stage, policy: Policy, seed: number): void {
-  const playout = playOut(stage, seed, policy)
-  console.log(`\n${stage.name} · ${policy.id} · seed ${seed} — ${playout.outcome}, ${playout.score} points\n`)
-  console.log('  #  kind   points  ×  waves  non-seed')
-  console.log('  -  -----  ------  -  -----  --------')
+function reportMoves(stage: Stage, policy: Policy, seed: number, variant: Variant): void {
+  const playout = playOut(stage, seed, policy, { rules: variant.rules })
+  console.log(
+    `\n${stage.name} · ${policy.id} · ${variant.id} · seed ${seed} — ` +
+      `${playout.outcome}, ${playout.score} points\n`,
+  )
+  console.log('  #  kind   points  ×  waves  cleared  non-seed')
+  console.log('  -  -----  ------  -  -----  -------  --------')
   playout.moves.forEach((move, index) => {
     console.log(
       [
@@ -170,6 +239,7 @@ function reportMoves(stage: Stage, policy: Policy, seed: number): void {
         padLeft(`${move.points}`, 6),
         padLeft(`${move.multiplier}`, 1),
         padLeft(`${move.waves}`, 5),
+        padLeft(`${move.cleared}`, 7),
         padLeft(`${move.nonSeed}`, 8),
         move.reshuffled ? ' reshuffled' : '',
       ].join('  '),
@@ -181,25 +251,30 @@ function main(): void {
   const options = parseOptions()
 
   if (options.moves) {
-    reportMoves(options.stages[0], options.policies[0], options.seed)
+    reportMoves(options.stages[0], options.policies[0], options.seed, options.variants[0])
     return
   }
 
-  const summaries: Summary[] = []
+  const rows: Row[] = []
   for (const stage of options.stages) {
-    for (const policy of options.policies) {
-      const { summary } = runStage(stage, policy, options.runs, options.seed)
-      summaries.push(summary)
+    for (const variant of options.variants) {
+      for (const policy of options.policies) {
+        const { summary } = runStage(stage, policy, options.runs, options.seed, {
+          rules: variant.rules,
+        })
+        rows.push({ variant, summary })
+      }
     }
   }
 
   console.log(
-    `\n${options.runs} playouts per row, seeds ${options.seed}–${options.seed + options.runs - 1}\n`,
+    `\n${options.runs} playouts per row, seeds ${options.seed}–${options.seed + options.runs - 1}` +
+      `, ${options.variants.map((variant) => variant.id).join(' vs ')}\n`,
   )
-  reportTable(summaries)
-  reportGaps(summaries, options.policies)
+  reportTable(rows, options.variants)
+  reportGaps(rows, options.variants, options.policies)
 
-  const truncated = summaries.reduce((sum, summary) => sum + summary.truncated, 0)
+  const truncated = rows.reduce((sum, { summary }) => sum + summary.truncated, 0)
   if (truncated > 0) {
     console.log(`\n${truncated} playout(s) hit the move cap and are not wins or losses.`)
   }
@@ -227,6 +302,12 @@ never what a supply or legality lever was cut for. One that widens the gap has
 made building pay; one that leaves the gap where it found it has not, however
 much it moved the score. That is how T-031 read the combo wave, and it is why
 the wave is no longer in the game.
+
+Dry is merges that cleared nothing, which is zero under the baseline by
+definition — a merge is only legal there if it clears. Tertiaries is tier-2
+tiles cleared per run, and it starts near zero on every stage: no tertiary clear
+has been seen in play, so a variant that does not produce one has not reached
+the deep end of the palette however much else it moved.
 `)
 }
 

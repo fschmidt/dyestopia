@@ -594,13 +594,23 @@ draw table by context, and we vary ours not at all.
 - Should the chain ceiling be authorable independently of `active`, given they
   are currently welded together?
 - Is the greedy-versus-chain gap the right primary metric for `T-024`, or does
-  that card need a target expressed as a win rate?
+  that card need a target expressed as a win rate? `T-036` argues the *win* gap
+  is spent: the chain bot already wins 99.5–100% on eight stages of ten, so it
+  cannot widen and a flat reading means nothing. The score gap still
+  discriminates. Whether the answer is to read the score gap or to raise the
+  thresholds (`T-025`) is open.
 - Can the harness measure the non-seed pool over a round directly? A per-move
   count of standing result tiles would turn the economy argument above from
   arithmetic into evidence, and it is cheaper than any of the fixes.
-- If a merge could resolve without clearing, what stops a player mixing the whole
-  board before cashing in once? The move budget alone may not be enough of a
-  brake.
+- ~~If a merge could resolve without clearing, what stops a player mixing the
+  whole board before cashing in once? The move budget alone may not be enough of
+  a brake.~~ **Answered by `T-036`: the move budget alone is enough, and it is
+  not close.** A bot that mixes at every opportunity under the variant grows the
+  non-seed pool by up to +15 tiles a run — `Full Spectrum` from 16.0 standing
+  result tiles to 31.4 — and wins between 0.5% and 31% of the time where the
+  same bot wins ~99% under the shipped rule. Every dry mix costs a move and pays
+  nothing, so hoarding converts the budget straight into tiles it can no longer
+  cash in.
 
 ## Sources
 
@@ -653,3 +663,8 @@ draw table by context, and we vary ours not at all.
   the engine half of the test suite is what catches a rule quietly ceasing to
   hold, and three cards below it change engine rules. It guards the spine rather
   than belonging to it.
+- **Accepted, §4 partly measured** — `T-031` weighed the combo wave and `D-004`
+  removed it; `T-036` gave mix legality its second form and measured that. The
+  first of the three rule-shaped levers is now evidence rather than argument,
+  and one of this concept's open questions is closed by it. Still no value
+  chosen and no gameplay changed.
