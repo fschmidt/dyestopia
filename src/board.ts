@@ -283,6 +283,18 @@ export function legalMoves(grid: Grid, cells: Cells, mix: MixRule = NO_MIX): Leg
   return out
 }
 
+/**
+ * How far a combo wave travels. `off` is the game as it ships and the baseline
+ * every measurement is read against; `full` is the flood-fill prototype; and
+ * `contact` is the bounded variant `T-031` exists to weigh against it — only
+ * ingredients already touching the merge convert, so the wave is one tile deep
+ * and cannot chain. The bound is geometric rather than a cap, so nothing here
+ * is a number anyone has to justify.
+ */
+export type ComboRule = 'off' | 'full' | 'contact'
+
+export const COMBO_RULES: readonly ComboRule[] = ['off', 'full', 'contact']
+
 /** One tile taking a new colour in a combo wave, `step` hops from the merge. */
 export interface Conversion {
   index: number
@@ -312,11 +324,22 @@ function maskedNeighbours(grid: Grid, index: number): number[] {
  * merge legality already — so it never litters the board with colours the
  * stage doesn't play.
  *
+ * `rule` picks how far it travels — see `ComboRule`. Under `contact` the
+ * group flood and the chaining are both skipped, so what converts is exactly
+ * the ingredients the merge already touches.
+ *
  * Mutates `cells`; the returned list carries each conversion's BFS distance
  * from the trigger so the scene can play the recolour as a travelling
  * ripple.
  */
-export function comboConversions(grid: Grid, cells: Cells, changed: number[]): Conversion[] {
+export function comboConversions(
+  grid: Grid,
+  cells: Cells,
+  changed: number[],
+  rule: ComboRule = 'full',
+): Conversion[] {
+  if (rule === 'off') return []
+
   const out: Conversion[] = []
   const locked = new Set(changed)
   let frontier = changed.map((index) => ({ index, step: 0 }))
@@ -342,6 +365,7 @@ export function comboConversions(grid: Grid, cells: Cells, changed: number[]): C
           const tile = queue.shift()!
           cells[tile.index] = colour
           out.push({ index: tile.index, color: colour, step: tile.step })
+          if (rule === 'contact') continue
           next.push(tile)
           for (const beyond of maskedNeighbours(grid, tile.index)) {
             if (!locked.has(beyond) && cells[beyond] === other) {

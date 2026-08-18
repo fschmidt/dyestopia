@@ -17,7 +17,7 @@
  * easier or harder than it was", never as "this stage is 60% winnable".
  */
 
-import { clearScore, findMatches, legalMoves, scoreResolutionForMerge, scoreResolutionForSwap, type Cells, type LegalMove } from './board'
+import { clearScore, findMatches, legalMoves, scoreResolutionForMerge, scoreResolutionForSwap, type Cells, type ComboRule, type LegalMove } from './board'
 import type { ColorId } from './colors'
 import { playMove, settleRound, startRound, type Outcome, type RoundState } from './round'
 import type { Stage } from './stage'
@@ -138,7 +138,9 @@ export interface Playout {
 }
 
 export interface PlayoutOptions {
-  combo?: boolean
+  /** The combo wave's reach. `off` is the default, and the baseline every
+   * variant is read against. */
+  combo?: ComboRule
   /**
    * Stops a bottomless stage (the dev board's budget is effectively infinite)
    * from running forever. A playout that hits it is reported, never counted as
@@ -235,6 +237,12 @@ export interface Summary {
   movesUsed: Spread
   /** The non-seed pool as the round opens and as it ends, averaged over playouts. */
   nonSeed: { opening: number; closing: number; net: Spread }
+  /**
+   * Merges performed per run. The supply hypothesis is about mixes rather than
+   * moves — a rule that raises the win rate without raising this has not made
+   * chain play any more available, it has only paid better for the same play.
+   */
+  mixes: Spread
   reshuffles: Spread
 }
 
@@ -257,9 +265,35 @@ export function summarise(stage: Stage, policy: Policy, playouts: Playout[]): Su
         withMoves.map((playout) => playout.moves.at(-1)!.nonSeed - playout.moves[0].nonSeed),
       ),
     },
+    mixes: spread(
+      playouts.map((playout) => playout.moves.filter((move) => move.kind === 'merge').length),
+    ),
     reshuffles: spread(
       playouts.map((playout) => playout.moves.filter((move) => move.reshuffled).length),
     ),
+  }
+}
+
+/**
+ * The greedy-versus-chain gap, chain minus points, as a figure in its own
+ * right — that gap is the thing `T-024` is trying to widen, and reading it off
+ * two rows by eye is how a variant that merely made the game easier gets
+ * mistaken for one that made building necessary. A rule that lifts both lines
+ * equally leaves every field here where it found it.
+ */
+export interface Gap {
+  stage: string
+  winRate: number
+  score: number
+  movesUsed: number
+}
+
+export function policyGap(points: Summary, chain: Summary): Gap {
+  return {
+    stage: points.stage,
+    winRate: chain.winRate - points.winRate,
+    score: chain.score.mean - points.score.mean,
+    movesUsed: chain.movesUsed.mean - points.movesUsed.mean,
   }
 }
 
