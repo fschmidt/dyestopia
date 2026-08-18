@@ -10,7 +10,7 @@ concrete edit the human can accept or reject individually. Nothing is written
 before they choose, and nothing is ever committed.
 
 `npm run wiki:check` already catches everything mechanical — stale generated
-blocks, dead paths, board integrity, stale hash pins. **Run it first** and fix
+blocks, dead paths, planning protocol violations, stale hash pins. **Run it first** and fix
 what it reports. Do not repeat its work here.
 
 This skill covers the residue no script can verify: whether the *prose* is still
@@ -66,7 +66,7 @@ Then write the summary. This is the only thing the human reads, so it is prose,
 not a report:
 
 ```
-3 findings — 1 wiki fix, 2 that belong on the board.
+3 findings — 1 wiki fix, 2 that belong in the task list.
 
 1. The architecture page says the canvas is 960×720 landscape. It is 393×852
    portrait — the iPhone 15 change never reached the docs.              [wiki]
@@ -139,7 +139,7 @@ the code, and do not edit the doc to describe the bug:
 5. **Check the Todo lane first.** It caps at 15. If filing would overflow it,
    say so and ask what to defer rather than filing anyway — `wiki:check` will
    fail the build otherwise.
-6. Run `npm run wiki` to regenerate the board.
+6. Run `npm run wiki` to regenerate the record indexes.
 
 **Then, for both:** show `git diff --stat`, summarise what changed in one line
 per file, and **stop. Do not commit, and do not offer to.** The diff is the
@@ -165,5 +165,5 @@ carries one.
 - If a claim cannot be verified from the code, say so rather than guessing.
 - Do not propose *adding* documentation. This wiki is deliberately slim; growth
   is the failure mode, not the goal.
-- Do not touch generated blocks, `docs/planning/BOARD.md`, or anything between
-  `<!-- generated:… -->` markers. Fix the generator or the source data instead.
+- Do not touch generated blocks or anything between `<!-- generated:… -->`
+  markers. Fix the generator or the source data instead.

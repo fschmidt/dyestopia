@@ -11,8 +11,6 @@
     "typecheck": "tsc --noEmit",
     "wiki": "tsx scripts/wiki.ts",
     "wiki:check": "tsx scripts/wiki.ts --check",
-    "board": "tsx scripts/board.ts",
-    "board:host": "tsx scripts/board.ts --host",
     "test": "playwright test",
     "test:engine": "playwright test --project=engine",
     "test:browser": "playwright test --project=1x --project=2x --project=iphone-15-pro-max",

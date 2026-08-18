@@ -72,4 +72,4 @@ match-3, and every move there is a swap.
 
 Behind the `?combo` URL flag, a mixed colour also absorbs connected groups of the
 tiles it was made from. It is an undecided experiment, not part of the game as
-played; see the board in [planning](../../planning/BOARD.md).
+played; its open questions live in [T-012](../../planning/tasks/T-012-resolve-combo-spike.md).
