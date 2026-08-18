@@ -253,7 +253,7 @@ not conclusions — the contested ones are collected under
 | Thing | Value today | Where | Call |
 | --- | --- | --- | --- |
 | Wave shape | flood-fill through connected groups of either ingredient colour | `comboConversions`, [src/board.ts](../../src/board.ts) | Prototype |
-| Group size cap | none | `comboConversions`, [src/board.ts](../../src/board.ts) | Prototype — the bounded variant `T-031` should measure |
+| Wave reach | `off`, `full` or `contact` — `contact` is the bounded variant, one tile deep and unable to chain | `ComboRule`, [src/board.ts](../../src/board.ts) | Measured by `T-031`; the game only ever asks for `off` or `full` |
 | Convert-once | each cell converts at most once per wave | `comboConversions`, [src/board.ts](../../src/board.ts) | Rule — the only thing bounding it |
 | Colour gating | the wave only ever spreads the merge result, which merge legality has already stage-gated | `comboConversions`, [src/board.ts](../../src/board.ts) | Rule |
 | Effect on legality | none — legality is decided before the wave runs | `mergeClears`, [src/board.ts](../../src/board.ts) | Rule |
@@ -322,6 +322,19 @@ tuning:
 - **Merge scoring order.** A merge clears at the chain it arrived with, so the
   chain a player builds only pays out on *later* moves. Whether the result should
   count toward its own clear is a rule, and it bears directly on `T-024`.
+
+The combo wave is a fourth, and it is the one that has been measured. `T-031`
+ran all ten stages under three reaches — off, the full flood fill, and a variant
+bounded to the ingredients the merge already touches — and the result is worth
+carrying into the levers above, because it is a negative one. Combo does what
+this concept predicted for supply: mixes per move rise and the non-seed pool
+stops draining. It does nothing whatever for the multiplier problem — the
+greedy-versus-chain win gap is flat or narrower on nine stages of ten, and
+rounds shorten by around 40% where the wave fires. Manufacturing result tiles
+was the obvious answer to [the conflict underneath](#the-conflict-underneath)
+and it turns out to pay whoever was already winning. The numbers are in `T-031`;
+the reason to read them here is that they are the argument for spending the
+remaining effort on mix legality rather than on more supply.
 
 ### 5. How it gets tested
 

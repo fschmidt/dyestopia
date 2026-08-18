@@ -32,6 +32,7 @@ import {
   type Cells,
   type CellMove,
   type ColorChain,
+  type ComboRule,
   type Conversion,
   type Grid,
   type MixRule,
@@ -54,8 +55,13 @@ export interface RoundState {
   readonly mix: MixRule
   /** The chain multiplier this stage's recipes can build up to. */
   readonly maxMultiplier: number
-  /** The M3 combo spike, passed in rather than read from `flags` — that module reads `window`. */
-  readonly combo: boolean
+  /**
+   * The M3 combo spike, passed in rather than read from `flags` — that module
+   * reads `window`. A rule rather than a switch so `T-031` can weigh the
+   * bounded variant against the full wave; the game only ever asks for `off`
+   * or `full`.
+   */
+  readonly combo: ComboRule
 
   cells: Cells
   rng: Rng
@@ -74,7 +80,7 @@ export interface RoundState {
 export interface RoundOptions {
   /** Seeds the round's one `mulberry32` stream. Same seed in, same round out. */
   seed?: number
-  combo?: boolean
+  combo?: ComboRule
 }
 
 /**
@@ -91,7 +97,7 @@ export function startRound(stage: Stage, options: RoundOptions = {}): RoundState
     grid,
     mix,
     maxMultiplier: stageMaxMultiplier(stage),
-    combo: options.combo ?? false,
+    combo: options.combo ?? 'off',
     cells: generateBoard(grid, stage.seed, rng, mix, stagePreset(stage.board, grid)),
     rng,
     score: 0,
@@ -163,7 +169,7 @@ export function playMove(
     round.resolution = scoreResolutionForMerge(round.colorChain, round.maxMultiplier)
     round.colorChain = advanceColorChain(round.colorChain, move.result, round.maxMultiplier)
     round.cells[from] = round.cells[to] = move.result
-    if (round.combo) conversions = comboConversions(round.grid, round.cells, [from, to])
+    conversions = comboConversions(round.grid, round.cells, [from, to], round.combo)
   } else {
     round.resolution = scoreResolutionForSwap(round.colorChain, round.maxMultiplier)
     ;[round.cells[from], round.cells[to]] = [round.cells[to], round.cells[from]]

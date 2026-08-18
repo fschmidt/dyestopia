@@ -258,7 +258,7 @@ export class GameScene extends BaseScene {
         ? 0x7a110000 + this.tutorialIndex
         : plantedSeed ?? Math.floor(Math.random() * 0xffffffff)
     // Dealt first: everything below reads the stage through the round.
-    this.round = startRound(stage, { seed, combo: flags.combo })
+    this.round = startRound(stage, { seed, combo: flags.combo ? 'full' : 'off' })
 
     this.displayScore = 0
     this.chainComplete = false
