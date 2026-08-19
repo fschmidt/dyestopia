@@ -161,9 +161,14 @@ export function playMove(
 
   if (move.kind === 'merge') {
     // The merge clears at the chain it arrived with; its result raises the
-    // chain only for later moves.
-    round.resolution = scoreResolutionForMerge(round.colorChain, round.maxMultiplier)
-    round.colorChain = advanceColorChain(round.colorChain, move.result, round.maxMultiplier)
+    // chain only for later moves. Under `mergeScoring: 'own-clear'` the two
+    // steps swap, so a merge that grows the chain clears at the higher figure.
+    const advanced = advanceColorChain(round.colorChain, move.result, round.maxMultiplier)
+    round.resolution = scoreResolutionForMerge(
+      round.rules.mergeScoring === 'own-clear' ? advanced : round.colorChain,
+      round.maxMultiplier,
+    )
+    round.colorChain = advanced
     round.cells[from] = round.cells[to] = move.result
   } else {
     round.resolution = scoreResolutionForSwap(round.colorChain, round.maxMultiplier)
@@ -178,6 +183,7 @@ export function playMove(
     resolution.multiplier,
     round.stage.seed,
     round.rng,
+    round.rules,
   )
 
   let thresholdWave: number | null = null

@@ -24,6 +24,7 @@ import {
 } from '../../src/board'
 import { colorValue, mixResult, type ColorId } from '../../src/colors'
 import { mulberry32 } from '../../src/rng'
+import { BASELINE_RULES } from '../../src/variants'
 
 /**
  * The match engine is pure data-in data-out, so it gets exercised here
@@ -170,6 +171,32 @@ test.describe('the cascade', () => {
       resolveCascade(grid, twice, 1, seed, mulberry32(11)),
     )
     expect(once).toEqual(twice)
+  })
+
+  /**
+   * The first `T-037` variant. Escalation is a branch rather than a value, so
+   * it gets the same treatment as mix legality: a second form of the rule,
+   * measured beside the first.
+   */
+  test('under escalate each wave after the first adds one to the multiplier', () => {
+    const escalate = { ...BASELINE_RULES, cascadeScoring: 'escalate' } as const
+    const inherited = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11))
+    const escalated = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11), escalate)
+
+    // Same board, same seed, so the two differ in points and nothing else —
+    // the variant pays for the cascade, it does not change what cascades.
+    expect(escalated.length).toBeGreaterThan(1)
+    expect(escalated.map((wave) => wave.matched)).toEqual(inherited.map((wave) => wave.matched))
+    for (const [index, wave] of escalated.entries()) {
+      expect(wave.points).toBe(clearScore(wave.colors, 3 + index))
+    }
+  })
+
+  test('escalate leaves the first wave exactly where the baseline had it', () => {
+    const escalate = { ...BASELINE_RULES, cascadeScoring: 'escalate' } as const
+    const [inherited] = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11))
+    const [escalated] = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11), escalate)
+    expect(escalated.points).toBe(inherited.points)
   })
 })
 
@@ -324,7 +351,7 @@ test.describe('merge resolution', () => {
  * form and play both.
  */
 test.describe('mix legality as a variant', () => {
-  const anyMix = { mixLegality: 'any-mix' } as const
+  const anyMix = { ...BASELINE_RULES, mixLegality: 'any-mix' } as const
   const row = parseMask(['####'])
 
   test('a mix that clears nothing is legal under any-mix and refused under the baseline', () => {

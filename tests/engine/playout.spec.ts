@@ -174,6 +174,45 @@ test('a dry mix is what lets the non-seed pool grow', () => {
   }
 })
 
+/**
+ * The second `T-037` variant. The baseline scores a merge at the chain it
+ * *arrived* with, so a chain a player builds pays out on the move after the one
+ * that built it; `own-clear` pays it on the move itself. The chain is a
+ * multiplier on the merge's own clear either way — what moves is *when*.
+ */
+test('under own-clear a merge that grows the chain scores at the raised figure', () => {
+  const ownClear = VARIANTS.find((variant) => variant.id === 'own-clear')!
+  const baseline = playOut(STAGES[3], 4711, CHAIN_POLICY)
+  const variant = playOut(STAGES[3], 4711, CHAIN_POLICY, { rules: ownClear.rules })
+
+  // The first merge of the round arrives at multiplier 1 and raises it to 2.
+  const first = baseline.moves.findIndex((move) => move.kind === 'merge')
+  expect(first).toBeGreaterThanOrEqual(0)
+  expect(baseline.moves[first].multiplier).toBe(1)
+  expect(variant.moves[first].multiplier).toBe(2)
+  expect(variant.moves[first].points).toBeGreaterThan(baseline.moves[first].points)
+})
+
+/**
+ * And the finding that mattered. `own-clear` does not make building pay more —
+ * it removes the reason building was a separate strategy at all. A greedy bot
+ * that is paid for a merge on the merge itself starts mixing without being
+ * told to, and converges on the builder.
+ */
+test('own-clear turns the greedy bot into a mixer', () => {
+  const ownClear = VARIANTS.find((variant) => variant.id === 'own-clear')!
+  const perMove = (run: ReturnType<typeof runStage>) =>
+    run.summary.mixes.mean / run.summary.movesUsed.mean
+
+  const before = perMove(runStage(STAGES[9], POINTS_POLICY, 40, 1))
+  const after = perMove(runStage(STAGES[9], POINTS_POLICY, 40, 1, { rules: ownClear.rules }))
+  const builder = perMove(runStage(STAGES[9], CHAIN_POLICY, 40, 1, { rules: ownClear.rules }))
+
+  expect(after).toBeGreaterThan(before * 3)
+  // Within a whisker of the policy that exists to do nothing else.
+  expect(Math.abs(after - builder)).toBeLessThan(0.3)
+})
+
 test('tertiary clears are counted, since they are the variant\'s real test', () => {
   const { playouts, summary } = runStage(STAGES[9], CHAIN_POLICY, 12, 640)
   const counted = playouts.map((playout) =>

@@ -483,9 +483,11 @@ export interface CascadeWave {
  * up. That is the seam that lets a round be played without a screen — the
  * harness calls this and reads the waves instead of animating them.
  *
- * Every wave scores at `multiplier`; cascades inherit the move's and never grow
- * (see `clearScore`). Mutates `cells` and advances `rng`, which is what makes a
- * seeded playout reproducible.
+ * Under the baseline every wave scores at `multiplier`: cascades inherit the
+ * move's and never grow (see `clearScore`). `cascadeScoring: 'escalate'` gives
+ * wave *i* `multiplier + i` instead, which leaves the first wave alone and pays
+ * only for the ones the move set off. Mutates `cells` and advances `rng`, which
+ * is what makes a seeded playout reproducible.
  */
 export function resolveCascade(
   grid: Grid,
@@ -493,6 +495,7 @@ export function resolveCascade(
   multiplier: number,
   seed: ColorId[],
   rng: Rng,
+  rules: RuleSet = BASELINE_RULES,
 ): CascadeWave[] {
   const waves: CascadeWave[] = []
   for (;;) {
@@ -504,10 +507,13 @@ export function resolveCascade(
     const colors = matched.map((index) => cells[index]!)
     for (const index of matched) cells[index] = null
 
+    const waveMultiplier =
+      rules.cascadeScoring === 'escalate' ? multiplier + waves.length : multiplier
+
     waves.push({
       matched,
       colors,
-      points: clearScore(colors, multiplier),
+      points: clearScore(colors, waveMultiplier),
       falls: applyGravity(grid, cells),
       spawns: refill(grid, cells, seed, rng),
     })

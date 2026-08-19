@@ -62,7 +62,7 @@ to `main`.
 
 ## The shape of it
 
-<!-- pin:src/board.ts sha=ad9c5a81e5be -->
+<!-- pin:src/board.ts sha=67ccc3b8bc26 -->
 
 **The engine** is `src/board.ts`. It is pure: grids, masks, matches, gravity,
 refills, cascades, reshuffles and chain bookkeeping, with no Phaser import and no
@@ -112,8 +112,9 @@ human difficulty, and the report says so on every run.
 branches rather than values — mix legality is the largest — so no parameter
 reaches them and the only way to measure one is to build a second form of the
 rule and play both. A `RuleSet` says which form a round uses; it rides on
-`RoundState` and reaches the engine through `resolveMove`. Nothing a player can
-reach selects one: `GameScene` asks for no rule set, so the game is the baseline
+`RoundState` and reaches the engine through `resolveMove` and `resolveCascade`,
+and is read directly by `playMove` where the branch is an order of operations
+rather than a rule the engine sees. Nothing a player can reach selects one: `GameScene` asks for no rule set, so the game is the baseline
 by construction, and a variant that turns out to be worth shipping stops being a
 variant.
 
