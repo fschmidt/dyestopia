@@ -9,7 +9,8 @@ labels: [engine, decision]
 
 ## Description
 
-**Blocked on `T-031`, `T-036`, `T-037` and `T-035`. Feeds `T-025`.** Every card
+**Blocked on `T-037` and `T-035`; `T-031`, `T-036` and `T-044` have
+reported. Feeds `T-025`.** Every card
 ahead of it on the spine exists to give this one something to decide with.
 
 A player who ignores the multiplier entirely clears essentially every stage. A
@@ -57,20 +58,20 @@ rather than deciding it twice.
 achievable ceiling, so pushing them past the points-chasing line makes stages
 unwinnable by everyone rather than winnable only by chain players.~~
 
-**Corrected by measurement — the premise holds on one stage of ten.** `T-036`
-ran the ten core stages 200 times per row. Set the median chain run against the
-stage target and the headroom is wide almost everywhere: `Royal Purple` clears
-2900 with a median of 4402, `Cascade Lesson` 1800 with 2742, `Mixing Lesson`
-1300 with 1880 — half again over target. `The Hourglass` is the exception at
-2620 against 2500, and it is the one stage whose chain win rate is not at the
-ceiling (88.0%; the other nine are 99.0% or better).
+**Corrected by measurement — the premise held on one stage of ten, and
+`T-044` has since spent the slack it named.** `T-036` ran the ten core stages
+200 times per row and found the headroom wide almost everywhere: `Royal Purple`
+cleared its 2900 target with a median chain run of 4402, `Cascade Lesson` 1800
+with 2742. So targets were not calibrated near the achievable ceiling as a rule,
+and the struck-through claim above was false for nine stages out of ten.
 
-So targets are not calibrated near the achievable ceiling as a rule, and a
-higher target would bite the points-chasing line before it bit the chain line
-on nine stages. Whether raising thresholds belongs on the list is still this
-card's call — it is a blunt lever and `T-025` owns the sequence — but it should
-be decided against these numbers rather than ruled out on a premise that is
-false for nine stages out of ten.
+`T-044` acted on exactly that, moving `threshold` and `moves` until a
+chain-building policy clears every stage at 90.5–94.0% rather than 99.0% or
+better. **Read that card's tables rather than the figures in this paragraph** —
+the targets and budgets they were measured against no longer exist. What
+survives here is the shape of the finding: the greedy line has room to fall and
+the builder's line has none to rise, so a fix this card makes registers as the
+greedy line dropping.
 
 ### What `T-031` and `T-036` established
 
@@ -91,22 +92,37 @@ three stages, tertiary clears roughly double, and the greedy bot is untouched
 because a dry merge pays nothing. The *score* gap widens on every stage; the
 *win* gap does not. `I-028` carries the idea, and the numbers are in `T-036`.
 
-**And they show what the win gap can and cannot see.** The chain line is
-saturated — nine stages of ten at 99.0% or better — so a change that only helps
-the builder has nowhere to show up, which is exactly why `T-036`'s variant reads
-flat on the win gap and large on the score gap. That is a fact about *that*
-measurement, not a fact about this card: the fix this card is looking for works
-by lowering the *greedy* line, and the greedy line has plenty of room to fall.
-The win gap is the right primary metric here, and it stops being saturated the
-moment the fix works.
+**And they show what the win gap can and cannot see.** The chain line was
+saturated — nine stages of ten at 99.0% or better — so a change that only helped
+the builder had nowhere to show up, which is exactly why `T-036`'s variant reads
+flat on the win gap and large on the score gap. That was a fact about *that*
+measurement rather than about this card, and `T-044` has since fixed it: the
+eight stages that ran a win gap under 5.0 points now run +18.5 to +66.5, with
+the chain line off the ceiling. The win gap is the right primary metric here,
+and it measures again.
+
+Two of the ten rows still carry no gap, so a lever is measured on eight:
+`First Splash` plays no mixable colour and runs the two policies as one bot, and
+`The Hourglass` separates them by +0.5 points at every budget swept. That is a
+gap in the test set rather than a verdict on either lever — the lineup is a set
+of testing grounds, and `T-044` leaves whether it should grow a row that
+separates them to whoever next touches it.
 
 What was missing was a bar. "No longer clears reliably" could be satisfied at
 84% as easily as at 20%, and could be met by making the game harder for
-everyone — the thing AC #4 exists to prevent. AC #3 and AC #4 now carry numbers.
-They are derived from the baseline rather than handed down — a points-chasing
-policy clears the last three stages at 85–88% today and a chain-building one at
-99.0% or better — and this card may revise them, but it should not leave them
-unstated.
+everyone — the thing AC #4 exists to prevent. AC #3 and AC #4 carry numbers for
+that reason, derived from the baseline rather than handed down.
+
+**Both need restating against `T-044`'s baseline, and that is this card's
+call.** The greedy line on the last three stages is no longer 85–88%: it reads
+`Amber Glow` 62.0%, `The Hourglass` 92.0%, `Full Spectrum` 27.0%. AC #3's "no
+more than half the time" is therefore already true on one of the three before
+this card changes anything, and a retune rather than a fix made it true. AC #4's
+90% floor is now the calibration itself — every stage sits at 90.5–94.0% by
+construction — so it has become a regression test on the retune rather than
+evidence about a lever. Neither is wrong; both are measuring something other
+than what they were written to measure, and the decision this card records sets
+the bar itself.
 
 ## Acceptance criteria
 
@@ -114,9 +130,11 @@ unstated.
 - [ ] #1 The supply hypothesis is confirmed or killed with numbers
 - [ ] #2 A decision is recorded: which lever, and why the others were not chosen
 - [ ] #3 After the change, a points-chasing policy clears each of the last
-      three stages no more than half the time, measured on the harness
-      (85–88% today)
+      three stages no more than half the time, measured on the harness —
+      restated against `T-044`'s baseline before it is used, since that reads
+      `Amber Glow` 62.0%, `The Hourglass` 92.0%, `Full Spectrum` 27.0%
 - [ ] #4 The chain remains reachable — a chain-building policy still clears
       every stage at least 90% of the time, so the fix has not simply made the
-      game harder for everyone
+      game harder for everyone. `T-044` calibrated the sequence to 90.5–94.0%,
+      so this now checks that the fix did not eat the headroom
 <!-- AC:END -->

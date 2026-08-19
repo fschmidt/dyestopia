@@ -3,14 +3,14 @@ id: T-025
 type: task
 title: Ramp the stage sequence
 status: Todo
-ordinal: 100
+ordinal: 1000
 labels: [stages, balance]
 ---
 
 ## Description
 
-**Blocked on `T-035`, `T-012`, `T-024` and `T-038`. Feeds nothing — it is the
-end of the spine.**
+**Blocked on `T-035`, `T-024` and `T-038`. Feeds nothing — it is the end of the
+spine.** (`T-012` is closed as `D-004`.)
 
 The stages do not get harder. Measured win rates rise and fall along the
 sequence — the middle stages are the hardest, the late ones are easier than
@@ -26,10 +26,20 @@ Last on purpose. Retuning thresholds against rules that are about to change is
 work thrown away twice, and a ramp built from the only two knobs a stage has
 today is a ramp that has to be built again once `T-035`'s parameters exist.
 
-`D-002` added a job this card did not have before: every current threshold was
-calibrated against an economy where result-tile supply only ever drained, so
-whatever mechanism `T-038` chooses makes the stages materially easier at
-unchanged targets. If `T-038` does not re-tune them, this card does.
+**The headroom half is `T-044`'s, and that is a different job.** `T-036` found
+the chain policy pinned at 99.5–100% on eight stages of ten, which stops the win
+gap measuring anything and blocks `T-024`, `T-037` and `T-038`. Moving two
+authored numbers until the bots come off the ceiling is an instrument fix: it is
+cheap, it is expected to be redone once `T-038` lands, and it cannot wait behind
+the cards it unblocks. Building a *curve* is none of those things, which is why
+the split is worth making rather than doing both here.
+
+So this card inherits a calibrated baseline rather than a saturated one, and its
+job narrows to shape: which stage is harder than which, and why. `D-002` still
+adds the job neither card had before — every threshold was calibrated against an
+economy where result-tile supply only ever drained, so whatever mechanism
+`T-038` chooses makes the stages materially easier at unchanged targets. If
+`T-038` does not re-tune them, this card does.
 
 A difficulty *setting*, if it ever arrives, is the same parameter set chosen a
 second way — so the ramp should be expressed in those parameters rather than in

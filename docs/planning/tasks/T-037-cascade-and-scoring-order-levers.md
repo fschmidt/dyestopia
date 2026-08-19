@@ -34,6 +34,15 @@ nothing reaches a player. Report win rate, the greedy-versus-chain gap and score
 distribution per stage and per policy, with `T-022`'s comparative-not-predictive
 caveat attached.
 
+**The baseline to read those against is `T-044`'s**, which is what
+`npm run playout` now prints: the chain policy at 90.5–94.0% across the ten and
+a win gap of +18.5 to +66.5 on the eight stages that have one. `T-036` had to
+report on the score gap because the win gap was pinned; this card does not, and
+should say which of the two each lever moved. Two of the ten rows carry no win
+gap at all — `First Splash` runs the policies as one bot, `The Hourglass`
+separates them by +0.5 points — so a flat reading on those two is the test set,
+not the lever.
+
 These are the two remaining levers `T-024` can reach without touching supply,
 which is why they are queued before the decisions rather than after them. They
 are also the cheapest cards on the spine: by the time `T-036` has landed, both

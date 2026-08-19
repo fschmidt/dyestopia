@@ -98,19 +98,20 @@ test.describe('stage authoring', () => {
     ])
   })
 
-  test('score targets reflect each board shape and chain-scoring capacity', () => {
+  test('targets and budgets are the pair T-044 calibrated to the 90-95% band', () => {
     expect(STAGES.map(({ threshold }) => threshold)).toEqual([
-      600,
-      1300,
+      1350,
+      2400,
       1800,
-      2900,
+      5500,
       1700,
       2000,
       2500,
-      3550,
+      3650,
       2500,
       5700,
     ])
+    expect(STAGES.map(({ moves }) => moves)).toEqual([8, 8, 5, 12, 7, 10, 8, 10, 18, 11])
   })
 })
 

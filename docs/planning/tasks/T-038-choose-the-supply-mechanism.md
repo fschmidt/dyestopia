@@ -56,10 +56,13 @@ Two things this card cannot leave open:
   Two candidates preserve it and two require overturning it. Whichever wins, this
   card either reaffirms the invariant explicitly or supersedes it in writing —
   `D-002` put it in scope and left it there.
-- **The existing thresholds.** Every stage target was calibrated against the
-  starved economy, so a flow makes stages materially easier at unchanged targets.
-  This card either re-tunes them or hands `T-025` a re-tuning job it did not have
-  before, and says which.
+- **The existing thresholds and budgets.** Every stage target was calibrated
+  against the starved economy, so a flow makes stages materially easier at
+  unchanged targets. This card either re-tunes them or hands `T-025` a re-tuning
+  job it did not have before, and says which. `T-044` did that tuning once, to
+  90.5–94.0% for a chain-building policy, and said in writing that it does not
+  expect to survive this card — the re-tune is the same two numbers a second
+  time, and its tables are the before-picture to measure the mechanism against.
 
 ## Acceptance criteria
 

@@ -241,8 +241,8 @@ not conclusions — the contested ones are collected under
 
 | Thing | Range across the ten stages | Where | Call |
 | --- | --- | --- | --- |
-| `threshold` | 600 – 5700, deliberately non-monotonic | [src/stages.ts](../../src/stages.ts) | Tunable |
-| `moves` | 8 – 18, monotonic | [src/stages.ts](../../src/stages.ts) | Tunable |
+| `threshold` | 1350 – 5700, deliberately non-monotonic | [src/stages.ts](../../src/stages.ts) | Tunable |
+| `moves` | 5 – 18, non-monotonic since `T-044` | [src/stages.ts](../../src/stages.ts) | Tunable |
 | `active` | 3 – 8 colours | [src/stages.ts](../../src/stages.ts) | Content |
 | `seed` | `[red, yellow, blue]` everywhere | [src/stages.ts](../../src/stages.ts) | Content |
 | `board` | mask plus preset letters | [src/stages.ts](../../src/stages.ts) | Content |
