@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 
+import { STAGES } from '../src/stages'
 import { open, waitForScene } from './helpers'
 
 interface Bounds {
@@ -45,7 +46,10 @@ test('iPhone 15 Pro Max stage header clears the metric row', async ({ page }) =>
   })
   await waitForScene(page, 'Game')
 
-  const layout = await page.evaluate(() => {
+  // The stage's own numbers rather than literals: `T-044` retunes these, and a
+  // layout test should fail on layout.
+  const last = STAGES.at(-1)!
+  const layout = await page.evaluate(({ target, moves }) => {
     const scene = window.dyestopia!.game.scene.getScene('Game')!
     const multiplierBlock = scene.children.getByName(
       'multiplier-block',
@@ -74,13 +78,13 @@ test('iPhone 15 Pro Max stage header clears the metric row', async ({ page }) =>
       placard: bounds('stage-label'),
       pause: bounds('pause'),
       metricLabels: [textBounds('SCORE'), textBounds('TARGET'), textBounds('MOVES')],
-      metricValues: [textBounds('0'), textBounds('5700'), textBounds('18')],
+      metricValues: [textBounds('0'), textBounds(target), textBounds(moves)],
       chainRadius: (
         multiplierBlock.getByName('chain-ring') as Phaser.GameObjects.Container
       ).getData('radius') as number,
       multiplierFontSize: Number.parseFloat(String(multiplierValue.style.fontSize)),
     }
-  })
+  }, { target: String(last.threshold), moves: String(last.moves) })
 
   const metricTop = Math.min(...layout.metricLabels.map(({ top }) => top))
   expect(layout.placard.bottom + 24).toBeLessThanOrEqual(metricTop)
