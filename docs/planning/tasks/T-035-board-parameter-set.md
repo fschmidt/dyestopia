@@ -10,6 +10,8 @@ labels: [engine, balance, decision]
 ## Description
 
 **Blocked on `T-022` and `T-034`. Feeds `T-024`, `T-025`, `T-019` and `I-013`.**
+**Queued behind `T-020`**, which rewrites the same signatures this card threads
+parameters through — doing them the other way round means threading twice.
 
 Fill `C-001` §3. Named parameters with today's behaviour as their defaults, so
 adopting the set changes nothing until someone changes a value, and per-stage

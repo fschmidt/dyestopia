@@ -16,10 +16,13 @@ import type { ColorId } from '../colors'
 import { recordToolClear, recordTutorialClear, recordWin } from '../progress'
 import { takeSeed } from '../rng'
 import {
+  enterEndless,
   isWon,
   playMove,
   settleRound,
   startRound,
+  withColorChain,
+  withOutcome,
   type MoveReport,
   type Outcome,
   type RoundState,
@@ -342,7 +345,7 @@ export class GameScene extends BaseScene {
         const results = stageMixes(this.stage)
           .map(({ result }) => result)
           .filter((result) => result !== move.result)
-        this.round.colorChain = { results, multiplier: results.length + 1 }
+        this.round = withColorChain(this.round, { results, multiplier: results.length + 1 })
         return
       }
     }
@@ -1324,15 +1327,16 @@ export class GameScene extends BaseScene {
 
   private async continueEndless(panel: Phaser.GameObjects.Container): Promise<void> {
     recordWin(STAGES.length - 1)
-    this.round.endless = true
+    this.round = enterEndless(this.round)
     panel.destroy(true)
     this.pauseDialog = undefined
     this.paused = false
     this.updateHud()
     // Endless has no threshold and no budget, so settling can only revive a
     // board the abandoned win condition left dead.
-    const { reshuffled } = settleRound(this.round)
-    if (reshuffled) await this.animateReshuffle(reshuffled)
+    const settlement = settleRound(this.round)
+    this.round = settlement.round
+    if (settlement.reshuffled) await this.animateReshuffle(settlement.reshuffled)
     this.resolving = false
   }
 
@@ -1469,9 +1473,12 @@ export class GameScene extends BaseScene {
     }
 
     // The move is played out in full here — cells dyed or swapped, cascade
-    // resolved to a standstill, budget spent — and comes back as a recording.
-    // Everything below is the replay.
-    const report = playMove(this.round, origin, cell, { allowDistant })!
+    // resolved to a standstill, budget spent — and comes back as the settled
+    // position plus a recording. The scene adopts the position at once, as it
+    // did when the move mutated it, and everything below is the replay.
+    const played = playMove(this.round, origin, cell, { allowDistant })!
+    this.round = played.round
+    const report = played.report
     // A merge's chain has already climbed and a swap's has already broken, so
     // the replay carries the multiplier the move was actually worth.
     this.shown.resolution = report.resolution
@@ -1562,7 +1569,9 @@ export class GameScene extends BaseScene {
     // The stage frame gets its say only now: a tutorial that has just been
     // cleared returns above, and settling would draw from `rng` for a
     // reshuffle nobody will see.
-    const { reshuffled, outcome } = settleRound(this.round)
+    const settlement = settleRound(this.round)
+    this.round = settlement.round
+    const { reshuffled, outcome } = settlement
 
     if (outcome === 'won') {
       await this.win()
@@ -1584,7 +1593,7 @@ export class GameScene extends BaseScene {
     const index = this.tutorialIndex!
     const tutorial = TUTORIALS[index]
     const final = index === TUTORIALS.length - 1
-    this.round.outcome = 'won'
+    this.round = withOutcome(this.round, 'won')
     recordTutorialClear(index)
     playSfx('win')
     this.buildOverlay(
@@ -1978,7 +1987,7 @@ export class GameScene extends BaseScene {
    * tally up over an overlay that offers the next stage.
    */
   private async win(): Promise<void> {
-    this.round.outcome = 'won'
+    this.round = withOutcome(this.round, 'won')
     playSfx('win')
     const opened = this.toolStageIndex !== undefined
       ? recordToolClear(this.toolStageIndex)
@@ -2051,7 +2060,7 @@ export class GameScene extends BaseScene {
    */
   private lose(): void {
     const visual = resolveVisualProfile()
-    this.round.outcome = 'lost'
+    this.round = withOutcome(this.round, 'lost')
     playSfx('lose')
 
     const dim = this.add

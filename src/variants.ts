@@ -32,13 +32,50 @@
  */
 export type MixLegality = 'must-clear' | 'any-mix'
 
+/**
+ * What a cascade wave is worth.
+ *
+ * `inherit` is the game as it ships: `resolveCascade` scores every wave at the
+ * multiplier the move arrived with, so a five-wave cascade pays exactly five
+ * times what its first wave did. The move is the unit that is paid for; the
+ * cascade it sets off is free.
+ *
+ * `escalate` gives waves the standard match-3 treatment (`T-037`): each wave
+ * after the first adds one to the move's multiplier, so wave *i* scores at
+ * `multiplier + i`. Additive rather than multiplicative on purpose — it hands
+ * the same absolute bonus to a chain of one and a chain of five, which is the
+ * conservative form. If the reading is flat, the multiplicative form is the
+ * next thing to try, not the conclusion.
+ */
+export type CascadeScoring = 'inherit' | 'escalate'
+
+/**
+ * When a merge's own result reaches the chain.
+ *
+ * `after-clear` is the game as it ships: `playMove` scores the merge at the
+ * chain it *arrived* with and only then advances it, so the chain a player
+ * builds pays out on the move after the one that built it.
+ *
+ * `own-clear` advances first (`T-037`), so a merge that grows the chain clears
+ * at the multiplier it just earned. It is the cheapest way to make the
+ * multiplier visible at the moment it is earned, and it changes no legality —
+ * the same drops are legal, they are worth more.
+ */
+export type MergeScoring = 'after-clear' | 'own-clear'
+
 /** Which form of each branching rule a round is played under. */
 export interface RuleSet {
   mixLegality: MixLegality
+  cascadeScoring: CascadeScoring
+  mergeScoring: MergeScoring
 }
 
 /** The game as it ships. Every measured row is read against this one. */
-export const BASELINE_RULES: RuleSet = { mixLegality: 'must-clear' }
+export const BASELINE_RULES: RuleSet = {
+  mixLegality: 'must-clear',
+  cascadeScoring: 'inherit',
+  mergeScoring: 'after-clear',
+}
 
 /** A named rule set the command line can select and a table can label. */
 export interface Variant {
@@ -58,6 +95,16 @@ export const VARIANTS: readonly Variant[] = [
   {
     id: 'any-mix',
     label: 'a mix need not clear',
-    rules: { mixLegality: 'any-mix' },
+    rules: { ...BASELINE_RULES, mixLegality: 'any-mix' },
+  },
+  {
+    id: 'escalate',
+    label: 'each cascade wave adds one to the multiplier',
+    rules: { ...BASELINE_RULES, cascadeScoring: 'escalate' },
+  },
+  {
+    id: 'own-clear',
+    label: 'a merge clears at the chain it just raised',
+    rules: { ...BASELINE_RULES, mergeScoring: 'own-clear' },
   },
 ]

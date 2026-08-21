@@ -148,7 +148,7 @@ export async function settle(page: Page): Promise<BoardReport> {
  */
 export function toEngine(report: BoardReport): { grid: Grid; cells: Cells } {
   const mask = new Array<boolean>(report.cols * report.rows).fill(false)
-  const cells: Cells = new Array(report.cols * report.rows).fill(null)
+  const cells: (Cells[number])[] = new Array(report.cols * report.rows).fill(null)
   for (const cell of report.cells) {
     mask[cell.index] = true
     cells[cell.index] = cell.color as Cells[number]

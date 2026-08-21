@@ -60,18 +60,19 @@ export interface RoundState {
    */
   readonly rules: RuleSet
 
-  cells: Cells
-  rng: Rng
-  score: number
-  colorChain: ColorChain
+  readonly cells: Cells
+  /** The round's random stream, as a value: copy it and you have forked it. */
+  readonly rng: Rng
+  readonly score: number
+  readonly colorChain: ColorChain
   /** How the last move scored; the HUD reads it, the next move replaces it. */
-  resolution: ScoreResolution
-  movesLeft: number
+  readonly resolution: ScoreResolution
+  readonly movesLeft: number
   /** The final stage past its target, with the player choosing to keep going. */
-  endless: boolean
-  outcome: Outcome
+  readonly endless: boolean
+  readonly outcome: Outcome
   /** The threshold has been crossed at least once — a one-shot celebration. */
-  thresholdMet: boolean
+  readonly thresholdMet: boolean
 }
 
 export interface RoundOptions {
@@ -87,17 +88,23 @@ export interface RoundOptions {
  * same seed is the stage itself.
  */
 export function startRound(stage: Stage, options: RoundOptions = {}): RoundState {
-  const rng = mulberry32(options.seed ?? 0)
   const grid = parseMask(stage.board)
   const mix: MixRule = (a, b) => stageMix(stage, a, b)
+  const dealt = generateBoard(
+    grid,
+    stage.seed,
+    mulberry32(options.seed ?? 0),
+    mix,
+    stagePreset(stage.board, grid),
+  )
   return {
     stage,
     grid,
     mix,
     maxMultiplier: stageMaxMultiplier(stage),
     rules: options.rules ?? BASELINE_RULES,
-    cells: generateBoard(grid, stage.seed, rng, mix, stagePreset(stage.board, grid)),
-    rng,
+    cells: dealt.cells,
+    rng: dealt.rng,
     score: 0,
     colorChain: { results: [], multiplier: 1 },
     resolution: { kind: 'normal', multiplier: 1, rainbow: false },
@@ -144,12 +151,18 @@ export interface MoveOptions {
  * Stops at the settled board rather than going on to declare a winner: see
  * `settleRound` for why those are two calls.
  */
+export interface MoveOutcome {
+  /** The position the move settled into. The one passed in is untouched. */
+  round: RoundState
+  report: MoveReport
+}
+
 export function playMove(
   round: RoundState,
   from: number,
   to: number,
   options: MoveOptions = {},
-): MoveReport | null {
+): MoveOutcome | null {
   const move = resolveMove(round.grid, round.cells, round.mix, from, to, {
     allowDistant: options.allowDistant,
     rules: round.rules,
@@ -157,54 +170,79 @@ export function playMove(
   if (move.kind === 'illegal') return null
 
   const previousMultiplier = round.colorChain.multiplier
-  if (!round.endless) round.movesLeft--
+  const movesLeft = round.endless ? round.movesLeft : round.movesLeft - 1
 
+  const played: (ColorId | null)[] = round.cells.slice()
+  let colorChain = round.colorChain
+  let resolution: ScoreResolution
   if (move.kind === 'merge') {
     // The merge clears at the chain it arrived with; its result raises the
-    // chain only for later moves.
-    round.resolution = scoreResolutionForMerge(round.colorChain, round.maxMultiplier)
-    round.colorChain = advanceColorChain(round.colorChain, move.result, round.maxMultiplier)
-    round.cells[from] = round.cells[to] = move.result
+    // chain only for later moves. Under `mergeScoring: 'own-clear'` the two
+    // steps swap, so a merge that grows the chain clears at the higher figure.
+    const advanced = advanceColorChain(round.colorChain, move.result, round.maxMultiplier)
+    resolution = scoreResolutionForMerge(
+      round.rules.mergeScoring === 'own-clear' ? advanced : round.colorChain,
+      round.maxMultiplier,
+    )
+    colorChain = advanced
+    played[from] = played[to] = move.result
   } else {
-    round.resolution = scoreResolutionForSwap(round.colorChain, round.maxMultiplier)
-    ;[round.cells[from], round.cells[to]] = [round.cells[to], round.cells[from]]
+    resolution = scoreResolutionForSwap(round.colorChain, round.maxMultiplier)
+    ;[played[from], played[to]] = [played[to], played[from]]
   }
 
-  const resolution = round.resolution
   const scoreBefore = round.score
-  const waves = resolveCascade(
+  const settled = resolveCascade(
     round.grid,
-    round.cells,
+    played,
     resolution.multiplier,
     round.stage.seed,
     round.rng,
+    round.rules,
   )
 
+  let score = round.score
+  let thresholdMet = round.thresholdMet
   let thresholdWave: number | null = null
-  for (const [wave, { points }] of waves.entries()) {
-    round.score += points
-    if (!round.thresholdMet && round.score >= round.stage.threshold) {
-      round.thresholdMet = true
+  for (const [wave, { points }] of settled.waves.entries()) {
+    score += points
+    if (!thresholdMet && score >= round.stage.threshold) {
+      thresholdMet = true
       thresholdWave = wave
     }
   }
 
+  // A scoring swap spends the chain, so it breaks once the cascade it set off
+  // has been paid for — every wave of it at the boosted multiplier.
   let chainBreak: MoveReport['chainBreak'] = null
+  let shown = resolution
   if (move.kind === 'swap') {
-    chainBreak = { previousMultiplier: round.colorChain.multiplier }
-    round.colorChain = breakColorChain(round.colorChain)
-    round.resolution = { kind: 'normal', multiplier: 1, rainbow: false }
+    chainBreak = { previousMultiplier: colorChain.multiplier }
+    colorChain = breakColorChain(colorChain)
+    shown = { kind: 'normal', multiplier: 1, rainbow: false }
   }
 
   return {
-    kind: move.kind,
-    result: move.kind === 'merge' ? move.result : undefined,
-    previousMultiplier,
-    resolution,
-    waves,
-    scoreBefore,
-    thresholdWave,
-    chainBreak,
+    round: {
+      ...round,
+      cells: settled.cells,
+      rng: settled.rng,
+      score,
+      colorChain,
+      resolution: shown,
+      movesLeft,
+      thresholdMet,
+    },
+    report: {
+      kind: move.kind,
+      result: move.kind === 'merge' ? move.result : undefined,
+      previousMultiplier,
+      resolution,
+      waves: settled.waves,
+      scoreBefore,
+      thresholdWave,
+      chainBreak,
+    },
   }
 }
 
@@ -219,6 +257,8 @@ export function isWon(round: RoundState): boolean {
 
 /** What settling the board after a move decided. */
 export interface Settlement {
+  /** The settled position — reshuffled or not, won or lost or still playing. */
+  round: RoundState
   /** The tiles a dead board was rearranged into; `null` when it was still alive. */
   reshuffled: CellMove[] | null
   outcome: Outcome
@@ -235,17 +275,38 @@ export interface Settlement {
  */
 export function settleRound(round: RoundState): Settlement {
   if (isWon(round)) {
-    round.outcome = 'won'
-    return { reshuffled: null, outcome: round.outcome }
+    return { round: { ...round, outcome: 'won' }, reshuffled: null, outcome: 'won' }
   }
 
+  let settled = round
   let reshuffled: CellMove[] | null = null
   if (!findLegalMove(round.grid, round.cells, round.mix, round.rules)) {
     const shuffled = reshuffle(round.grid, round.cells, round.rng, round.mix, round.rules)
-    round.cells = shuffled.cells
+    settled = { ...settled, cells: shuffled.cells, rng: shuffled.rng }
     reshuffled = shuffled.moves
   }
 
-  if (!round.endless && round.movesLeft <= 0) round.outcome = 'lost'
-  return { reshuffled, outcome: round.outcome }
+  const outcome: Outcome =
+    !settled.endless && settled.movesLeft <= 0 ? 'lost' : settled.outcome
+  return { round: { ...settled, outcome }, reshuffled, outcome }
+}
+
+/**
+ * The round's fate settled by something other than the board: a tutorial met
+ * its own goal, or the player dismissed the last stage's win screen. The scene
+ * owns those moments, and this is how it says so without reaching into the
+ * state.
+ */
+export function withOutcome(round: RoundState, outcome: Outcome): RoundState {
+  return { ...round, outcome }
+}
+
+/** The final stage past its target, with the player choosing to keep going. */
+export function enterEndless(round: RoundState): RoundState {
+  return { ...round, endless: true }
+}
+
+/** The colour chain set directly — the tutorial rig, and nothing else. */
+export function withColorChain(round: RoundState, colorChain: ColorChain): RoundState {
+  return { ...round, colorChain }
 }

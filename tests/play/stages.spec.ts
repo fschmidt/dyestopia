@@ -49,7 +49,7 @@ test.describe('stage authoring', () => {
       // Several deals per stage: none may throw (a preset three-in-line
       // does), and each must come up full, match-free and alive.
       for (let seed = 1; seed <= 5; seed++) {
-        const cells = generateBoard(grid, stage.seed, mulberry32(seed), rulesFor(stage), preset)
+        const { cells } = generateBoard(grid, stage.seed, mulberry32(seed), rulesFor(stage), preset)
         const full = cells.filter(Boolean).length
         expect(full, `${label} seed ${seed} fills the mask`).toBe(
           grid.mask.filter(Boolean).length,
@@ -72,7 +72,7 @@ test.describe('stage authoring', () => {
       .filter(({ color }) => color !== undefined)
     expect(authored.length).toBeGreaterThan(0)
 
-    const cells = generateBoard(grid, stage.seed, mulberry32(7), rulesFor(stage), preset)
+    const { cells } = generateBoard(grid, stage.seed, mulberry32(7), rulesFor(stage), preset)
     for (const { color, index } of authored) {
       expect(cells[index]).toBe(color)
     }

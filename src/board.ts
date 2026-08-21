@@ -27,8 +27,17 @@ export interface Grid {
 /**
  * Board contents, row-major over the grid. `null` is an empty playable cell;
  * cells outside the mask are `null` too and stay that way.
+ *
+ * **Readonly, and that is the contract** (`T-020`): a position is a value, so
+ * every rule below takes one and returns the next rather than editing the one
+ * it was handed. Functions here build their working copy and hand it back; the
+ * caller's board is never touched, which is what lets a caller keep the
+ * position it started from and compare, store or fork it.
  */
-export type Cells = (ColorId | null)[]
+export type Cells = readonly (ColorId | null)[]
+
+/** A position under construction — the mutable form, private to a producer. */
+type Draft = (ColorId | null)[]
 
 /** A tile moving between cells — gravity, or a reshuffle. */
 export interface CellMove {
@@ -107,7 +116,8 @@ export function findMatches(grid: Grid, cells: Cells): Set<number> {
  * Drop every tile to the lowest empty cell of its column, falling through mask
  * gaps. Mutates `cells`; the returned moves let the scene animate what moved.
  */
-export function applyGravity(grid: Grid, cells: Cells): CellMove[] {
+export function applyGravity(grid: Grid, cells: Cells): { cells: Cells; moves: CellMove[] } {
+  const next: Draft = cells.slice()
   const moves: CellMove[] = []
   for (let col = 0; col < grid.cols; col++) {
     // Masked cells of the column, bottom-up. A write cursor walks them and
@@ -120,17 +130,17 @@ export function applyGravity(grid: Grid, cells: Cells): CellMove[] {
     }
     let write = 0
     for (let read = 0; read < column.length; read++) {
-      const tile = cells[column[read]]
+      const tile = next[column[read]]
       if (tile === null) continue
       if (read !== write) {
-        cells[column[write]] = tile
-        cells[column[read]] = null
+        next[column[write]] = tile
+        next[column[read]] = null
         moves.push({ from: column[read], to: column[write] })
       }
       write++
     }
   }
-  return moves
+  return { cells: next, moves }
 }
 
 /**
@@ -138,15 +148,23 @@ export function applyGravity(grid: Grid, cells: Cells): CellMove[] {
  * post-gravity, the empties are the top of each column, which is where new
  * tiles fall in from. Mutates `cells`.
  */
-export function refill(grid: Grid, cells: Cells, seed: ColorId[], rng: Rng): Spawn[] {
+export function refill(
+  grid: Grid,
+  cells: Cells,
+  seed: readonly ColorId[],
+  rng: Rng,
+): { cells: Cells; spawns: Spawn[]; rng: Rng } {
+  const next: Draft = cells.slice()
   const spawns: Spawn[] = []
+  let stream = rng
   for (let index = 0; index < grid.mask.length; index++) {
-    if (!grid.mask[index] || cells[index] !== null) continue
-    const color = rngPick(rng, seed)
-    cells[index] = color
+    if (!grid.mask[index] || next[index] !== null) continue
+    const [color, advanced] = rngPick(stream, seed)
+    stream = advanced
+    next[index] = color
     spawns.push({ index, color })
   }
-  return spawns
+  return { cells: next, spawns, rng: stream }
 }
 
 /**
@@ -322,13 +340,14 @@ export function legalMoves(
  */
 export function generateBoard(
   grid: Grid,
-  seed: ColorId[],
+  seed: readonly ColorId[],
   rng: Rng,
   mix: MixRule = NO_MIX,
-  preset?: (ColorId | undefined)[],
-): Cells {
-  const cells: Cells = new Array(grid.mask.length).fill(null)
+  preset?: readonly (ColorId | undefined)[],
+): { cells: Cells; rng: Rng } {
+  const cells: Draft = new Array(grid.mask.length).fill(null)
   const fixed = new Set<number>()
+  let stream = rng
   for (let index = 0; index < grid.mask.length; index++) {
     const color = preset?.[index]
     if (color !== undefined && grid.mask[index]) {
@@ -347,17 +366,26 @@ export function generateBoard(
       cells[index] = null
       return !matches.has(index)
     })
-    cells[index] = allowed.length > 0 ? rngPick(rng, allowed) : rngPick(rng, seed)
+    const [color, advanced] = rngPick(stream, allowed.length > 0 ? allowed : seed)
+    stream = advanced
+    cells[index] = color
   }
   for (let matches = findMatches(grid, cells); matches.size > 0; matches = findMatches(grid, cells)) {
     const loose = [...matches].filter((index) => !fixed.has(index))
     if (loose.length === 0) {
       throw new Error('Stage preset deals a ready-made match')
     }
-    for (const index of loose) cells[index] = rngPick(rng, seed)
+    for (const index of loose) {
+      const [color, advanced] = rngPick(stream, seed)
+      stream = advanced
+      cells[index] = color
+    }
   }
-  if (!findLegalMove(grid, cells, mix)) return reshuffle(grid, cells, rng, mix).cells
-  return cells
+  if (!findLegalMove(grid, cells, mix)) {
+    const shuffled = reshuffle(grid, cells, stream, mix)
+    return { cells: shuffled.cells, rng: shuffled.rng }
+  }
+  return { cells, rng: stream }
 }
 
 /**
@@ -375,32 +403,36 @@ export function reshuffle(
   rng: Rng,
   mix: MixRule = NO_MIX,
   rules: RuleSet = BASELINE_RULES,
-): { cells: Cells; moves: CellMove[] } {
+): { cells: Cells; moves: CellMove[]; rng: Rng } {
   const occupied: number[] = []
   for (let index = 0; index < grid.mask.length; index++) {
     if (grid.mask[index] && cells[index] !== null) occupied.push(index)
   }
 
-  const arrange = (): { cells: Cells; moves: CellMove[] } => {
-    const order = rngShuffle(rng, occupied.slice())
-    const next = cells.slice()
+  const arrange = (stream: Rng): { cells: Cells; moves: CellMove[]; rng: Rng } => {
+    const [order, advanced] = rngShuffle(stream, occupied)
+    const next: Draft = cells.slice()
     const moves: CellMove[] = []
     for (let i = 0; i < occupied.length; i++) {
       next[order[i]] = cells[occupied[i]]
       if (order[i] !== occupied[i]) moves.push({ from: occupied[i], to: order[i] })
     }
-    return { cells: next, moves }
+    return { cells: next, moves, rng: advanced }
   }
 
-  let fallback: { cells: Cells; moves: CellMove[] } | null = null
-  let attempt = arrange()
+  let fallback: { cells: Cells; moves: CellMove[]; rng: Rng } | null = null
+  let attempt = arrange(rng)
   for (let tries = 0; tries < 120; tries++) {
     const live = findLegalMove(grid, attempt.cells, mix, rules) !== null
     if (live && findMatches(grid, attempt.cells).size === 0) return attempt
     if (live && !fallback) fallback = attempt
-    attempt = arrange()
+    attempt = arrange(attempt.rng)
   }
-  return fallback ?? attempt
+  // The stream to hand back is the one every attempt drew from, not the one the
+  // kept arrangement happened to leave behind: a search that tried 121 times has
+  // spent 121 shuffles whichever attempt it settles on, and a round that
+  // pretended otherwise would deal differently from here on.
+  return fallback ? { ...fallback, rng: attempt.rng } : attempt
 }
 
 /** The uninterrupted set of result colours mixed since the last legal swap. */
@@ -483,33 +515,47 @@ export interface CascadeWave {
  * up. That is the seam that lets a round be played without a screen — the
  * harness calls this and reads the waves instead of animating them.
  *
- * Every wave scores at `multiplier`; cascades inherit the move's and never grow
- * (see `clearScore`). Mutates `cells` and advances `rng`, which is what makes a
- * seeded playout reproducible.
+ * Under the baseline every wave scores at `multiplier`: cascades inherit the
+ * move's and never grow (see `clearScore`). `cascadeScoring: 'escalate'` gives
+ * wave *i* `multiplier + i` instead, which leaves the first wave alone and pays
+ * only for the ones the move set off. Mutates `cells` and advances `rng`, which
+ * is what makes a seeded playout reproducible.
  */
 export function resolveCascade(
   grid: Grid,
   cells: Cells,
   multiplier: number,
-  seed: ColorId[],
+  seed: readonly ColorId[],
   rng: Rng,
-): CascadeWave[] {
+  rules: RuleSet = BASELINE_RULES,
+): { cells: Cells; waves: CascadeWave[]; rng: Rng } {
   const waves: CascadeWave[] = []
+  let settled = cells
+  let stream = rng
   for (;;) {
-    const matched = [...findMatches(grid, cells)]
-    if (matched.length === 0) return waves
+    const matched = [...findMatches(grid, settled)]
+    if (matched.length === 0) return { cells: settled, waves, rng: stream }
 
     // Mix participants have already taken the result colour, so their score
     // value comes from that result rather than from their former ingredients.
-    const colors = matched.map((index) => cells[index]!)
-    for (const index of matched) cells[index] = null
+    const colors = matched.map((index) => settled[index]!)
+    const cleared: Draft = settled.slice()
+    for (const index of matched) cleared[index] = null
+
+    const waveMultiplier =
+      rules.cascadeScoring === 'escalate' ? multiplier + waves.length : multiplier
+
+    const dropped = applyGravity(grid, cleared)
+    const filled = refill(grid, dropped.cells, seed, stream)
+    settled = filled.cells
+    stream = filled.rng
 
     waves.push({
       matched,
       colors,
-      points: clearScore(colors, multiplier),
-      falls: applyGravity(grid, cells),
-      spawns: refill(grid, cells, seed, rng),
+      points: clearScore(colors, waveMultiplier),
+      falls: dropped.moves,
+      spawns: filled.spawns,
     })
   }
 }

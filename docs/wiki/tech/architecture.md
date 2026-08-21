@@ -29,7 +29,7 @@ to `main`.
 | [`src/palette.ts`](../../../src/palette.ts) | Chrome colours — the page around the game, and text. |
 | [`src/playout.ts`](../../../src/playout.ts) | Playing a stage with no screen attached. |
 | [`src/progress.ts`](../../../src/progress.ts) | — |
-| [`src/rng.ts`](../../../src/rng.ts) | Seedable randomness for everything gameplay-visible. |
+| [`src/rng.ts`](../../../src/rng.ts) | Seedable randomness for everything gameplay-visible, as a value. |
 | [`src/round.ts`](../../../src/round.ts) | A round as a value. |
 | [`src/scenes/BaseScene.ts`](../../../src/scenes/BaseScene.ts) | — |
 | [`src/scenes/BootScene.ts`](../../../src/scenes/BootScene.ts) | — |
@@ -62,17 +62,24 @@ to `main`.
 
 ## The shape of it
 
-<!-- pin:src/board.ts sha=ad9c5a81e5be -->
+<!-- pin:src/board.ts sha=67b90af6a856 -->
 
 **The engine** is `src/board.ts`. It is pure: grids, masks, matches, gravity,
 refills, cascades, reshuffles and chain bookkeeping, with no Phaser import and no
 rendering. Everything about how the game plays is decided here.
 
+**A position is a value.** `Cells` is readonly, and every rule takes a board and
+returns the next one rather than editing the one it was handed — `applyGravity`,
+`refill`, `generateBoard`, `reshuffle` and `resolveCascade` all hand back a fresh
+board, and the ones that draw randomness hand back the stream they left off at
+as well. So a caller can keep the position it started from, compare two, store
+one, or fork a round to evaluate a move against and then throw the fork away.
+
 It has two entry points. `resolveMove` decides what a move *is*, and it tries
 *mix before swap*. `resolveCascade` then plays that move's cascade to a
-standstill and returns it as a list of waves — what matched, what it paid, what
-fell and what spawned. The board settles before anything is drawn, and nothing
-in the loop waits on a tween.
+standstill and returns the settled board with the list of waves — what matched,
+what it paid, what fell and what spawned. The board settles before anything is
+drawn, and nothing in the loop waits on a tween.
 
 Two more answer questions *about* a board rather than changing one:
 `findLegalMove` stops at the first move it finds, which is all dead-board
@@ -95,8 +102,10 @@ across sections, and is what stage-select and progress actually read.
 **The stage frame** is `src/round.ts`, one layer above the engine and equally
 free of Phaser. `startRound` deals a stage from a seed; `playMove` plays one
 drop — dye or swap, cascade, score, chain, and the move budget — and hands back
-a recording; `settleRound` decides what the settled board means, reviving a dead
-board or ending the round. A whole round can therefore be played with nothing
+the round that follows it beside a recording of what happened; `settleRound`
+decides what the settled board means, reviving a dead board or ending the round.
+`RoundState` is readonly throughout, its random stream included, so a round is
+one value a caller advances rather than an object that changes under them. A whole round can therefore be played with nothing
 drawn, which is what the headless harness calls and what `GameScene` animates
 rather than decides.
 
@@ -112,8 +121,9 @@ human difficulty, and the report says so on every run.
 branches rather than values — mix legality is the largest — so no parameter
 reaches them and the only way to measure one is to build a second form of the
 rule and play both. A `RuleSet` says which form a round uses; it rides on
-`RoundState` and reaches the engine through `resolveMove`. Nothing a player can
-reach selects one: `GameScene` asks for no rule set, so the game is the baseline
+`RoundState` and reaches the engine through `resolveMove` and `resolveCascade`,
+and is read directly by `playMove` where the branch is an order of operations
+rather than a rule the engine sees. Nothing a player can reach selects one: `GameScene` asks for no rule set, so the game is the baseline
 by construction, and a variant that turns out to be worth shipping stops being a
 variant.
 

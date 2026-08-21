@@ -17,7 +17,7 @@
  * easier or harder than it was", never as "this stage is 60% winnable".
  */
 
-import { clearScore, findMatches, legalMoves, scoreResolutionForMerge, scoreResolutionForSwap, type Cells, type LegalMove } from './board'
+import { advanceColorChain, clearScore, findMatches, legalMoves, scoreResolutionForMerge, scoreResolutionForSwap, type Cells, type LegalMove } from './board'
 import { colorTier, type ColorId } from './colors'
 import { playMove, settleRound, startRound, type Outcome, type RoundState } from './round'
 import type { Stage } from './stage'
@@ -38,13 +38,25 @@ export interface Policy {
  * What a move would pay if it were played right now: the immediate clear only,
  * scored at the resolution the move would earn. Cascades are deliberately not
  * simulated — they need the `rng`, and drawing from it to *evaluate* a move
- * would change the round the bot is playing.
+ * would change the round the bot is playing. That limit is worth remembering
+ * when reading `cascadeScoring`: neither bot can see a cascade coming, so a
+ * variant that pays for long ones is measured on the cascades that happen
+ * anyway, not on a player steering into them.
+ *
+ * The merge branch reads `mergeScoring` because it must. A bot evaluating
+ * merges at the pre-merge chain while the round scores them at the post-merge
+ * one is not playing the variant, and the difference would land in the numbers
+ * as if the rule had done it.
  */
 function immediateScore(round: RoundState, option: LegalMove): number {
-  const trial: Cells = round.cells.slice()
+  const trial: (ColorId | null)[] = round.cells.slice()
+  const chainForMerge =
+    option.move.kind === 'merge' && round.rules.mergeScoring === 'own-clear'
+      ? advanceColorChain(round.colorChain, option.move.result, round.maxMultiplier)
+      : round.colorChain
   const resolution =
     option.move.kind === 'merge'
-      ? scoreResolutionForMerge(round.colorChain, round.maxMultiplier)
+      ? scoreResolutionForMerge(chainForMerge, round.maxMultiplier)
       : scoreResolutionForSwap(round.colorChain, round.maxMultiplier)
   if (option.move.kind === 'merge') {
     trial[option.from] = trial[option.to] = option.move.result
@@ -213,7 +225,7 @@ export function playOut(
 ): Playout {
   const maxMoves = options.maxMoves ?? DEFAULT_MAX_MOVES
   const rules = options.rules ?? BASELINE_RULES
-  const round = startRound(stage, { seed, rules })
+  let round = startRound(stage, { seed, rules })
   const moves: MoveRecord[] = []
   let truncated = false
 
@@ -229,9 +241,11 @@ export function playOut(
 
     const choice = policy.choose(round, options_)
     const before = round.score
-    const report = playMove(round, choice.from, choice.to)
-    if (!report) throw new Error(`Policy "${policy.id}" chose a move the rules refuse`)
-    const settlement = settleRound(round)
+    const played = playMove(round, choice.from, choice.to)
+    if (!played) throw new Error(`Policy "${policy.id}" chose a move the rules refuse`)
+    const { report } = played
+    const settlement = settleRound(played.round)
+    round = settlement.round
 
     const cleared = report.waves.flatMap((wave) => wave.colors)
     moves.push({
