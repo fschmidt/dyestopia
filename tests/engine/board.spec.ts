@@ -92,8 +92,10 @@ test.describe('gravity and refill', () => {
   test('tiles compact to the bottom of their column', () => {
     const grid = parseMask(['#', '#', '#', '#'])
     const cells = cellsOf(grid, ['r', '.', 'y', '.'])
-    const moves = applyGravity(grid, cells)
-    expect(cells).toEqual([null, null, 'red', 'yellow'])
+    const { cells: fallen, moves } = applyGravity(grid, cells)
+    expect(fallen).toEqual([null, null, 'red', 'yellow'])
+    // The position handed in is a value: it still reads as it did (`T-020`).
+    expect(cells).toEqual(['red', null, 'yellow', null])
     // Order within the column survives the fall.
     expect(moves).toEqual([
       { from: 2, to: 3 },
@@ -104,16 +106,16 @@ test.describe('gravity and refill', () => {
   test('tiles fall through mask gaps', () => {
     const grid = parseMask(['#', '.', '#'])
     const cells = cellsOf(grid, ['r', '.', '.'])
-    applyGravity(grid, cells)
-    expect(cells).toEqual([null, null, 'red'])
+    expect(applyGravity(grid, cells).cells).toEqual([null, null, 'red'])
   })
 
   test('refill fills exactly the empty masked cells, from the seed list', () => {
     const grid = parseMask(['##', '.#'])
     const cells = cellsOf(grid, ['r.', '..'])
-    const spawns = refill(grid, cells, ['blue'], mulberry32(7))
-    expect(spawns.map((s) => s.index).sort()).toEqual([1, 3])
-    expect(cells).toEqual(['red', 'blue', null, 'blue'])
+    const { cells: filled, spawns } = refill(grid, cells, ['blue'], mulberry32(7))
+    expect(spawns.map((spawn) => spawn.index).sort()).toEqual([1, 3])
+    expect(filled).toEqual(['red', 'blue', null, 'blue'])
+    expect(cells).toEqual(['red', null, null, null])
   })
 })
 
@@ -126,7 +128,7 @@ test.describe('the cascade', () => {
 
   test('reports the clear, the fall and the refill as one wave', () => {
     const cells = cellsOf(grid, rows)
-    const [first] = resolveCascade(grid, cells, 1, seed, mulberry32(11))
+    const [first] = resolveCascade(grid, cells, 1, seed, mulberry32(11)).waves
 
     expect(first.matched).toEqual([9, 10, 11])
     expect(first.colors).toEqual(['red', 'red', 'red'])
@@ -150,14 +152,16 @@ test.describe('the cascade', () => {
 
   test('leaves the board settled', () => {
     const cells = cellsOf(grid, rows)
-    resolveCascade(grid, cells, 1, seed, mulberry32(11))
-    expect(findMatches(grid, cells).size).toBe(0)
-    expect(cells.some((cell) => cell === null)).toBe(false)
+    const { cells: settled } = resolveCascade(grid, cells, 1, seed, mulberry32(11))
+    expect(findMatches(grid, settled).size).toBe(0)
+    expect(settled.some((cell) => cell === null)).toBe(false)
+    // And the position it started from still has its match standing.
+    expect(findMatches(grid, cells).size).toBe(3)
   })
 
   test('every wave scores at the move multiplier — cascades inherit, never grow', () => {
     const cells = cellsOf(grid, rows)
-    const waves = resolveCascade(grid, cells, 3, seed, mulberry32(11))
+    const { waves } = resolveCascade(grid, cells, 3, seed, mulberry32(11))
     for (const wave of waves) {
       expect(wave.points).toBe(clearScore(wave.colors, 3))
     }
@@ -180,8 +184,15 @@ test.describe('the cascade', () => {
    */
   test('under escalate each wave after the first adds one to the multiplier', () => {
     const escalate = { ...BASELINE_RULES, cascadeScoring: 'escalate' } as const
-    const inherited = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11))
-    const escalated = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11), escalate)
+    const { waves: inherited } = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11))
+    const { waves: escalated } = resolveCascade(
+      grid,
+      cellsOf(grid, rows),
+      3,
+      seed,
+      mulberry32(11),
+      escalate,
+    )
 
     // Same board, same seed, so the two differ in points and nothing else —
     // the variant pays for the cascade, it does not change what cascades.
@@ -194,8 +205,15 @@ test.describe('the cascade', () => {
 
   test('escalate leaves the first wave exactly where the baseline had it', () => {
     const escalate = { ...BASELINE_RULES, cascadeScoring: 'escalate' } as const
-    const [inherited] = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11))
-    const [escalated] = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11), escalate)
+    const [inherited] = resolveCascade(grid, cellsOf(grid, rows), 3, seed, mulberry32(11)).waves
+    const [escalated] = resolveCascade(
+      grid,
+      cellsOf(grid, rows),
+      3,
+      seed,
+      mulberry32(11),
+      escalate,
+    ).waves
     expect(escalated.points).toBe(inherited.points)
   })
 })
@@ -404,12 +422,15 @@ test.describe('board generation', () => {
   const seed: ColorId[] = ['red', 'yellow', 'blue', 'orange', 'green']
 
   test('deals full, match-free, live boards — deterministically per seed', () => {
-    const first = generateBoard(grid, seed, mulberry32(42))
+    const { cells: first, rng } = generateBoard(grid, seed, mulberry32(42))
     const again = generateBoard(grid, seed, mulberry32(42))
     const other = generateBoard(grid, seed, mulberry32(43))
 
-    expect(again).toEqual(first)
-    expect(other).not.toEqual(first)
+    expect(again.cells).toEqual(first)
+    expect(other.cells).not.toEqual(first)
+    // The deal hands back the stream it left off at, so the round that follows
+    // it draws from where the deal stopped rather than from a fresh sequence.
+    expect(again.rng).toEqual(rng)
     expect(first.every((c, i) => (grid.mask[i] ? c !== null : c === null))).toBe(true)
     expect(findMatches(grid, first).size).toBe(0)
     expect(findLegalMove(grid, first)).not.toBeNull()
@@ -417,7 +438,7 @@ test.describe('board generation', () => {
 
   test('holds across many seeds', () => {
     for (let n = 0; n < 50; n++) {
-      const cells = generateBoard(grid, seed, mulberry32(n))
+      const { cells } = generateBoard(grid, seed, mulberry32(n))
       expect(findMatches(grid, cells).size).toBe(0)
       expect(findLegalMove(grid, cells)).not.toBeNull()
     }

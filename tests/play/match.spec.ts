@@ -80,7 +80,7 @@ test('a merge dyes the pair in place, clears, and starts a ×2 colour chain', as
   // Legal merges need two in-line result tiles at the target now, so the
   // random deal serves them up less often — sweep a wide seed range.
   for (let s = 1; s < 5000 && !pair; s++) {
-    const cells = generateBoard(grid, FIRST_STAGE.seed, mulberry32(s), stageRules)
+    const { cells } = generateBoard(grid, FIRST_STAGE.seed, mulberry32(s), stageRules)
     pair = moveOfKind(grid, cells, 'merge')
     if (pair) seed = s
   }
@@ -117,7 +117,7 @@ test('a swap cashes in a live chain for one resolution and then resets it', asyn
   let seed = -1
   let pair: [number, number] | null = null
   for (let s = 1; s < 5000 && !pair; s++) {
-    const cells = generateBoard(grid, FIRST_STAGE.seed, mulberry32(s), stageRules)
+    const { cells } = generateBoard(grid, FIRST_STAGE.seed, mulberry32(s), stageRules)
     pair = moveOfKind(grid, cells, 'merge')
     if (pair) seed = s
   }

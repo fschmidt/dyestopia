@@ -58,10 +58,11 @@ every secondary and tertiary a stage plays.
 
 Each merge does not merely fail to add supply — it **spends more than it
 returns**. `mergeClears` requires two result-coloured tiles already in line, and
-[GameScene](../../src/scenes/GameScene.ts) dyes both participants:
+`playMove` in [src/round.ts](../../src/round.ts) dyes both participants into the
+position it is about to settle:
 
 ```
-cells[origin] = cells[cell] = move.result
+played[from] = played[to] = move.result
 ```
 
 A teal merge, walked through:
@@ -165,7 +166,7 @@ not conclusions — the contested ones are collected under
 | Tile value by tier | 15 / 20 / 30 | `COLOR_VALUE_BY_TIER`, [src/colors.ts](../../src/colors.ts) | Tunable |
 | Tier ceiling | 2 — every tertiary and deeper scores 30 | `colorTier`, [src/colors.ts](../../src/colors.ts) | Structural |
 | Clear score | `sum(tile values) × multiplier` | `clearScore`, [src/board.ts](../../src/board.ts) | Structural formula, tunable shape |
-| Scoring colour | the colour a tile *ends* as, so merge participants score as the result | `resolve`, [src/scenes/GameScene.ts](../../src/scenes/GameScene.ts) | Rule |
+| Scoring colour | the colour a tile *ends* as, so merge participants score as the result | `playMove` dyes, [src/round.ts](../../src/round.ts); `resolveCascade` reads, [src/board.ts](../../src/board.ts) | Rule |
 
 #### Chain and multiplier
 
@@ -178,7 +179,7 @@ not conclusions — the contested ones are collected under
 | Rainbow chain-breaker bonus | ×3 | `scoreResolutionForSwap`, [src/board.ts](../../src/board.ts) | Tunable |
 | Rainbow condition | chain is at the stage ceiling, and the ceiling is above 1 | `scoreResolutionForMerge/Swap`, [src/board.ts](../../src/board.ts) | Rule |
 | Chain reset | any legal swap, after its cascade settles | `breakColorChain`, [src/board.ts](../../src/board.ts) | Rule |
-| Merge scoring order | a merge clears at the chain it *arrived* with; its own result only raises the chain for later moves | `handleDrop`, [src/scenes/GameScene.ts](../../src/scenes/GameScene.ts) | Rule |
+| Merge scoring order | a merge clears at the chain it *arrived* with; its own result only raises the chain for later moves | `playMove`, [src/round.ts](../../src/round.ts) | Rule |
 
 #### Matching
 
@@ -197,16 +198,16 @@ not conclusions — the contested ones are collected under
 | Resolution order | merge is tried before swap | `resolveMove`, [src/board.ts](../../src/board.ts) | Rule |
 | Directionality | falls out of mix legality — the same pair can resolve differently each way | `resolveMove`, [src/board.ts](../../src/board.ts) | Rule (emergent) |
 | Adjacency | orthogonal only; `allowDistant` already relaxes it for the free-move tool | `isAdjacent`, [src/board.ts](../../src/board.ts) | Rule, with one existing override |
-| Illegal drop cost | zero | `handleDrop`, [src/scenes/GameScene.ts](../../src/scenes/GameScene.ts) | Rule |
+| Illegal drop cost | zero | `playMove`, [src/round.ts](../../src/round.ts) | Rule |
 | Stage gating | a merge result must be in the stage's `active` list | `stageMix`, [src/stage.ts](../../src/stage.ts) | Content |
 
 #### The cascade
 
 | Thing | Value today | Where | Call |
 | --- | --- | --- | --- |
-| Wave multiplier | inherits the move's, and never grows | `resolve`, [src/scenes/GameScene.ts](../../src/scenes/GameScene.ts) | Rule |
-| Wave move cost | zero | `resolve`, [src/scenes/GameScene.ts](../../src/scenes/GameScene.ts) | Rule |
-| Wave cap | none — loops until no line forms | `resolve`, [src/scenes/GameScene.ts](../../src/scenes/GameScene.ts) | Structural |
+| Wave multiplier | inherits the move's, and never grows | `resolveCascade`, [src/board.ts](../../src/board.ts) | Rule |
+| Wave move cost | zero | `resolveCascade`, [src/board.ts](../../src/board.ts) | Rule |
+| Wave cap | none — loops until no line forms | `resolveCascade`, [src/board.ts](../../src/board.ts) | Structural |
 
 #### Supply and refill — the gap
 
@@ -269,14 +270,336 @@ list existed:
 
 ### 2. The maths, as formulas
 
-Scoring, chain growth, cash-in, supply and placement written so they can be
-read, argued about and evaluated without the game running. This is the part that
-does not exist at all today, and the reason this is a concept rather than a
-refactor.
+<!-- pin:src/rng.ts sha=0d7f350803fe -->
+<!-- pin:src/board.ts sha=67b90af6a856 -->
+<!-- pin:src/round.ts sha=e8201e8cef83 -->
+<!-- pin:src/colors.ts sha=8b0cfc592ac7 -->
+
+Scoring, chain growth, cash-in, supply and placement, written against the code
+as it stands so they can be read, argued about and evaluated without the game
+running. Every formula names the function that computes it, and the modules they
+live in are pinned above: change one and the check asks for this
+section to be re-read, which is what makes drift between a formula and its code
+detectable rather than silent.
 
 The survey settles one shape question here: the industry's unit of account is
 **win rate as a function of the move budget**, not score. See
-[§5](#5-how-it-gets-tested).
+[§5](#5-how-it-gets-tested). Nothing below chooses a value or changes a rule —
+where a rule is a branch rather than a number, the baseline is the formula and
+the measured alternative (`src/variants.ts`) is named beside it.
+
+#### Notation
+
+| Symbol | Meaning |
+| --- | --- |
+| `B(i)` | the colour in cell `i`; `∅` when the cell is empty or off the mask |
+| `S` | the stage's `seed` list — `[red, yellow, blue]` in all ten authored stages |
+| `A` | the stage's `active` list: the colours a merge is allowed to produce |
+| `mix(a,b)` | the recipe result, when the pair has one and it is in `A` |
+| `tier(c)`, `v(c)` | a colour's mixing depth and a tile's score value |
+| `(R, m)` | the colour chain: the distinct results mixed since the last swap, and the multiplier they are worth |
+| `M` | the stage's chain ceiling |
+| `W₁ … Wₙ` | the waves one move's cascade settles into; each `Wₖ` is a set of cells |
+
+`B[t ← r]` is the board with cell `t` recoloured to `r`; `B[f ↔ t]` is the board
+with two cells swapped.
+
+#### The worked round
+
+One hand-authored board, four moves, played by hand below and pinned by
+[tests/engine/formulas.spec.ts](../../tests/engine/formulas.spec.ts) so the
+numbers cannot quietly stop being true. It is not one of the ten stages: it is
+six rows of authored letters, chosen so that every move clears exactly one wave
+and the arithmetic stays visible.
+
+```
+        col  0 1 2 3 4 5
+  row 0      b y r y b r
+  row 1      o o y r b b
+  row 2      r b y y r b
+  row 3      g g b r y y
+  row 4      y r b y r y
+  row 5      p p r b y r
+
+  active: red yellow blue orange green purple      seed: red yellow blue
+  three recipes are live (orange, green, purple), so M = 4
+```
+
+1. **Merge.** Drag the red at `(0,2)` onto the yellow at `(1,2)`. It dyes orange
+   and completes `o o o` across row 1.
+2. **Merge.** Drag the yellow at `(2,2)` onto the blue at `(3,2)` — green,
+   completing row 3.
+3. **Merge.** Drag the blue at `(4,2)` onto the red at `(5,2)` — purple,
+   completing row 5.
+4. **Swap.** Swap the red at `(2,4)` with the blue at `(2,5)`, which drops a
+   third blue into column 4 and cashes the chain in.
+
+#### Legality — what counts as a move
+
+```
+legal_merge(f → t)  ⟺  r = mix(B(f), B(t)) exists  ∧  findMatches(B[t ← r]) ≠ ∅
+legal_swap(f, t)    ⟺  findMatches(B[f ↔ t]) ≠ ∅
+
+resolveMove(f → t) = merge r   if adjacent(f,t) ∧ legal_merge(f → t)
+                   = swap      else if adjacent(f,t) ∧ legal_swap(f,t)
+                   = merge r   else if r exists ∧ mixLegality = 'any-mix'   (variant)
+                   = illegal   otherwise
+
+cleared(merge) = findMatches(B[t ← r, f ← r])   ⊇  the board legality was tested on
+```
+
+`mergeClears`, `swapClears`, `resolveMove`, `isAdjacent` in
+[src/board.ts](../../src/board.ts); the recipe filter is `stageMix` in
+[src/stage.ts](../../src/stage.ts). `allowDistant` drops the adjacency term for
+the free-move tool and changes nothing else.
+
+**The order-of-operations surprise is in the last line.** Legality is tested on a
+strictly smaller change than the one that happens: only the target is dyed for
+the test, but both tiles are dyed when the merge goes ahead. Two consequences
+fall out of that one asymmetry — the same pair resolves differently in the two
+directions, and a dragged tile that lands *in* the line makes the run four long.
+In the worked round, dragging the red at `(1,3)` onto the yellow at `(1,2)`
+instead of coming from above gives `o o o o`: 80 points rather than 60, and no
+surviving orange at all.
+
+#### Scoring
+
+```
+tier(c) = 0                                          if c has no recipe
+        = min(2, 1 + max(tier of its two ingredients))  otherwise
+v(c)    = [15, 20, 30][tier(c)]
+
+points(Wₖ) = ( Σ_{i ∈ Wₖ} v(B(i)) ) × mₖ
+
+mₖ = m           baseline (`cascadeScoring: 'inherit'`)
+   = m + (k − 1) variant  (`'escalate'`, T-037)
+
+points(move) = Σₖ points(Wₖ)
+```
+
+`colorTier` and `colorValue` in [src/colors.ts](../../src/colors.ts);
+`clearScore` and `resolveCascade` in [src/board.ts](../../src/board.ts); the
+running total in `playMove`, [src/round.ts](../../src/round.ts).
+
+- **`B(i)` is read after the dye.** `playMove` hands `resolveCascade` a board
+  with both merge participants already recoloured, so a yellow tile dyed orange
+  scores 20 and not 15, and every tile in a merged line scores at the result's
+  value. Move 1 pays `3 × 20 × 1 = 60`, though only two of the three oranges
+  were on the board a moment earlier.
+- **The multiplier applies to the sum, once per wave.** Tier and multiplier are
+  multiplicative and never additive.
+- **Every wave of a move is worth the same `m`, and no wave costs a move.**
+  Across the ten stages a chain-policy move settles into **3.70 waves on average
+  and 75.7% of moves cascade past the first** (200 seeds a stage through
+  `playOut`, [src/playout.ts](../../src/playout.ts)). The multiplier is applied
+  to roughly three and a half clears, not one: the move is bought and the
+  cascade is free.
+- **The tier clamp is dead code in practice.** Every tertiary is a primary plus
+  a secondary, so no recipe reaches depth 3; `min(2, …)` guards colours nobody
+  has authored yet.
+
+#### Chain growth
+
+```
+advance((R, m), r) = (R, m)             if r ∈ R    — a repeat pays nothing
+                   = (R, m)             if m ≥ M    — and r is not recorded either
+                   = (R + r, |R| + 2)   otherwise
+
+m = |R| + 1,   1 ≤ m ≤ M
+M = 1 + |{ recipes whose result and both ingredients are in A }|
+```
+
+`advanceColorChain` in [src/board.ts](../../src/board.ts); `stageMaxMultiplier`
+and `stageMixes` in [src/stage.ts](../../src/stage.ts).
+
+Only a merge advances the chain. A swap breaks it, an illegal drop leaves it
+untouched, and a cascade wave — however long — contributes nothing: the chain
+counts *moves that mixed*, not clears. Moves 1–3 of the worked round walk it
+`1 → 2 → 3 → 4`; a fourth distinct result would not move it, because the cap is
+tested before the append and `M = 4` is already reached.
+
+The ceiling is derived from the palette rather than authored: the only way to
+raise it is to add a recipe to `A`, which also changes what the board plays.
+That welding is `T-035`'s to undo or keep.
+
+#### Cash-in
+
+```
+merge:  resolution = ( normal, m, rainbow = M > 1 ∧ m ≥ M )
+        m is the chain the merge ARRIVED with          baseline ('after-clear')
+        m is the chain after its own result            variant  ('own-clear', T-037)
+
+swap:   m = 1              →  ( normal,                 1,  false )
+        1 < m < M          →  ( chain-breaker,         2m,  false )
+        1 < m ∧ m ≥ M > 1  →  ( rainbow-chain-breaker, 3m,  true  )
+
+        then, once the whole cascade has scored:  (R, m) ← (∅, 1)
+```
+
+`scoreResolutionForMerge`, `scoreResolutionForSwap` and `breakColorChain` in
+[src/board.ts](../../src/board.ts), sequenced by `playMove` in
+[src/round.ts](../../src/round.ts).
+
+- **A merge clears at the chain it arrived with.** The chain a player builds pays
+  out on the move *after* the one that built it. Moves 1–3 score at ×1, ×2 and
+  ×3 while leaving the chain at 2, 3 and 4.
+- **The ×2 and ×3 bonuses are swap-only.** A merge at the ceiling is worth `M`; a
+  swap at the ceiling is worth `3M`. The chain's peak value cannot be realised
+  by mixing, only by spending — move 4 is worth ×12 where a fourth merge would
+  have been worth ×4.
+- **`rainbow` on a merge is a flag, not a bonus.** At the ceiling
+  `scoreResolutionForMerge` reports `rainbow: true` with the multiplier
+  unchanged; it is what the HUD reads for the ring and the splash colours, and
+  it is worth nothing.
+- **The chain breaks after the swap's cascade, not before it.** Every wave the
+  cash-in sets off is paid at the boosted multiplier, and the next move starts
+  at ×1.
+
+The round frame around it, which is where the move budget is spent:
+
+```
+movesLeft ← movesLeft − 1   at the top of every legal move, before it resolves
+illegal drop, cascade wave, reshuffle:  0 moves
+won  ⟺ score ≥ threshold        (checked wave by wave for the celebration,
+                                 at settle for the outcome)
+lost ⟺ movesLeft ≤ 0 at settle  ∧ not won
+```
+
+`playMove`, `settleRound` and `isWon` in [src/round.ts](../../src/round.ts). A
+move that wins still costs one, and `endless` suspends the charge entirely.
+
+#### Supply
+
+With `N = |{ i : B(i) ∉ S }|` the non-seed pool — every secondary and tertiary
+standing on the board — and `ns(c) = 1` when `c ∉ S`:
+
+```
+ΔN(merge f → t producing r) = 2·ns(r) − ns(B(f)) − ns(B(t)) − |{ i ∈ ⋃ₖ Wₖ : B(i) ∉ S }|
+ΔN(swap)                    =                               − |{ i ∈ ⋃ₖ Wₖ : B(i) ∉ S }|
+ΔN(refill)                  = 0        — `refill` draws from S, and only from S
+ΔN(reshuffle)               = 0        — a permutation of the standing tiles
+```
+
+The dye is `playMove` (`played[from] = played[to] = move.result`, on the copy it
+hands on to the cascade), the clear and the refill are `resolveCascade` and
+`refill` in
+[src/board.ts](../../src/board.ts), and the count itself is `nonSeedCount` in
+[src/playout.ts](../../src/playout.ts), which the harness records per move.
+
+`r` is always non-seed while `S` is the primaries, so the dye term is `+2` and
+the cases are:
+
+| Move | ΔN |
+| --- | --- |
+| Secondary merge, both ingredients seed, clearing a run of three | `2 − 0 − 0 − 3` = **−1** |
+| The same merge with the dragged tile in the line, so the run is four | `2 − 0 − 0 − 4` = **−2** |
+| Tertiary merge — one ingredient is itself a secondary | `2 − 0 − 1 − 3` = **−2** |
+| Swap clearing primaries | **0** |
+| Swap clearing a line of three result tiles | **−3** |
+| Dry merge under `any-mix`: secondary / tertiary | **+2** / **+1** |
+
+**Every merge is strictly negative, and that is provable rather than observed.**
+A legal merge leaves a run of at least three `r`-coloured cells on the board by
+definition, and dyeing the dragged tile as well can only lengthen it. Those
+cells are non-seed and they clear in the first wave, so `ΔN ≤ 2 − 3 = −1` with
+no exception. This sharpens
+[the invariant](#the-invariant) from "non-increasing" to "strictly decreasing on
+every mix", and it is why the last row is the only positive number in the table
+— and why it describes a rule the game does not have.
+
+The worked round runs `6 → 5 → 4 → 3 → 3`: half the board's authored supply
+spent in four moves, with the swap costing nothing because it clears primaries.
+
+#### Placement
+
+The deal, `generateBoard` in [src/board.ts](../../src/board.ts):
+
+```
+allowed(i) = { c ∈ S : placing c at i completes no run of 3 on the cells placed so far }
+B(i) ~ Uniform(allowed(i))   if allowed(i) ≠ ∅
+     ~ Uniform(S)            otherwise
+
+then:  while a match exists, repaint every matched non-preset cell ~ Uniform(S)
+       (all-preset match → the stage is an authoring error, and it throws)
+then:  if no legal move exists, reshuffle
+```
+
+Preset letters are laid down first and never repainted (`stagePreset`,
+[src/stage.ts](../../src/stage.ts)). The walk is row-major, so on a preset-free
+stretch the constraint sees the two cells to the left and the two above; preset
+letters to the right or below are already on the board and forbid a colour the
+same way.
+
+Measured against the ten stages, 200 deals each: `allowed(i)` was empty **0
+times in 98,600 cells** and the repair loop ran **0 times in 2,000 deals**. With
+`|S| = 3` a cell can be forbidden at most one colour by its row and one by its
+column, so away from presets the fallback cannot fire at all.
+
+The refill, `refill` in [src/board.ts](../../src/board.ts):
+
+```
+B(i) ~ Uniform(S)   for every empty cell, independently — no filter, no memory,
+                    no adjacency awareness, no bag
+```
+
+Same distribution as the deal with the constraint removed, which is
+[§1's first finding](#what-the-inventory-turned-up) as a formula. It has a
+number too: the deal never leaves a match on the board, while the settle after a
+clear leaves one on **75.7% of moves** — falls and refill together, which is
+what a settle is, and only one of the two is filtered at all. A named colour lands in a given cell
+with probability `1/3`, and three refilled cells in a row come up monochrome
+with probability `1/9`.
+
+The reshuffle, `reshuffle` in [src/board.ts](../../src/board.ts):
+
+```
+accept ⟺ a legal move exists ∧ no match on the board
+120 attempts, each a Fisher–Yates permutation of the standing tiles
+degrade:  first attempt with both  →  else first with a legal move  →  else the last
+```
+
+#### The worked round, evaluated
+
+Every column is the formula above applied by hand; the spec asserts the same
+numbers off `playMove`. Seeded at 3, so no refill happens to make a second wave.
+
+| # | Move | Cleared | `m` | Points | Score | Chain after | `N` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | merge → orange | 3 × orange (20) | ×1 | 60 | 60 | 2 | 5 |
+| 2 | merge → green | 3 × green (20) | ×2 | 120 | 180 | 3 | 4 |
+| 3 | merge → purple | 3 × purple (20) | ×3 | 180 | 360 | 4 | 3 |
+| 4 | swap, rainbow chain breaker | 3 × blue (15) | ×12 | 540 | 900 | 1 | 3 |
+
+Three mixes that spend the board's whole purple, green and orange supply pay
+360 between them; the swap that spends the chain pays 540 for three primaries.
+Under `mergeScoring: 'own-clear'` the same four moves pay 1080 rather than 900,
+because moves 1–3 each clear at the chain they just raised.
+
+#### What the formulas turned up
+
+- **The multiplier already dominates the tier ladder, by an order of magnitude.**
+  A tertiary trio is worth `2×` a primary trio (90 against 45); a rainbow cash-in
+  is worth `3M`, which is `12×` on a four-recipe stage. `T-024`'s question is not
+  how big the multiplier is but how often a board lets a player reach one — and
+  `T-025`'s thresholds are set against a curve whose top end is this steep.
+- **Anything that moves `m` is worth about 3.7 clears, not one.** Waves are free
+  and inherit, so the multiplier multiplies the whole cascade. This is the
+  arithmetic behind `T-037`'s finding that `escalate` lifted the greedy win rate
+  from 27–72% to 87–98% while barely moving how the bot played.
+- **The chain can only be cashed in by spending it.** A merge tops out at `M`, a
+  swap at `3M`, and the merge is paid at the chain it arrived with rather than
+  the one it just raised. The two bonuses are the only place the chain is ever
+  multiplied, and `T-035` inherits them as the cheapest levers on the board.
+- **`ΔN ≤ −1` on every merge, provably.** The economy section argued the pool
+  was non-increasing; the formula shows every mix is strictly negative and that
+  the tertiaries cost two. No value of any parameter changes that while a merge
+  must clear to be legal.
+- **The deal's placement filter never binds.** Zero empty allowed-sets in 98,600
+  cells, and with three seed colours it cannot be empty away from presets. So the
+  open question about applying it at refill time is cheaper than it looked: one
+  rejected colour per cell at worst, and no fallback path needed. What it would
+  do to the 75.7% cascade rate is still unmeasured, and that is `T-038`'s to
+  find out.
 
 ### 3. The parameter set
 
@@ -590,7 +913,10 @@ draw table by context, and we vary ours not at all.
 ## Open questions
 
 - Does the placement filter `generateBoard` already uses belong at refill time
-  too? Cheap to try, unknown effect on supply.
+  too? Cheap to try, unknown effect on supply. `T-034` costed the first half:
+  the filter never runs out of colours (0 empty allowed-sets in 98,600 dealt
+  cells), so applying it at refill needs no fallback path — and the settle it
+  would be filtering currently leaves a fresh match on 75.7% of moves.
 - Should the chain ceiling be authorable independently of `active`, given they
   are currently welded together?
 - Is the greedy-versus-chain gap the right primary metric for `T-024`, or does
@@ -668,3 +994,22 @@ draw table by context, and we vary ours not at all.
   first of the three rule-shaped levers is now evidence rather than argument,
   and one of this concept's open questions is closed by it. Still no value
   chosen and no gameplay changed.
+- **§2 written** — `T-034` filled the formulas section against the code as it
+  stands: legality, scoring, chain growth, cash-in, supply and placement, each
+  naming the functions that compute it, with one hand-authored worked round that
+  `tests/engine/formulas.spec.ts` asserts move for move. The three modules it
+  describes are pinned, so a rule that changes without this section being
+  re-read fails `npm run wiki:check`. Six rows of §1 pointing at `GameScene`
+  were corrected — the rules had moved to `playMove` and `resolveCascade`, and
+  the inventory had not followed. The formulas sharpen two of this document's
+  own claims: the non-seed pool is *strictly* decreasing on every mix rather
+  than merely non-increasing, and the multiplier already outweighs the tier
+  ladder by an order of magnitude, which reframes `T-024` as a question of
+  availability rather than of size. Still no value chosen and no gameplay
+  changed.
+- **§2 re-read under its own pin** — `T-020` made a position a value, and the
+  pins added a card earlier stopped the build until this section had been read
+  against the new signatures. The formulas were unchanged by it, which is the
+  point: the maths is the same whether the engine edits a board or returns the
+  next one. Three lines of prose that described the dye as an edit in place now
+  describe it as the copy the cascade is handed.

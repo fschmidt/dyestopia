@@ -49,7 +49,7 @@ export interface Policy {
  * as if the rule had done it.
  */
 function immediateScore(round: RoundState, option: LegalMove): number {
-  const trial: Cells = round.cells.slice()
+  const trial: (ColorId | null)[] = round.cells.slice()
   const chainForMerge =
     option.move.kind === 'merge' && round.rules.mergeScoring === 'own-clear'
       ? advanceColorChain(round.colorChain, option.move.result, round.maxMultiplier)
@@ -225,7 +225,7 @@ export function playOut(
 ): Playout {
   const maxMoves = options.maxMoves ?? DEFAULT_MAX_MOVES
   const rules = options.rules ?? BASELINE_RULES
-  const round = startRound(stage, { seed, rules })
+  let round = startRound(stage, { seed, rules })
   const moves: MoveRecord[] = []
   let truncated = false
 
@@ -241,9 +241,11 @@ export function playOut(
 
     const choice = policy.choose(round, options_)
     const before = round.score
-    const report = playMove(round, choice.from, choice.to)
-    if (!report) throw new Error(`Policy "${policy.id}" chose a move the rules refuse`)
-    const settlement = settleRound(round)
+    const played = playMove(round, choice.from, choice.to)
+    if (!played) throw new Error(`Policy "${policy.id}" chose a move the rules refuse`)
+    const { report } = played
+    const settlement = settleRound(played.round)
+    round = settlement.round
 
     const cleared = report.waves.flatMap((wave) => wave.colors)
     moves.push({

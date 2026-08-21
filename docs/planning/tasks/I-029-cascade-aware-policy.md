@@ -26,6 +26,19 @@ is a single integer of state, so forking it is cheap. That is the piece worth
 checking before anything is built: whether a forked stream can be evaluated
 against and thrown away without the playout ceasing to be reproducible.
 
+**`T-020` removed the obstacle.** A round is a value and its random stream is
+one uint32 inside it, so `playMove` *is* the fork: play a candidate out in full,
+read what the cascade was worth, drop it, and the round it was played from has
+not moved. `tests/engine/contract.spec.ts` asserts that, including that a
+position evaluated over every legal move plays on identically to one never
+evaluated. Nothing was added to the harness for it.
+
+So what is left is only the question this idea should always have been: whether
+a bot that can see a cascade coming tells us anything a bot that cannot does
+not. The cost is no longer the engine — it is that every baseline on the board
+was measured with cascade-blind policies, so a lookahead policy is a *new* bot
+to read beside them, not a better version of the two.
+
 Worth weighing against the caveat the harness carries everywhere: greedy bots do
 not track human difficulty, and a lookahead bot is still not a person. This
 would make one specific class of lever measurable, not the numbers more true.
